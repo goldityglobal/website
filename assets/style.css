@@ -111,3 +111,53 @@
     font-size:9px;
   }
 }
+
+
+/* GOLDITY HEADER — LUXURY GOLD */
+
+header .brand,
+header .brand strong,
+header .logo-text,
+header a.brand{
+  color:#d9b45b !important;
+  text-shadow:
+    0 0 8px rgba(217,180,91,.28),
+    0 1px 1px rgba(255,235,170,.18);
+}
+
+
+/* MOBILE HERO — PRESERVE IMAGE COMPOSITION */
+
+@media(max-width:760px){
+
+  .hero{
+    padding:14px 0 32px;
+  }
+
+  .hero-art{
+    height:430px;
+    min-height:430px;
+    background:#050505;
+  }
+
+  .hero-art img{
+    object-fit:cover;
+    object-position:center 18%;
+  }
+
+  .hero-copy{
+    bottom:0;
+    padding:32px 20px 26px;
+  }
+
+  .hero-shade{
+    background:
+      linear-gradient(
+        0deg,
+        rgba(3,3,3,.96) 0%,
+        rgba(3,3,3,.72) 30%,
+        rgba(3,3,3,.25) 62%,
+        rgba(3,3,3,.04) 100%
+      );
+  }
+}
