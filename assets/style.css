@@ -175,3 +175,19 @@ header .logo-name{
     0 0 6px rgba(217,180,91,.25),
     0 1px 1px rgba(255,235,170,.15);
 }
+/* GOLDITY HEADER — FINAL METALLIC GOLD */
+header .brand > span:not(.mark),
+header .brand > span:not(.mark) b{
+  color:#d9b45b !important;
+  -webkit-text-fill-color:#d9b45b !important;
+  text-shadow:
+    0 0 6px rgba(217,180,91,.25),
+    0 1px 1px rgba(255,235,170,.18);
+}
+
+/* MOBILE HERO — FINAL POSITION */
+@media(max-width:760px){
+  .hero-art img{
+    object-position:72% center !important;
+  }
+}
