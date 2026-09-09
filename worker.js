@@ -8,7 +8,7 @@ const Z="0x0000000000000000000000000000000000000000";
 const S={t0:"0x0dfe1681",t1:"0xd21220a7",r:"0x0902f1ac",pair:"0xe6a43905",dec:"0x313ce567"};
 const addr=x=>"0x"+x.slice(-40).toLowerCase();
 const uint=x=>BigInt(x);
-const pad=a=>"0x"+a.slice(2).padStart(64,"0");
+const pad=a=>"0x.slice(2).padStart(64,"0");
 
 async function rpc(e,m,p){
   if(!e.BSC_RPC_URL) throw Error("BSC_RPC_URL is not configured");
