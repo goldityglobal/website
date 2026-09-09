@@ -26,7 +26,7 @@
   width:100%;
   height:100%;
   object-fit:cover;
-  object-position:center center;
+  object-position:72% center;
 }
 
 /* متن در قسمت پایین بنر */
@@ -160,4 +160,18 @@ header a.brand{
         rgba(3,3,3,.04) 100%
       );
   }
+}
+/* GOLDITY HEADER — TRUE GOLD */
+
+header a,
+header .brand,
+header .brand-name,
+header .brand-text,
+header .logo,
+header .logo-name{
+  color:#d9b45b !important;
+  -webkit-text-fill-color:#d9b45b !important;
+  text-shadow:
+    0 0 6px rgba(217,180,91,.25),
+    0 1px 1px rgba(255,235,170,.15);
 }
