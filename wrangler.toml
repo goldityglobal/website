@@ -1,7 +1,7 @@
 name = "goldity-global"
 main = "worker.js"
 compatibility_date = "2026-09-09"
-
+keep_vars = true
 [vars]
 GECKO_API_BASE = "https://api.geckoterminal.com/api/v2"
 PUBLIC_ORIGIN = "https://goldityglobal.com"
