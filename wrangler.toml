@@ -15,5 +15,5 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "goldity-users"
-database_id = "f25e8615-3458-4363-a9f8-0334eeb0d3e6"
+database_id = "292a42d0-6085-44da-bc0e-d420140bcca2"
 migrations_dir = "migrations"
