@@ -364,22 +364,21 @@ header .brand > span:not(.mark) b{
 }
 
 .hero h1 span{
-  color:#f2d47a !important;
-  -webkit-text-fill-color:#f2d47a !important;
+  background:linear-gradient(
+    180deg,
+    #fff6c9 0%,
+    #f2d477 25%,
+    #c9912d 50%,
+    #f3d982 75%,
+    #fff3bd 100%
+  ) !important;
+
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+
   text-shadow:
-    0 1px 2px rgba(0,0,0,.7),
-    0 0 9px rgba(245,205,100,.45) !important;
-}
-
-.hero-tagline{
-  margin:20px 0 28px !important;
-}
-
-.hero-actions{
-  justify-content:center !important;
-}
-
-.contract{
-  justify-content:center !important;
-  text-align:center !important;
+    0 1px 2px rgba(0,0,0,.75),
+    0 0 8px rgba(245,205,100,.55),
+    0 0 16px rgba(210,155,45,.3) !important;
 }
