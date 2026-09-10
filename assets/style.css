@@ -363,14 +363,19 @@ header .brand > span:not(.mark) b{
     0 0 20px rgba(220,165,55,.4) !important;
 }
 
-.hero h1 span{
+/* GOLDITY — DEEP METALLIC GOLD */
+
+.hero h1{
   background:linear-gradient(
     180deg,
-    #fff6c9 0%,
-    #f2d477 25%,
-    #c9912d 50%,
-    #f3d982 75%,
-    #fff3bd 100%
+    #f4d77a 0%,
+    #d9ad45 16%,
+    #a96f1f 34%,
+    #6f4310 50%,
+    #b77b25 63%,
+    #e2b94f 78%,
+    #f6d978 90%,
+    #b87920 100%
   ) !important;
 
   -webkit-background-clip:text !important;
@@ -378,7 +383,16 @@ header .brand > span:not(.mark) b{
   -webkit-text-fill-color:transparent !important;
 
   text-shadow:
-    0 1px 2px rgba(0,0,0,.75),
-    0 0 8px rgba(245,205,100,.55),
-    0 0 16px rgba(210,155,45,.3) !important;
+    0 1px 1px rgba(255,224,135,.55),
+    0 2px 3px rgba(0,0,0,.9),
+    0 0 7px rgba(218,166,55,.35),
+    0 0 14px rgba(177,116,28,.22) !important;
+}
+
+.hero h1 span{
+  color:#dcb354 !important;
+  -webkit-text-fill-color:#dcb354 !important;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,.8),
+    0 0 7px rgba(218,166,55,.3) !important;
 }
