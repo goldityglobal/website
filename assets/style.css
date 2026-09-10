@@ -75,12 +75,16 @@
     max-width:none;
     padding:40px 22px 30px;
   }
-
-  .hero h1{
-    font-size:clamp(48px,15vw,68px);
-    margin:12px 0 8px;
-  }
-
+.hero h1{
+  font-size:clamp(48px,15vw,68px);
+  margin:12px 0 8px;
+  color:#d9b45b;
+  background:linear-gradient(180deg,#fff1a8 0%,#e6bd55 28%,#a87820 55%,#f4d777 78%,#b9862d 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 2px 8px rgba(0,0,0,.55),0 0 18px rgba(217,180,91,.18);
+}
   .hero h1 span{
     font-size:14px;
     letter-spacing:.3em;
