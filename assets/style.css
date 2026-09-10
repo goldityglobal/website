@@ -31,13 +31,35 @@
 
 /* متن در قسمت پایین بنر */
 .hero-copy{
-  position:absolute;
-  left:0;
-  bottom:0;
-  z-index:2;
+  position:relative;
+  left:auto;
+  bottom:auto;
   width:100%;
-  max-width:760px;
-  padding:80px 7% 55px;
+  max-width:900px;
+  margin:0 auto;
+  padding:45px 22px 40px;
+  text-align:center;
+}
+
+.hero h1{
+  text-align:center;
+}
+
+.hero h1 span{
+  display:block;
+  text-align:center;
+}
+
+.hero-tagline{
+  text-align:center;
+}
+
+.hero-actions{
+  justify-content:center;
+}
+
+.contract{
+  text-align:center;
 }
 
 /* سایه پایین برای خوانایی متن */
