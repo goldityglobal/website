@@ -13,7 +13,7 @@
 
 .hero-art{
   width:100%;
-  height:clamp(560px,42.9vw,820px);
+  height:clamp(392px,30vw,574px);
   min-height:0;
   position:relative;
   overflow:hidden;
@@ -314,14 +314,14 @@ header .brand > span:not(.mark) b{
   }
 
   .hero-art{
-    height:640px !important;
-    min-height:640px !important;
+    height:448px !important;
+    min-height:448px !important;
     overflow:hidden !important;
   }
 
   /* CENTER THE COIN */
 .hero-art img{
-  object-position:65% center !important;
+  object-position:71% center !important;
 }
 
   .hero-copy{
