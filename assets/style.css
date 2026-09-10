@@ -45,25 +45,25 @@
   text-align:center;
   background:linear-gradient(
     180deg,
-    #fff8d6 0%,
-    #fff1a3 14%,
-    #ffd45a 30%,
-    #e9a92f 43%,
-    #9b5f13 55%,
-    #f5c94f 67%,
-    #fff0a0 78%,
-    #c27c18 90%,
-    #ffe48a 100%
+    #fffdf0 0%,
+    #fff6bd 12%,
+    #ffe16a 25%,
+    #f5bd32 40%,
+    #b87512 52%,
+    #ffd95a 64%,
+    #fff2a1 78%,
+    #d99a20 90%,
+    #fff9d8 100%
   );
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
-  -webkit-text-stroke:0.35px rgba(255,221,120,.55);
+  -webkit-text-stroke:0.35px rgba(255,255,220,.75);
   text-shadow:
-    0 2px 2px rgba(45,22,3,.85),
-    0 4px 8px rgba(0,0,0,.65),
-    0 0 10px rgba(255,196,60,.55),
-    0 0 22px rgba(255,170,30,.28);
+    0 2px 3px rgba(0,0,0,.85),
+    0 0 8px rgba(255,215,80,.8),
+    0 0 18px rgba(255,200,50,.55),
+    0 0 35px rgba(255,190,30,.25);
 }
 .hero h1 span{
   display:block;
