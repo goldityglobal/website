@@ -320,9 +320,9 @@ header .brand > span:not(.mark) b{
   }
 
   /* CENTER THE COIN */
-  .hero-art img{
-    object-position:92% center !important;
-  }
+.hero-art img{
+  object-position:83% center !important;
+}
 
   .hero-copy{
     position:relative !important;
@@ -334,7 +334,6 @@ header .brand > span:not(.mark) b{
     text-align:center !important;
   }
 
- /* GOLDITY — IMAGE MATCHED METALLIC GOLD */
 
 /* GOLDITY — FINAL IMAGE-MATCHED GOLD */
 
