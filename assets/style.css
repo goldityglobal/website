@@ -334,25 +334,52 @@ header .brand > span:not(.mark) b{
     text-align:center !important;
   }
 
-  .hero h1{
-    margin:8px 0 12px !important;
-    font-size:clamp(50px,16vw,70px) !important;
-  }
+ /* GOLDITY — IMAGE MATCHED METALLIC GOLD */
 
-  .hero h1 span{
-    margin-top:12px !important;
-  }
+/* GOLDITY — FINAL IMAGE-MATCHED GOLD */
 
-  .hero-tagline{
-    margin:20px 0 28px !important;
-  }
+.hero h1{
+  background:linear-gradient(
+    180deg,
+    #fff8d6 0%,
+    #f6df91 15%,
+    #e9bd55 30%,
+    #c88a27 45%,
+    #9b6419 55%,
+    #dca640 68%,
+    #f6d982 80%,
+    #c58a27 92%,
+    #fff4c4 100%
+  ) !important;
 
-  .hero-actions{
-    justify-content:center !important;
-  }
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
 
-  .contract{
-    justify-content:center !important;
-    text-align:center !important;
-  }
+  text-shadow:
+    0 1px 1px rgba(255,248,215,.85),
+    0 2px 3px rgba(0,0,0,.8),
+    0 0 9px rgba(255,215,115,.6),
+    0 0 20px rgba(220,165,55,.4) !important;
+}
+
+.hero h1 span{
+  color:#f2d47a !important;
+  -webkit-text-fill-color:#f2d47a !important;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,.7),
+    0 0 9px rgba(245,205,100,.45) !important;
+}
+
+.hero-tagline{
+  margin:20px 0 28px !important;
+}
+
+.hero-actions{
+  justify-content:center !important;
+}
+
+.contract{
+  justify-content:center !important;
+  text-align:center !important;
 }
