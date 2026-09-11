@@ -3,7 +3,8 @@
   --panel:#0b0b0b;
   --line:#282218;
   --gold:#d9b45b;
-  --gold2:#f0d88b;
+  --gold-light:#f3d982;
+  --gold-dark:#b98228;
   --text:#f4f0e7;
   --muted:#9b968d;
 }
@@ -29,14 +30,10 @@ a{
   text-decoration:none;
 }
 
-button,
-a{
-  -webkit-tap-highlight-color:transparent;
-}
-
 button{
   font:inherit;
 }
+
 
 /* HEADER */
 
@@ -68,7 +65,7 @@ header{
   display:grid;
   place-items:center;
   border:1px solid var(--gold);
-  color:var(--gold2);
+  color:var(--gold-light);
   font-weight:900;
 }
 
@@ -93,18 +90,18 @@ nav a{
 }
 
 nav a:hover{
-  color:var(--gold2);
+  color:var(--gold-light);
 }
 
 .social-x{
-  font-size:18px!important;
+  font-size:18px;
 }
 
 .wallet{
   flex-shrink:0;
   border:1px solid var(--gold);
   background:transparent;
-  color:var(--gold2);
+  color:var(--gold-light);
   padding:10px 16px;
   border-radius:6px;
   cursor:pointer;
@@ -150,8 +147,8 @@ nav a:hover{
 }
 
 .wallet-menu strong{
+  color:var(--gold-light);
   font-size:12px;
-  color:var(--gold2);
   text-align:right;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -167,12 +164,11 @@ nav a:hover{
   cursor:pointer;
 }
 
+
 /* HERO */
 
 .hero{
-  position:relative;
   width:100%;
-  max-width:none;
   margin:0;
   padding:0;
 }
@@ -207,7 +203,7 @@ nav a:hover{
   margin:0 auto;
   padding:55px 30px 45px;
   text-align:center;
-  transform:translateY(-20%);
+  transform:translateY(-30%);
 }
 
 .eyebrow{
@@ -227,13 +223,13 @@ nav a:hover{
 
   background:linear-gradient(
     180deg,
-    #fff4b8 0%,
-    #f5dc82 18%,
-    #d9b45b 40%,
-    #b98228 58%,
-    #d9b45b 76%,
-    #f3d982 90%,
-    #c38b2e 100%
+    #fff6c4 0%,
+    #f7df8a 16%,
+    #e2bf63 34%,
+    #c99638 52%,
+    #e0bc5d 68%,
+    #f5dc82 84%,
+    #bd852d 100%
   );
 
   -webkit-background-clip:text;
@@ -241,8 +237,8 @@ nav a:hover{
   -webkit-text-fill-color:transparent;
 
   text-shadow:
-    0 2px 3px rgba(0,0,0,.70),
-    0 0 8px rgba(217,180,91,.35);
+    0 2px 3px rgba(0,0,0,.72),
+    0 0 10px rgba(225,190,91,.38);
 }
 
 .hero h1 span{
@@ -285,12 +281,12 @@ nav a:hover{
 }
 
 .cta.primary:hover{
-  background:var(--gold2);
+  background:var(--gold-light);
 }
 
 .cta.secondary{
   background:rgba(6,6,6,.72);
-  color:var(--gold2);
+  color:var(--gold-light);
 }
 
 .cta.secondary:hover{
@@ -304,7 +300,7 @@ nav a:hover{
   flex-wrap:wrap;
   gap:10px;
   margin:22px auto 0;
-  max-width:820px;
+  max-width:900px;
 }
 
 .contract span{
@@ -318,65 +314,47 @@ nav a:hover{
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  color:#d8d1c4;
-  font-size:11px;
+  color:#e8c76b;
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:.015em;
 }
 
 .contract button{
   border:1px solid #4a402d;
   background:#0b0b0b;
-  color:var(--gold2);
+  color:var(--gold-light);
   padding:6px 10px;
   border-radius:4px;
   cursor:pointer;
 }
 
-/* SECTIONS */
 
-main{
-  width:100%;
-}
-
-section:not(.hero):not(.hero-art){
-  scroll-margin-top:80px;
-}
+/* COMMON CONTENT WIDTH */
 
 .notice,
 .market,
 .token,
 .buy,
 .security,
-.community{
-  width:min(1180px,calc(100% - 40px));
-  margin:0 auto;
+.community,
+.page{
+  width:min(1100px,calc(100% - 48px));
+  max-width:1100px;
+  margin-left:auto;
+  margin-right:auto;
 }
 
-.notice{
-  padding:70px 0;
-  border-bottom:1px solid var(--line);
+section{
+  scroll-margin-top:80px;
 }
 
-.notice h2,
-.market h2,
-.token h2,
-.buy h2,
-.security h2,
-.community h2{
-  margin:0 0 10px;
-  font-size:30px;
-}
-
-.notice p,
-.token p,
-.community p{
-  max-width:760px;
-  color:var(--muted);
-}
 
 /* MARKET */
 
 .market{
   padding:80px 0;
+  border-top:1px solid var(--line);
 }
 
 .market-head{
@@ -387,13 +365,22 @@ section:not(.hero):not(.hero-art){
   margin-bottom:30px;
 }
 
+.market h2,
+.token h2,
+.buy h2,
+.security h2,
+.community h2{
+  margin:0 0 10px;
+  font-size:30px;
+}
+
 .market-status{
   text-align:right;
 }
 
 .market-status strong{
   display:block;
-  color:var(--gold2);
+  color:var(--gold-light);
   font-size:14px;
 }
 
@@ -423,7 +410,7 @@ section:not(.hero):not(.hero-art){
 }
 
 .market-card strong{
-  color:var(--gold2);
+  color:var(--gold-light);
   font-size:21px;
 }
 
@@ -448,14 +435,14 @@ section:not(.hero):not(.hero-art){
 .dex-card strong{
   display:block;
   margin-top:6px;
-  color:var(--gold2);
+  color:var(--gold-light);
   font-size:18px;
 }
 
 .chart-box{
   position:relative;
   width:100%;
-  min-height:360px;
+  min-height:380px;
   padding:15px;
   background:#080808;
   border:1px solid var(--line);
@@ -478,6 +465,8 @@ section:not(.hero):not(.hero-art){
 }
 
 .ranges{
+  position:relative;
+  z-index:2;
   display:flex;
   justify-content:flex-end;
   gap:6px;
@@ -496,40 +485,10 @@ section:not(.hero):not(.hero-art){
 
 .ranges button.active,
 .ranges button:hover{
-  color:var(--gold2);
+  color:var(--gold-light);
   border-color:var(--gold);
 }
 
-/* BUY */
-
-.buy{
-  padding:80px 0;
-  border-top:1px solid var(--line);
-}
-
-.buy-grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:16px;
-  margin-top:30px;
-}
-
-.buy-card{
-  padding:28px;
-  background:var(--panel);
-  border:1px solid var(--line);
-}
-
-.buy-card h3{
-  margin:0 0 8px;
-  color:var(--gold2);
-}
-
-.buy-card p{
-  color:var(--muted);
-  font-size:13px;
-  margin-bottom:20px;
-}
 
 /* TOKEN */
 
@@ -558,8 +517,46 @@ section:not(.hero):not(.hero-art){
 }
 
 .token-card strong{
-  color:var(--gold2);
+  color:var(--gold-light);
 }
+
+
+/* BUY */
+
+.buy{
+  padding:80px 0;
+  border-top:1px solid var(--line);
+}
+
+.section-lead{
+  color:var(--muted);
+  max-width:800px;
+}
+
+.buy-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:16px;
+  margin-top:30px;
+}
+
+.buy-card{
+  padding:28px;
+  background:var(--panel);
+  border:1px solid var(--line);
+}
+
+.buy-card h3{
+  margin:0 0 8px;
+  color:var(--gold-light);
+}
+
+.buy-card p{
+  color:var(--muted);
+  font-size:13px;
+  margin-bottom:20px;
+}
+
 
 /* SECURITY */
 
@@ -576,7 +573,7 @@ section:not(.hero):not(.hero-art){
 }
 
 .security-item{
-  padding:16px;
+  padding:18px;
   background:var(--panel);
   border:1px solid var(--line);
 }
@@ -589,11 +586,12 @@ section:not(.hero):not(.hero-art){
 
 .security-item strong{
   display:block;
-  margin-top:5px;
+  margin-top:7px;
   color:var(--gold);
   font-size:11px;
   letter-spacing:.08em;
 }
+
 
 /* COMMUNITY */
 
@@ -606,6 +604,141 @@ section:not(.hero):not(.hero-art){
   gap:30px;
 }
 
+.community-links{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+
+/* INTERNAL PAGES */
+
+.page{
+  padding:80px 0;
+}
+
+.form-shell,
+.legal-note,
+.contract-card,
+article{
+  background:rgba(18,17,14,.78);
+  border:1px solid #2c281f;
+  border-radius:18px;
+  padding:28px;
+}
+
+.form-shell{
+  max-width:780px;
+  margin:0 auto;
+}
+
+.grid2,
+.paper-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
+}
+
+.form-shell label{
+  display:block;
+  color:#cfc5b2;
+  font-size:13px;
+  margin:0 0 18px;
+}
+
+.form-shell input{
+  width:100%;
+  margin-top:7px;
+  padding:13px 14px;
+  background:#0b0b09;
+  border:1px solid #3b352a;
+  color:#eee;
+  border-radius:10px;
+}
+
+.form-shell small{
+  color:#81796c;
+}
+
+.checks{
+  display:grid;
+  gap:12px;
+  margin:18px 0 24px;
+}
+
+.checks label{
+  font-size:13px;
+  line-height:1.5;
+  margin:0;
+}
+
+.checks input{
+  width:auto;
+  margin-right:8px;
+}
+
+.muted,
+.lead,
+.legal-note p,
+.paper p{
+  color:#aaa296;
+  line-height:1.75;
+}
+
+.status{
+  min-height:22px;
+  color:var(--gold);
+}
+
+.paper h2,
+.legal-note h2{
+  margin-top:28px;
+  color:#e4c678;
+}
+
+.paper-grid{
+  margin-top:34px;
+}
+
+.contract-page .contract-card{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  max-width:820px;
+}
+
+.contract-card code{
+  word-break:break-all;
+  color:#e4c678;
+  font-size:16px;
+}
+
+.contract-card span,
+.contract-card a{
+  color:#a9a092;
+}
+
+.contract-card button{
+  align-self:flex-start;
+  background:var(--gold);
+  color:#0b0a08;
+  border:0;
+  border-radius:9px;
+  padding:12px 18px;
+  font-weight:700;
+}
+
+.paper .lead{
+  font-size:18px;
+  max-width:900px;
+}
+
+.paper a{
+  color:#e4c678;
+}
+
+
 /* FOOTER */
 
 footer{
@@ -617,23 +750,20 @@ footer{
 }
 
 footer a{
-  color:#a69d8d;
+  color:#bba66f;
 }
 
 footer a:hover{
-  color:var(--gold2);
+  color:var(--gold-light);
 }
 
-/* MOBILE */
 
-@media(max-width:900px){
-  header{
-    gap:12px;
-    padding:12px 18px;
-  }
+/* TABLET */
+
+@media(max-width:1000px){
 
   nav{
-    gap:11px;
+    gap:12px;
   }
 
   nav a{
@@ -648,12 +778,18 @@ footer a:hover{
   .security-grid{
     grid-template-columns:repeat(2,1fr);
   }
+
 }
 
+
+/* MOBILE */
+
 @media(max-width:760px){
+
   header{
     min-height:64px;
     padding:10px 14px;
+    gap:12px;
   }
 
   .brand{
@@ -680,10 +816,6 @@ footer a:hover{
     right:14px;
   }
 
-  .hero{
-    margin:0;
-    padding:0;
-  }
 
   .hero-art{
     height:560px;
@@ -696,7 +828,7 @@ footer a:hover{
 
   .hero-copy{
     padding:45px 20px 40px;
-    transform:translateY(-20%);
+    transform:translateY(-30%);
   }
 
   .hero h1{
@@ -705,6 +837,10 @@ footer a:hover{
 
   .hero-tagline{
     font-size:15px;
+  }
+
+  .hero-actions{
+    gap:10px;
   }
 
   .contract{
@@ -716,18 +852,21 @@ footer a:hover{
     text-align:center;
   }
 
+
   .notice,
   .market,
   .token,
   .buy,
   .security,
-  .community{
-    width:calc(100% - 28px);
+  .community,
+  .page{
+    width:calc(100% - 32px);
   }
 
+
   .market,
-  .buy,
   .token,
+  .buy,
   .security{
     padding:55px 0;
   }
@@ -750,7 +889,7 @@ footer a:hover{
   }
 
   .chart-box{
-    min-height:300px;
+    min-height:310px;
   }
 
   #chart{
@@ -762,12 +901,33 @@ footer a:hover{
     padding:50px 0;
   }
 
-  .community .cta{
+  .community-links{
+    justify-content:flex-start;
     margin-top:20px;
   }
+
+  .community-links .cta{
+    font-size:11px;
+    padding:9px 13px;
+  }
+
+
+  .grid2,
+  .paper-grid{
+    grid-template-columns:1fr;
+  }
+
+  .page{
+    padding:55px 0;
+  }
+
 }
 
+
+/* SMALL MOBILE */
+
 @media(max-width:420px){
+
   .hero-art{
     height:520px;
     min-height:520px;
@@ -790,7 +950,6 @@ footer a:hover{
     width:100%;
   }
 
-  .notice h2,
   .market h2,
   .token h2,
   .buy h2,
@@ -798,4 +957,5 @@ footer a:hover{
   .community h2{
     font-size:25px;
   }
+
 }
