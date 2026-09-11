@@ -6,22 +6,22 @@
 
 <title>GOLDITY (GDTY) | Digital Asset on BNB Smart Chain</title>
 
-<meta name="description" content="GOLDITY (GDTY) is a fixed-supply digital asset on BNB Smart Chain with live verified market data, token information, security review and official community channels.">
+<meta name="description" content="GOLDITY (GDTY), a fixed-supply digital asset on BNB Smart Chain with live verified market data, wallet connectivity and direct access to decentralized exchanges.">
 
 <link rel="canonical" href="https://goldityglobal.com/">
-<link rel="stylesheet" href="style.css">
 
 <meta property="og:title" content="GOLDITY (GDTY)">
-<meta property="og:description" content="GOLDITY digital asset on BNB Smart Chain with live verified market data.">
+<meta property="og:description" content="GOLDITY digital asset on BNB Smart Chain with live market data and direct DEX access.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://goldityglobal.com/">
+
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<header id="siteHeader">
-
-  <a class="brand" href="#top" aria-label="GOLDITY Home">
+<header>
+  <a class="brand" href="#top" aria-label="GOLDITY home">
     <span class="mark">G</span>
     <span>GOLDITY <b>GDTY</b></span>
   </a>
@@ -35,6 +35,7 @@
     <a href="/whitepaper.html">Whitepaper</a>
     <a href="/contract.html">Contract</a>
     <a href="#community">Community</a>
+    <a class="social-x" href="https://x.com/Goldityglobal" target="_blank" rel="noopener noreferrer" aria-label="GOLDITY on X">𝕏</a>
   </nav>
 
   <button class="wallet" id="walletBtn" type="button">
@@ -42,7 +43,6 @@
   </button>
 
   <div class="wallet-menu" id="walletMenu" hidden>
-
     <div>
       <span>Wallet</span>
       <strong id="walletAddress">—</strong>
@@ -66,636 +66,423 @@
     <button id="disconnectBtn" type="button">
       Disconnect
     </button>
-
   </div>
-
 </header>
 
 
 <main id="top">
 
-<!-- ================= HERO ================= -->
+  <!-- HERO -->
 
-<section class="hero">
+  <section class="hero">
 
-  <div class="hero-art">
-    <img
-      src="assets/hero-goldity.webp"
-      alt="GOLDITY digital gold on BNB Smart Chain"
-    >
-  </div>
-
-  <div class="hero-copy">
-
-    <p class="eyebrow">
-      DIGITAL GOLD · BNB SMART CHAIN
-    </p>
-
-    <h1>
-      GOLDITY
-      <span>GDTY</span>
-    </h1>
-
-    <p class="hero-tagline">
-      Digital value for a brighter tomorrow.
-    </p>
-
-    <div class="hero-actions">
-
-      <a class="cta primary" href="#market">
-        Explore Market →
-      </a>
-
-      <button
-        class="cta secondary"
-        id="heroWallet"
-        type="button">
-        Connect Wallet
-      </button>
-
+    <div class="hero-art">
+      <img
+        src="assets/hero-goldity.webp"
+        alt="GOLDITY digital gold in space"
+      >
     </div>
 
-    <div class="contract">
+    <div class="hero-copy">
 
-      <span>GDTY CONTRACT</span>
+      <p class="eyebrow">
+        DIGITAL GOLD · BNB SMART CHAIN
+      </p>
 
-      <code id="contractAddress">
-        0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801
-      </code>
+      <h1>
+        GOLDITY <span>GDTY</span>
+      </h1>
 
-      <button id="copyContract" type="button">
-        Copy
-      </button>
+      <p class="hero-tagline">
+        Digital value for a brighter tomorrow.
+      </p>
 
-    </div>
+      <div class="hero-actions">
 
-  </div>
+        <a class="cta primary" href="#market">
+          Explore Market →
+        </a>
 
-</section>
+        <a class="cta secondary" href="#how">
+          How to Buy
+        </a>
 
+        <button class="cta secondary" id="heroWallet" type="button">
+          Connect Wallet
+        </button>
 
-<!-- ================= MARKET ================= -->
-
-<section id="market" class="market">
-
-  <div class="section-heading">
-    <span class="eyebrow">LIVE MARKET</span>
-    <h2>GDTY / USDT</h2>
-    <p>Verified market data from live on-chain sources.</p>
-  </div>
-
-  <div class="pricebox">
-
-    <span class="label">REFERENCE PRICE</span>
-
-    <strong class="price" id="price">—</strong>
-
-    <span class="status" id="status">
-      Loading live market data…
-    </span>
-
-    <span class="updated" id="updated">
-      Updating…
-    </span>
-
-  </div>
-
-
-  <div class="metrics">
-
-    <div>
-      <span>LIQUIDITY</span>
-      <strong id="liq">—</strong>
-    </div>
-
-    <div>
-      <span>UNISWAP V2</span>
-      <strong id="uni">—</strong>
-    </div>
-
-    <div>
-      <span>PANCAKESWAP V2</span>
-      <strong id="pcs">—</strong>
-    </div>
-
-    <div>
-      <span>NETWORK</span>
-      <strong id="network">BNB Smart Chain</strong>
-    </div>
-
-  </div>
-
-
-  <div class="chart-head">
-
-    <div>
-      <span class="eyebrow">MARKET HISTORY</span>
-      <h3>GDTY / USDT</h3>
-    </div>
-
-    <div class="ranges" id="ranges">
-
-      <button type="button" data-range="1D" class="active">1D</button>
-      <button type="button" data-range="7D">7D</button>
-      <button type="button" data-range="30D">30D</button>
-      <button type="button" data-range="90D">90D</button>
-
-    </div>
-
-  </div>
-
-
-  <div class="chart-wrap">
-
-    <canvas id="chart"></canvas>
-
-    <div id="chartState">
-      Loading real market history…
-    </div>
-
-  </div>
-
-</section>
-
-
-<!-- ================= BUY ================= -->
-
-<section id="how" class="buy-section">
-
-  <div class="section-heading">
-
-    <span class="eyebrow">BUY GDTY</span>
-
-    <h2>Buy GOLDITY directly</h2>
-
-    <p>
-      Connect your wallet and continue to the official decentralized
-      exchange interface to swap for GDTY.
-    </p>
-
-  </div>
-
-
-  <div class="buy-grid">
-
-    <article class="buy-card">
-
-      <div>
-        <span class="dex-name">UNISWAP</span>
-
-        <h3>Buy GDTY on Uniswap</h3>
-
-        <p>
-          Open Uniswap on BNB Smart Chain with GDTY selected.
-        </p>
       </div>
 
-      <button
-        class="cta primary dex-buy"
-        data-dex="uniswap"
-        type="button">
-        Connect & Buy on Uniswap →
-      </button>
+      <div class="contract">
 
-    </article>
+        <span>GDTY CONTRACT</span>
 
+        <code id="contractAddress">
+          0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801
+        </code>
 
-    <article class="buy-card">
+        <button id="copyContract" type="button">
+          Copy
+        </button>
 
-      <div>
-        <span class="dex-name">PANCAKESWAP</span>
-
-        <h3>Buy GDTY on PancakeSwap</h3>
-
-        <p>
-          Open PancakeSwap on BNB Smart Chain with GDTY selected.
-        </p>
       </div>
 
-      <button
-        class="cta primary dex-buy"
-        data-dex="pancakeswap"
-        type="button">
-        Connect & Buy on PancakeSwap →
-      </button>
-
-    </article>
-
-  </div>
-
-
-  <div class="contract">
-
-    <span>VERIFY BEFORE BUYING</span>
-
-    <code>
-      0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801
-    </code>
-
-    <button id="copyContractBuy" type="button">
-      Copy
-    </button>
-
-  </div>
-
-</section>
-
-
-<!-- ================= TOKEN ================= -->
-
-<section id="token" class="token-section">
-
-  <div class="section-heading">
-    <span class="eyebrow">TOKEN INFORMATION</span>
-    <h2>GOLDITY / GDTY</h2>
-  </div>
-
-
-  <div class="token">
-
-    <div>
-      <span>SYMBOL</span>
-      <strong>GDTY</strong>
     </div>
 
-    <div>
-      <span>NETWORK</span>
-      <strong>BNB Smart Chain</strong>
+  </section>
+
+
+  <!-- MARKET -->
+
+  <section id="market" class="market">
+
+    <div class="market-head">
+
+      <div>
+        <p class="eyebrow">LIVE MARKET</p>
+        <h2>GDTY Market</h2>
+      </div>
+
+      <div class="market-status">
+        <strong id="status">Loading market data…</strong>
+        <span id="updated">—</span>
+      </div>
+
     </div>
 
-    <div>
-      <span>CHAIN ID</span>
-      <strong>56</strong>
+
+    <div class="market-grid">
+
+      <div class="market-card">
+        <small>Reference Price</small>
+        <strong id="price">—</strong>
+      </div>
+
+      <div class="market-card">
+        <small>Total Liquidity</small>
+        <strong id="liq">—</strong>
+      </div>
+
+      <div class="market-card">
+        <small>Network</small>
+        <strong id="network">BNB Smart Chain</strong>
+      </div>
+
+      <div class="market-card">
+        <small>Token</small>
+        <strong>GDTY</strong>
+      </div>
+
     </div>
 
-    <div>
-      <span>DECIMALS</span>
-      <strong>18</strong>
+
+    <div class="dex-prices">
+
+      <div class="dex-card">
+        <span>Uniswap V2</span>
+        <strong id="uni">—</strong>
+      </div>
+
+      <div class="dex-card">
+        <span>PancakeSwap V2</span>
+        <strong id="pcs">—</strong>
+      </div>
+
     </div>
 
-    <div>
-      <span>TOTAL SUPPLY</span>
-      <strong>19,100,000 GDTY</strong>
+
+    <div class="chart-box">
+
+      <div class="ranges" id="ranges">
+        <button type="button" data-range="1D" class="active">1D</button>
+        <button type="button" data-range="7D">7D</button>
+        <button type="button" data-range="30D">30D</button>
+        <button type="button" data-range="90D">90D</button>
+      </div>
+
+      <canvas id="chart"></canvas>
+
+      <div id="chartState">
+        Loading real market history…
+      </div>
+
     </div>
 
-    <div>
-      <span>BUY TAX</span>
-      <strong>0.05%</strong>
+  </section>
+
+
+  <!-- TOKEN -->
+
+  <section id="token" class="token">
+
+    <p class="eyebrow">TOKEN INFORMATION</p>
+
+    <h2>GOLDITY Token</h2>
+
+    <div class="token-grid">
+
+      <div class="token-card">
+        <small>Name</small>
+        <strong>GOLDITY</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Symbol</small>
+        <strong>GDTY</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Network</small>
+        <strong>BNB Smart Chain</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Chain ID</small>
+        <strong>56</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Total Supply</small>
+        <strong>19,100,000 GDTY</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Decimals</small>
+        <strong>18</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Buy Tax</small>
+        <strong>0.05%</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Sell Tax</small>
+        <strong>0.05%</strong>
+      </div>
+
+      <div class="token-card">
+        <small>Wallet Transfer</small>
+        <strong>0%</strong>
+      </div>
+
     </div>
 
-    <div>
-      <span>SELL TAX</span>
-      <strong>0.05%</strong>
+  </section>
+
+
+  <!-- BUY -->
+
+  <section id="how" class="buy">
+
+    <p class="eyebrow">DECENTRALIZED ACCESS</p>
+
+    <h2>Buy GDTY</h2>
+
+    <p class="section-lead">
+      Connect your wallet and open the official decentralized exchange
+      with GDTY and USDT selected.
+    </p>
+
+
+    <div class="buy-grid">
+
+      <div class="buy-card">
+
+        <h3>Uniswap V2</h3>
+
+        <p>
+          Trade GDTY directly through Uniswap on BNB Smart Chain.
+        </p>
+
+        <button
+          class="cta primary"
+          id="buyUniswap"
+          type="button">
+          Buy on Uniswap →
+        </button>
+
+      </div>
+
+
+      <div class="buy-card">
+
+        <h3>PancakeSwap V2</h3>
+
+        <p>
+          Trade GDTY directly through PancakeSwap on BNB Smart Chain.
+        </p>
+
+        <button
+          class="cta primary"
+          id="buyPancake"
+          type="button">
+          Buy on PancakeSwap →
+        </button>
+
+      </div>
+
     </div>
 
-    <div>
-      <span>TRANSFER TAX</span>
-      <strong>0%</strong>
-    </div>
-
-    <div class="token-wide">
-      <span>CONTRACT</span>
-      <code>
-        0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801
-      </code>
-    </div>
-
-  </div>
-
-</section>
+  </section>
 
 
-<!-- ================= SECURITY ================= -->
+  <!-- SECURITY -->
 
-<section id="security" class="security-section">
+  <section id="security" class="security">
 
-  <div class="section-heading">
-
-    <span class="eyebrow">INTERNAL SECURITY REVIEW</span>
+    <p class="eyebrow">INTERNAL SECURITY REVIEW</p>
 
     <h2>Contract Security</h2>
 
-    <p>
+    <p class="section-lead">
       Internal technical review based on the verified GOLDITY contract.
     </p>
 
-  </div>
 
+    <div class="security-grid">
 
-  <div class="security-grid">
+      <div class="security-item">
+        <span>01 · Mint Function</span>
+        <strong>REVIEWED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>01</span>
-      <h3>Mint Function</h3>
-      <p>No public mint function identified.</p>
-      <strong>REVIEWED</strong>
-    </article>
+      <div class="security-item">
+        <span>02 · Proxy / Upgrade</span>
+        <strong>REVIEWED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>02</span>
-      <h3>Proxy / Upgrade</h3>
-      <p>Contract architecture reviewed for upgrade mechanisms.</p>
-      <strong>REVIEWED</strong>
-    </article>
+      <div class="security-item">
+        <span>03 · Honeypot</span>
+        <strong>REVIEWED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>03</span>
-      <h3>Honeypot</h3>
-      <p>Trading logic reviewed for restrictive sell behavior.</p>
-      <strong>REVIEWED</strong>
-    </article>
+      <div class="security-item">
+        <span>04 · Buy / Sell Tax</span>
+        <strong>VERIFIED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>04</span>
-      <h3>Buy / Sell Tax</h3>
-      <p>Buy tax 0.05% and sell tax 0.05%.</p>
-      <strong>0.05% / 0.05%</strong>
-    </article>
+      <div class="security-item">
+        <span>05 · Blacklist / Whitelist</span>
+        <strong>REVIEWED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>05</span>
-      <h3>Blacklist / Whitelist</h3>
-      <p>Contract logic reviewed for address restrictions.</p>
-      <strong>REVIEWED</strong>
-    </article>
+      <div class="security-item">
+        <span>06 · Trading Suspension</span>
+        <strong>REVIEWED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>06</span>
-      <h3>Trading Suspension</h3>
-      <p>Contract logic reviewed for trading-control mechanisms.</p>
-      <strong>REVIEWED</strong>
-    </article>
+      <div class="security-item">
+        <span>07 · Malicious Code</span>
+        <strong>REVIEWED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>07</span>
-      <h3>Source Code</h3>
-      <p>Verified source code is publicly available on BscScan.</p>
-      <strong>VERIFIED</strong>
-    </article>
+      <div class="security-item">
+        <span>08 · Ownership</span>
+        <strong>VERIFIED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>08</span>
-      <h3>Ownership</h3>
-      <p>Ownership uses Ownable2Step architecture.</p>
-      <strong>REVIEWED</strong>
-    </article>
+      <div class="security-item">
+        <span>09 · Token Holder Risk</span>
+        <strong>MONITORED</strong>
+      </div>
 
-    <article class="security-item">
-      <span>09</span>
-      <h3>Holder Risk</h3>
-      <p>Holder concentration should be independently monitored.</p>
-      <strong>MONITORED</strong>
-    </article>
+      <div class="security-item">
+        <span>10 · Liquidity Lock</span>
+        <strong>VERIFY ON-CHAIN</strong>
+      </div>
 
-    <article class="security-item">
-      <span>10</span>
-      <h3>Liquidity Lock</h3>
-      <p>Requires independent on-chain verification.</p>
-      <strong>VERIFY ON-CHAIN</strong>
-    </article>
+      <div class="security-item">
+        <span>11 · Token Lock</span>
+        <strong>VERIFY ON-CHAIN</strong>
+      </div>
 
-    <article class="security-item">
-      <span>11</span>
-      <h3>Token Lock</h3>
-      <p>Requires verification of locking or vesting contracts.</p>
-      <strong>VERIFY ON-CHAIN</strong>
-    </article>
-
-  </div>
-
-
-  <div class="security-note">
-    <strong>Important:</strong>
-    This is an internal technical review and is not a third-party
-    professional security audit.
-  </div>
-
-</section>
-
-
-<!-- ================= WHITEPAPER ================= -->
-
-<section id="whitepaper" class="whitepaper-section">
-
-  <span class="eyebrow">WHITEPAPER</span>
-
-  <h2>Explore the GOLDITY vision.</h2>
-
-  <p>
-    Learn about GOLDITY, its token structure, technology,
-    ecosystem and long-term vision.
-  </p>
-
-  <div class="hero-actions">
-
-    <a class="cta primary" href="/whitepaper.html">
-      Read Whitepaper →
-    </a>
-
-    <a
-      class="cta secondary"
-      href="/GOLDITY-Whitepaper-v1.0.pdf"
-      target="_blank"
-      rel="noopener">
-      Download PDF
-    </a>
-
-  </div>
-
-</section>
-
-
-<!-- ================= COMMUNITY ================= -->
-
-<section id="community" class="community">
-
-  <div class="section-heading">
-
-    <span class="eyebrow">COMMUNITY & CONTACT</span>
-
-    <h2>Connect with GOLDITY</h2>
-
-    <p>
-      Follow the official GOLDITY channels.
-    </p>
-
-  </div>
-
-
-  <div class="social-grid">
-
-    <a class="social-card" href="mailto:info@goldityglobal.com">
-      <strong>Email</strong>
-      <span>info@goldityglobal.com</span>
-    </a>
-
-    <a
-      class="social-card"
-      href="https://x.com/Goldityglobal"
-      target="_blank"
-      rel="noopener noreferrer">
-      <strong>X</strong>
-      <span>@Goldityglobal</span>
-    </a>
-
-    <a
-      class="social-card"
-      href="https://t.me/GOLDITYGLOBAL"
-      target="_blank"
-      rel="noopener noreferrer">
-      <strong>Telegram</strong>
-      <span>@GOLDITYGLOBAL</span>
-    </a>
-
-    <a
-      class="social-card"
-      href="https://github.com/goldityglobal"
-      target="_blank"
-      rel="noopener noreferrer">
-      <strong>GitHub</strong>
-      <span>goldityglobal</span>
-    </a>
-
-    <a
-      class="social-card"
-      href="https://www.instagram.com/goldityglobal/"
-      target="_blank"
-      rel="noopener noreferrer">
-      <strong>Instagram</strong>
-      <span>@goldityglobal</span>
-    </a>
-
-    <a
-      class="social-card"
-      href="https://medium.com/@goldityglobal_66297"
-      target="_blank"
-      rel="noopener noreferrer">
-      <strong>Medium</strong>
-      <span>@goldityglobal_66297</span>
-    </a>
-
-    <div class="social-card social-card-disabled">
-      <strong>Discord</strong>
-      <span>Official server invite pending</span>
     </div>
 
-  </div>
+  </section>
 
-</section>
+
+  <!-- COMMUNITY -->
+
+  <section id="community" class="community">
+
+    <div>
+
+      <p class="eyebrow">COMMUNITY</p>
+
+      <h2>Follow GOLDITY</h2>
+
+      <p>
+        Official GOLDITY updates, announcements and community channels.
+      </p>
+
+    </div>
+
+
+    <div class="community-links">
+
+      <a
+        class="cta secondary"
+        href="https://x.com/Goldityglobal"
+        target="_blank"
+        rel="noopener noreferrer">
+        X →
+      </a>
+
+      <a
+        class="cta secondary"
+        href="https://t.me/GOLDITYGLOBAL"
+        target="_blank"
+        rel="noopener noreferrer">
+        Telegram →
+      </a>
+
+      <a
+        class="cta secondary"
+        href="https://github.com/goldityglobal"
+        target="_blank"
+        rel="noopener noreferrer">
+        GitHub →
+      </a>
+
+      <a
+        class="cta secondary"
+        href="https://www.instagram.com/goldityglobal/"
+        target="_blank"
+        rel="noopener noreferrer">
+        Instagram →
+      </a>
+
+      <a
+        class="cta secondary"
+        href="https://medium.com/@goldityglobal_66297"
+        target="_blank"
+        rel="noopener noreferrer">
+        Medium →
+      </a>
+
+      <a
+        class="cta secondary"
+        href="mailto:info@goldityglobal.com">
+        Email →
+      </a>
+
+    </div>
+
+  </section>
 
 </main>
 
 
-<!-- ================= FOOTER ================= -->
-
 <footer>
 
-  <div class="footer-main">
+  GOLDITY · GDTY · BNB Smart Chain ·
 
-    <div class="footer-brand">
-
-      <a class="brand" href="#top">
-        <span class="mark">G</span>
-        <span>GOLDITY <b>GDTY</b></span>
-      </a>
-
-      <p>A new standard of digital value.</p>
-
-    </div>
-
-
-    <div class="footer-column">
-
-      <strong>EXPLORE</strong>
-
-      <a href="#market">Market</a>
-      <a href="#token">Token</a>
-      <a href="#security">Security</a>
-      <a href="/whitepaper.html">Whitepaper</a>
-
-    </div>
-
-
-    <div class="footer-column">
-
-      <strong>OFFICIAL</strong>
-
-      <a
-        href="/contract.html">
-        Contract
-      </a>
-
-      <a
-        href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801"
-        target="_blank"
-        rel="noopener noreferrer">
-        BscScan
-      </a>
-
-      <a href="mailto:info@goldityglobal.com">
-        Email
-      </a>
-
-    </div>
-
-
-    <div class="footer-column">
-
-      <strong>COMMUNITY</strong>
-
-      <a
-        href="https://x.com/Goldityglobal"
-        target="_blank"
-        rel="noopener noreferrer">
-        X
-      </a>
-
-      <a
-        href="https://t.me/GOLDITYGLOBAL"
-        target="_blank"
-        rel="noopener noreferrer">
-        Telegram
-      </a>
-
-      <a
-        href="https://github.com/goldityglobal"
-        target="_blank"
-        rel="noopener noreferrer">
-        GitHub
-      </a>
-
-      <a
-        href="https://www.instagram.com/goldityglobal/"
-        target="_blank"
-        rel="noopener noreferrer">
-        Instagram
-      </a>
-
-      <a
-        href="https://medium.com/@goldityglobal_66297"
-        target="_blank"
-        rel="noopener noreferrer">
-        Medium
-      </a>
-
-    </div>
-
-  </div>
-
-
-  <div class="footer-bottom">
-
-    <span>© 2026 GOLDITY. All rights reserved.</span>
-
-    <span>BNB Smart Chain · GDTY</span>
-
-    <span>
-      <a href="/privacy.html">Privacy</a>
-      ·
-      <a href="/terms.html">Terms</a>
-    </span>
-
-  </div>
+  <a href="/whitepaper.html">Whitepaper</a> ·
+  <a href="/contract.html">Contract</a> ·
+  <a href="/register.html">Register</a> ·
+  <a href="/privacy.html">Privacy</a> ·
+  <a href="/terms.html">Terms</a>
 
 </footer>
 
