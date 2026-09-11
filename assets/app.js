@@ -1,7 +1,11 @@
 const API_BASE = "";
 
-const GDTY = "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801";
-const USDT = "0x55d398326f99059fF775485246999027B3197955";
+const GDTY =
+  "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801";
+
+const USDT =
+  "0x55d398326f99059fF775485246999027B3197955";
+
 const BSC_CHAIN_ID = "0x38";
 
 const PANCAKESWAP_URL =
@@ -10,18 +14,14 @@ const PANCAKESWAP_URL =
 const UNISWAP_URL =
   `https://app.uniswap.org/swap?chain=bnb&inputCurrency=${USDT}&outputCurrency=${GDTY}`;
 
+
 const $ = id => document.getElementById(id);
 
-let currentRange = "1D";
-let candles = [];
 
-
-/* =========================================================
-   FORMATTERS
-   ========================================================= */
-
-function money(value) {
-  if (value == null || Number.isNaN(Number(value))) return "—";
+const money = value => {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return "—";
+  }
 
   const number = Number(value);
 
@@ -29,28 +29,25 @@ function money(value) {
     minimumFractionDigits: number < 1 ? 4 : 2,
     maximumFractionDigits: number < 1 ? 8 : 4
   })}`;
-}
+};
 
 
-function compact(value) {
-  if (value == null || Number.isNaN(Number(value))) return "—";
+const compact = value => {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return "—";
+  }
 
   return `$${Number(value).toLocaleString(undefined, {
     maximumFractionDigits: 2
   })}`;
-}
+};
 
 
-function shortAddress(address) {
-  return address
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : "—";
-}
+let currentRange = "1D";
+let candles = [];
 
 
-/* =========================================================
-   MARKET
-   ========================================================= */
+/* MARKET */
 
 async function loadMarket() {
 
@@ -58,7 +55,9 @@ async function loadMarket() {
 
     const response = await fetch(
       `${API_BASE}/api/market`,
-      { cache: "no-store" }
+      {
+        cache: "no-store"
+      }
     );
 
     const data = await response.json();
@@ -67,9 +66,12 @@ async function loadMarket() {
       throw new Error(data.error || "Market data unavailable");
     }
 
+
     if ($("price")) {
-      $("price").textContent = money(data.referencePrice);
+      $("price").textContent =
+        money(data.referencePrice);
     }
+
 
     if ($("status")) {
       $("status").textContent =
@@ -78,51 +80,62 @@ async function loadMarket() {
           : "LIVE DATA UNAVAILABLE";
     }
 
+
     if ($("updated")) {
-      $("updated").textContent = data.lastUpdated
-        ? `Updated ${new Date(data.lastUpdated).toLocaleTimeString()}`
-        : "Update unavailable";
+      $("updated").textContent =
+        data.lastUpdated
+          ? `Updated ${new Date(data.lastUpdated).toLocaleTimeString()}`
+          : "—";
     }
 
+
     if ($("liq")) {
-      $("liq").textContent = compact(data.liquidityUsd);
+      $("liq").textContent =
+        compact(data.liquidityUsd);
     }
+
 
     if ($("uni")) {
       $("uni").textContent =
         money(data.markets?.uniswap?.price);
     }
 
+
     if ($("pcs")) {
       $("pcs").textContent =
         money(data.markets?.pancakeswap?.price);
     }
 
+
+    if ($("network")) {
+      $("network").textContent =
+        data.network || "BNB Smart Chain";
+    }
+
   } catch (error) {
 
-    console.error("Market error:", error);
+    console.error("Market:", error);
 
     if ($("price")) $("price").textContent = "—";
-    if ($("liq")) $("liq").textContent = "—";
-    if ($("uni")) $("uni").textContent = "—";
-    if ($("pcs")) $("pcs").textContent = "—";
 
     if ($("status")) {
-      $("status").textContent = "LIVE DATA UNAVAILABLE";
+      $("status").textContent =
+        "LIVE DATA UNAVAILABLE";
     }
 
     if ($("updated")) {
-      $("updated").textContent = "Market data unavailable";
+      $("updated").textContent =
+        error.message || "Unavailable";
     }
+
   }
+
 }
 
 
-/* =========================================================
-   CHART
-   ========================================================= */
+/* CHART */
 
-function drawChart() {
+function draw() {
 
   const canvas = $("chart");
 
@@ -130,17 +143,32 @@ function drawChart() {
 
   const context = canvas.getContext("2d");
 
-  const dpr = window.devicePixelRatio || 1;
+  const ratio = window.devicePixelRatio || 1;
+
   const width = canvas.clientWidth;
+
   const height = canvas.clientHeight;
 
-  if (!width || !height) return;
+  canvas.width = width * ratio;
 
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
+  canvas.height = height * ratio;
 
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
-  context.clearRect(0, 0, width, height);
+  context.setTransform(
+    ratio,
+    0,
+    0,
+    ratio,
+    0,
+    0
+  );
+
+  context.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
 
   if (!candles.length) {
 
@@ -152,9 +180,11 @@ function drawChart() {
     return;
   }
 
+
   if ($("chartState")) {
     $("chartState").textContent = "";
   }
+
 
   const padding = {
     left: 58,
@@ -163,82 +193,131 @@ function drawChart() {
     bottom: 34
   };
 
+
   const chartWidth =
-    width - padding.left - padding.right;
+    width -
+    padding.left -
+    padding.right;
+
 
   const chartHeight =
-    height - padding.top - padding.bottom;
+    height -
+    padding.top -
+    padding.bottom;
+
 
   const values =
     candles.flatMap(item => [
-      Number(item.high),
-      Number(item.low)
+      item.high,
+      item.low
     ]);
 
-  let minimum = Math.min(...values);
-  let maximum = Math.max(...values);
+
+  let minimum =
+    Math.min(...values);
+
+  let maximum =
+    Math.max(...values);
+
 
   if (minimum === maximum) {
     minimum *= 0.99;
     maximum *= 1.01;
   }
 
+
   const x = index =>
     padding.left +
-    (index / (candles.length - 1 || 1)) *
+    (
+      index /
+      (candles.length - 1 || 1)
+    ) *
     chartWidth;
+
 
   const y = value =>
     padding.top +
-    ((maximum - value) / (maximum - minimum)) *
+    (
+      (maximum - value) /
+      (maximum - minimum)
+    ) *
     chartHeight;
 
 
   context.strokeStyle = "#27231c";
+
   context.lineWidth = 1;
+
 
   for (let i = 0; i < 5; i++) {
 
-    const lineY =
+    const yy =
       padding.top +
       i * chartHeight / 4;
 
     context.beginPath();
-    context.moveTo(padding.left, lineY);
-    context.lineTo(width - padding.right, lineY);
+
+    context.moveTo(
+      padding.left,
+      yy
+    );
+
+    context.lineTo(
+      width - padding.right,
+      yy
+    );
+
     context.stroke();
 
+
     context.fillStyle = "#716b61";
-    context.font = "10px system-ui";
+
+    context.font =
+      "10px system-ui";
 
     context.fillText(
-      money(maximum - (maximum - minimum) * i / 4),
+      money(
+        maximum -
+        (
+          maximum - minimum
+        ) *
+        i / 4
+      ),
       6,
-      lineY + 3
+      yy + 3
     );
+
   }
 
 
   context.beginPath();
 
+
   candles.forEach((item, index) => {
 
-    const pointX = x(index);
-    const pointY = y(Number(item.close));
+    const xx = x(index);
+
+    const yy = y(item.close);
 
     if (index === 0) {
-      context.moveTo(pointX, pointY);
+      context.moveTo(xx, yy);
     } else {
-      context.lineTo(pointX, pointY);
+      context.lineTo(xx, yy);
     }
+
   });
 
+
   context.strokeStyle = "#d9b45b";
+
   context.lineWidth = 1.6;
+
   context.stroke();
 
 
-  const last = candles[candles.length - 1];
+  const last =
+    candles[candles.length - 1];
+
 
   context.fillStyle = "#d9b45b";
 
@@ -246,17 +325,20 @@ function drawChart() {
 
   context.arc(
     x(candles.length - 1),
-    y(Number(last.close)),
+    y(last.close),
     3,
     0,
     Math.PI * 2
   );
 
   context.fill();
+
 }
 
 
-async function loadChart(range = currentRange) {
+async function loadChart(
+  range = currentRange
+) {
 
   currentRange = range;
 
@@ -265,63 +347,153 @@ async function loadChart(range = currentRange) {
       "Loading real market history…";
   }
 
+
   try {
 
     const response = await fetch(
       `${API_BASE}/api/chart?range=${encodeURIComponent(range)}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store"
+      }
     );
 
-    const data = await response.json();
+
+    const data =
+      await response.json();
+
 
     if (!data.ok) {
       throw new Error(
-        data.error || "Historical data unavailable"
+        data.error ||
+        "Historical data unavailable"
       );
     }
 
-    candles = Array.isArray(data.candles)
-      ? data.candles
-      : [];
 
-    drawChart();
+    candles =
+      Array.isArray(data.candles)
+        ? data.candles
+        : [];
 
-  } catch (error) {
 
-    console.error("Chart error:", error);
+    draw();
 
-    candles = [];
 
-    drawChart();
-
-    if ($("chartState")) {
+    if (!candles.length && $("chartState")) {
       $("chartState").textContent =
         "Verified historical data unavailable";
     }
+
+  } catch (error) {
+
+    console.error("Chart:", error);
+
+    candles = [];
+
+    draw();
+
+    if ($("chartState")) {
+      $("chartState").textContent =
+        "Historical data unavailable";
+    }
+
   }
+
 }
 
 
-/* =========================================================
-   WALLET
-   ========================================================= */
+/* WALLET */
+
+function short(address) {
+
+  return address
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : "—";
+
+}
+
+
+function hexAddress(address) {
+
+  return address
+    .toLowerCase()
+    .replace(/^0x/, "")
+    .padStart(64, "0");
+
+}
+
+
+async function ethCall(
+  to,
+  data
+) {
+
+  return window.ethereum.request({
+    method: "eth_call",
+    params: [
+      {
+        to,
+        data
+      },
+      "latest"
+    ]
+  });
+
+}
+
+
+async function tokenBalance(
+  token,
+  account
+) {
+
+  const data =
+    "0x70a08231" +
+    hexAddress(account);
+
+  const raw =
+    await ethCall(token, data);
+
+  return Number(
+    BigInt(raw)
+  ) / 1e18;
+
+}
+
+
+async function nativeBalance(account) {
+
+  const raw =
+    await window.ethereum.request({
+      method: "eth_getBalance",
+      params: [
+        account,
+        "latest"
+      ]
+    });
+
+  return Number(
+    BigInt(raw)
+  ) / 1e18;
+
+}
+
 
 async function ensureBsc() {
-
-  if (!window.ethereum) {
-    throw new Error(
-      "MetaMask or another EVM-compatible wallet was not detected."
-    );
-  }
 
   const chain =
     await window.ethereum.request({
       method: "eth_chainId"
     });
 
-  if (chain.toLowerCase() === BSC_CHAIN_ID) {
+
+  if (
+    chain &&
+    chain.toLowerCase() === BSC_CHAIN_ID
+  ) {
     return true;
   }
+
 
   try {
 
@@ -338,82 +510,35 @@ async function ensureBsc() {
 
   } catch (error) {
 
-    if (error.code !== 4902) {
-      throw error;
+    if (error.code === 4902) {
+
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: BSC_CHAIN_ID,
+            chainName: "BNB Smart Chain",
+            nativeCurrency: {
+              name: "BNB",
+              symbol: "BNB",
+              decimals: 18
+            },
+            rpcUrls: [
+              "https://bsc-dataseed.bnbchain.org"
+            ],
+            blockExplorerUrls: [
+              "https://bscscan.com"
+            ]
+          }
+        ]
+      });
+
+      return true;
     }
 
-    await window.ethereum.request({
-      method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId: BSC_CHAIN_ID,
-          chainName: "BNB Smart Chain",
-          nativeCurrency: {
-            name: "BNB",
-            symbol: "BNB",
-            decimals: 18
-          },
-          rpcUrls: [
-            "https://bsc-dataseed.bnbchain.org"
-          ],
-          blockExplorerUrls: [
-            "https://bscscan.com"
-          ]
-        }
-      ]
-    });
-
-    return true;
+    throw error;
   }
-}
 
-
-function encodeAddress(address) {
-
-  return address
-    .toLowerCase()
-    .replace(/^0x/, "")
-    .padStart(64, "0");
-}
-
-
-async function ethCall(to, data) {
-
-  return window.ethereum.request({
-    method: "eth_call",
-    params: [
-      {
-        to,
-        data
-      },
-      "latest"
-    ]
-  });
-}
-
-
-async function tokenBalance(token, account) {
-
-  const data =
-    "0x70a08231" +
-    encodeAddress(account);
-
-  const raw =
-    await ethCall(token, data);
-
-  return Number(BigInt(raw)) / 1e18;
-}
-
-
-async function nativeBalance(account) {
-
-  const raw =
-    await window.ethereum.request({
-      method: "eth_getBalance",
-      params: [account, "latest"]
-    });
-
-  return Number(BigInt(raw)) / 1e18;
 }
 
 
@@ -421,49 +546,83 @@ async function refreshWallet(account) {
 
   if (!account) return;
 
+
   if ($("walletAddress")) {
     $("walletAddress").textContent =
-      shortAddress(account);
+      short(account);
   }
+
 
   try {
 
+    const gdty =
+      await tokenBalance(
+        GDTY,
+        account
+      );
+
+
+    const usdt =
+      await tokenBalance(
+        USDT,
+        account
+      );
+
+
+    const bnb =
+      await nativeBalance(account);
+
+
     if ($("walletGdty")) {
       $("walletGdty").textContent =
-        (
-          await tokenBalance(GDTY, account)
-        ).toLocaleString(undefined, {
-          maximumFractionDigits: 6
-        });
+        gdty.toLocaleString(
+          undefined,
+          {
+            maximumFractionDigits: 6
+          }
+        );
     }
+
 
     if ($("walletUsdt")) {
       $("walletUsdt").textContent =
-        (
-          await tokenBalance(USDT, account)
-        ).toLocaleString(undefined, {
-          maximumFractionDigits: 4
-        });
+        usdt.toLocaleString(
+          undefined,
+          {
+            maximumFractionDigits: 4
+          }
+        );
     }
+
 
     if ($("walletBnb")) {
       $("walletBnb").textContent =
-        (
-          await nativeBalance(account)
-        ).toLocaleString(undefined, {
-          maximumFractionDigits: 5
-        });
+        bnb.toLocaleString(
+          undefined,
+          {
+            maximumFractionDigits: 5
+          }
+        );
     }
 
   } catch (error) {
 
-    console.error("Wallet balance error:", error);
+    console.error("Wallet:", error);
 
-    ["walletGdty", "walletUsdt", "walletBnb"]
-      .forEach(id => {
-        if ($(id)) $(id).textContent = "—";
-      });
+    if ($("walletGdty")) {
+      $("walletGdty").textContent = "—";
+    }
+
+    if ($("walletUsdt")) {
+      $("walletUsdt").textContent = "—";
+    }
+
+    if ($("walletBnb")) {
+      $("walletBnb").textContent = "—";
+    }
+
   }
+
 }
 
 
@@ -478,33 +637,68 @@ async function connectWallet() {
     return null;
   }
 
+
+  const button =
+    $("walletBtn");
+
+
+  if (button) {
+    button.disabled = true;
+  }
+
+
   try {
 
     await ensureBsc();
+
 
     const accounts =
       await window.ethereum.request({
         method: "eth_requestAccounts"
       });
 
-    const account = accounts?.[0];
 
-    if (!account) return null;
+    const account =
+      accounts?.[0];
+
+
+    if (!account) {
+      return null;
+    }
+
 
     localStorage.setItem(
       "gdtyWallet",
       account
     );
 
-    updateWalletUI(account);
+
+    if ($("walletBtn")) {
+      $("walletBtn").textContent =
+        short(account);
+
+      $("walletBtn").classList.add(
+        "connected"
+      );
+    }
+
+
+    if ($("walletMenu")) {
+      $("walletMenu").hidden = false;
+    }
+
 
     await refreshWallet(account);
+
 
     return account;
 
   } catch (error) {
 
-    console.error("Wallet connection error:", error);
+    console.error(
+      "Wallet connection:",
+      error
+    );
 
     alert(
       error.message ||
@@ -512,28 +706,22 @@ async function connectWallet() {
     );
 
     return null;
+
+  } finally {
+
+    if (button) {
+      button.disabled = false;
+    }
+
   }
-}
 
-
-function updateWalletUI(account) {
-
-  if (!$("walletBtn")) return;
-
-  $("walletBtn").textContent =
-    shortAddress(account);
-
-  $("walletBtn").classList.add("connected");
-
-  if ($("walletMenu")) {
-    $("walletMenu").hidden = false;
-  }
 }
 
 
 async function restoreWallet() {
 
   if (!window.ethereum) return;
+
 
   try {
 
@@ -542,212 +730,258 @@ async function restoreWallet() {
         method: "eth_accounts"
       });
 
-    const account = accounts?.[0];
+
+    const account =
+      accounts?.[0];
+
 
     if (!account) return;
+
 
     localStorage.setItem(
       "gdtyWallet",
       account
     );
 
-    updateWalletUI(account);
+
+    if ($("walletBtn")) {
+
+      $("walletBtn").textContent =
+        short(account);
+
+      $("walletBtn").classList.add(
+        "connected"
+      );
+
+    }
+
+
+    if ($("walletMenu")) {
+      $("walletMenu").hidden = false;
+    }
+
 
     await refreshWallet(account);
 
   } catch (error) {
 
     console.error(
-      "Wallet restore error:",
-      error
-    );
-  }
-}
-
-
-function disconnectWallet() {
-
-  localStorage.removeItem("gdtyWallet");
-
-  if ($("walletMenu")) {
-    $("walletMenu").hidden = true;
-  }
-
-  if ($("walletBtn")) {
-    $("walletBtn").textContent =
-      "Connect Wallet";
-
-    $("walletBtn").classList.remove(
-      "connected"
-    );
-  }
-}
-
-
-/* =========================================================
-   COPY CONTRACT
-   ========================================================= */
-
-async function copyContract(button) {
-
-  if (!button) return;
-
-  try {
-
-    await navigator.clipboard.writeText(GDTY);
-
-    const original =
-      button.textContent;
-
-    button.textContent =
-      "Copied ✓";
-
-    setTimeout(() => {
-      button.textContent = original;
-    }, 1500);
-
-  } catch (error) {
-
-    console.error(
-      "Copy error:",
+      "Restore wallet:",
       error
     );
 
-    alert(
-      `Contract:\n${GDTY}`
-    );
   }
+
 }
 
 
-/* =========================================================
-   DEX
-   ========================================================= */
+/* DEX */
 
-async function openDex(dex) {
-
-  const url =
-    dex === "uniswap"
-      ? UNISWAP_URL
-      : PANCAKESWAP_URL;
-
-  /*
-   * Connect to BSC first when a wallet is available.
-   * The DEX interface will then handle the actual
-   * swap approval and transaction confirmation.
-   */
+async function openDex(url) {
 
   if (window.ethereum) {
-
-    const account =
-      await connectWallet();
-
-    if (!account) return;
+    await connectWallet();
   }
 
   window.location.href = url;
+
 }
 
 
-/* =========================================================
-   EVENTS
-   ========================================================= */
+/* COPY */
 
-$("walletBtn")?.addEventListener(
-  "click",
-  async () => {
+async function copyContract() {
 
-    const menu =
-      $("walletMenu");
-
-    if (
-      localStorage.getItem("gdtyWallet")
-    ) {
-
-      if (menu) {
-        menu.hidden = !menu.hidden;
-      }
-
-      return;
-    }
-
-    await connectWallet();
-  }
-);
+  const address = GDTY;
 
 
-$("heroWallet")?.addEventListener(
-  "click",
-  connectWallet
-);
+  try {
 
-
-$("disconnectBtn")?.addEventListener(
-  "click",
-  disconnectWallet
-);
-
-
-$("copyContract")?.addEventListener(
-  "click",
-  event =>
-    copyContract(event.currentTarget)
-);
-
-
-$("copyContractBuy")?.addEventListener(
-  "click",
-  event =>
-    copyContract(event.currentTarget)
-);
-
-
-$("ranges")?.addEventListener(
-  "click",
-  event => {
+    await navigator.clipboard.writeText(
+      address
+    );
 
     const button =
-      event.target.closest(
-        "button[data-range]"
-      );
+      $("copyContract");
 
-    if (!button) return;
 
-    document
-      .querySelectorAll(
-        ".ranges button"
-      )
-      .forEach(item =>
-        item.classList.remove("active")
-      );
+    if (button) {
 
-    button.classList.add("active");
+      const original =
+        button.textContent;
 
-    loadChart(
-      button.dataset.range
+      button.textContent =
+        "Copied";
+
+      setTimeout(() => {
+        button.textContent =
+          original;
+      }, 1500);
+
+    }
+
+  } catch {
+
+    alert(
+      `GDTY Contract:\n${address}`
     );
+
   }
-);
+
+}
 
 
-document
-  .querySelectorAll(".dex-buy")
-  .forEach(button => {
+/* EVENTS */
 
-    button.addEventListener(
-      "click",
-      () =>
-        openDex(
-          button.dataset.dex
+const ranges =
+  $("ranges");
+
+
+if (ranges) {
+
+  ranges.addEventListener(
+    "click",
+    event => {
+
+      const button =
+        event.target.closest(
+          "button[data-range]"
+        );
+
+
+      if (!button) return;
+
+
+      document
+        .querySelectorAll(
+          ".ranges button"
         )
-    );
-  });
+        .forEach(item =>
+          item.classList.remove(
+            "active"
+          )
+        );
 
 
-window.addEventListener(
-  "resize",
-  drawChart
-);
+      button.classList.add(
+        "active"
+      );
+
+
+      loadChart(
+        button.dataset.range
+      );
+
+    }
+  );
+
+}
+
+
+if ($("walletBtn")) {
+
+  $("walletBtn").addEventListener(
+    "click",
+    async () => {
+
+      const connected =
+        localStorage.getItem(
+          "gdtyWallet"
+        );
+
+
+      if (!connected) {
+
+        await connectWallet();
+
+        return;
+      }
+
+
+      if ($("walletMenu")) {
+
+        $("walletMenu").hidden =
+          !$("walletMenu").hidden;
+
+      }
+
+    }
+  );
+
+}
+
+
+if ($("heroWallet")) {
+
+  $("heroWallet").addEventListener(
+    "click",
+    connectWallet
+  );
+
+}
+
+
+if ($("disconnectBtn")) {
+
+  $("disconnectBtn").addEventListener(
+    "click",
+    () => {
+
+      localStorage.removeItem(
+        "gdtyWallet"
+      );
+
+
+      if ($("walletMenu")) {
+        $("walletMenu").hidden = true;
+      }
+
+
+      if ($("walletBtn")) {
+
+        $("walletBtn").textContent =
+          "Connect Wallet";
+
+        $("walletBtn").classList.remove(
+          "connected"
+        );
+
+      }
+
+    }
+  );
+
+}
+
+
+if ($("copyContract")) {
+
+  $("copyContract").addEventListener(
+    "click",
+    copyContract
+  );
+
+}
+
+
+if ($("buyUniswap")) {
+
+  $("buyUniswap").addEventListener(
+    "click",
+    () => openDex(UNISWAP_URL)
+  );
+
+}
+
+
+if ($("buyPancake")) {
+
+  $("buyPancake").addEventListener(
+    "click",
+    () => openDex(PANCAKESWAP_URL)
+  );
+
+}
 
 
 if (window.ethereum) {
@@ -763,18 +997,18 @@ if (window.ethereum) {
           accounts[0]
         );
 
-        updateWalletUI(
-          accounts[0]
-        );
-
         refreshWallet(
           accounts[0]
         );
 
       } else {
 
-        disconnectWallet();
+        if ($("disconnectBtn")) {
+          $("disconnectBtn").click();
+        }
+
       }
+
     }
   );
 
@@ -783,18 +1017,24 @@ if (window.ethereum) {
     "chainChanged",
     () => location.reload()
   );
+
 }
 
 
-/* =========================================================
-   START
-   ========================================================= */
+/* START */
 
 loadMarket();
+
 loadChart();
+
 restoreWallet();
 
 setInterval(
   loadMarket,
   15000
+);
+
+window.addEventListener(
+  "resize",
+  draw
 );
