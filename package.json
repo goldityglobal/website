@@ -1,0 +1,10 @@
+{
+  "name": "goldity-global",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@noble/secp256k1": "3.2.0",
+    "@noble/hashes": "2.4.0"
+  }
+}
