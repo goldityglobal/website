@@ -43,7 +43,7 @@ const compact = value => {
 };
 
 
-let currentRange = "1D";
+let currentRange = "4H";
 let candles = [];
 
 
@@ -67,9 +67,14 @@ async function loadMarket() {
     }
 
 
+    const referencePriceText = money(data.referencePrice);
+
     if ($("price")) {
-      $("price").textContent =
-        money(data.referencePrice);
+      $("price").textContent = referencePriceText;
+    }
+
+    if ($("sidePrice")) {
+      $("sidePrice").textContent = referencePriceText;
     }
 
 
@@ -95,18 +100,6 @@ async function loadMarket() {
     }
 
 
-    if ($("uni")) {
-      $("uni").textContent =
-        money(data.markets?.uniswap?.price);
-    }
-
-
-    if ($("pcs")) {
-      $("pcs").textContent =
-        money(data.markets?.pancakeswap?.price);
-    }
-
-
     if ($("network")) {
       $("network").textContent =
         data.network || "BNB Smart Chain";
@@ -116,7 +109,9 @@ async function loadMarket() {
 
     console.error("Market:", error);
 
-    if ($("price")) $("price").textContent = "—";
+    if ($("price")) {
+      $("price").textContent = "—";
+    }
 
     if ($("status")) {
       $("status").textContent =
@@ -1021,6 +1016,605 @@ if (window.ethereum) {
 }
 
 
+/* ACCOUNT / AUTH */
+
+function setAccountState(user) {
+
+  const menu = $("accountMenu");
+  const label = $("accountLabel");
+  const guest = $("accountGuest");
+  const signedIn = $("accountSignedIn");
+  const userName = $("accountUserName");
+  const userEmail = $("accountUserEmail");
+  const mobileLogin = $("mobileLogin");
+
+  const mobileRegister =
+    document.querySelector(
+      '.mobile-account-links a[href="/register.html"]'
+    );
+
+
+  if (user) {
+
+    const name =
+      user.firstName ||
+      user.email ||
+      "Account";
+
+
+    if (menu) {
+      menu.classList.add("signed-in");
+    }
+
+
+    if (label) {
+      label.textContent =
+        `My Account · ${name}`;
+    }
+
+
+    if (guest) {
+      guest.hidden = true;
+    }
+
+
+    if (signedIn) {
+      signedIn.hidden = false;
+    }
+
+
+    if (userName) {
+      userName.textContent =
+        name;
+    }
+
+
+    if (userEmail) {
+      userEmail.textContent =
+        user.email ||
+        "Signed in";
+    }
+
+
+    if (mobileLogin) {
+      mobileLogin.textContent =
+        "Sign Out";
+
+      mobileLogin.classList.add(
+        "account-mobile-signed"
+      );
+    }
+
+
+    if (mobileRegister) {
+      mobileRegister.hidden = true;
+    }
+
+
+  } else {
+
+    if (menu) {
+      menu.classList.remove(
+        "signed-in"
+      );
+    }
+
+
+    if (label) {
+      label.textContent =
+        "Register / Sign In";
+    }
+
+
+    if (guest) {
+      guest.hidden = false;
+    }
+
+
+    if (signedIn) {
+      signedIn.hidden = true;
+    }
+
+
+    if (userName) {
+      userName.textContent =
+        "Account";
+    }
+
+
+    if (userEmail) {
+      userEmail.textContent =
+        "Signed out";
+    }
+
+
+    if (mobileLogin) {
+      mobileLogin.textContent =
+        "Sign In";
+
+      mobileLogin.classList.remove(
+        "account-mobile-signed"
+      );
+    }
+
+
+    if (mobileRegister) {
+      mobileRegister.hidden = false;
+    }
+
+  }
+
+}
+
+
+function closeLoginModal() {
+
+  const modal =
+    $("loginModal");
+
+
+  if (!modal) return;
+
+
+  modal.hidden = true;
+
+  modal.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+}
+
+
+function openLoginModal() {
+
+  const modal =
+    $("loginModal");
+
+
+  if (!modal) return;
+
+
+  const menu =
+    $("accountMenu");
+
+
+  if (menu) {
+    menu.open = false;
+  }
+
+
+  modal.hidden = false;
+
+  modal.setAttribute(
+    "aria-hidden",
+    "false"
+  );
+
+
+  const state =
+    $("loginState");
+
+
+  if (state) {
+
+    state.textContent = "";
+
+    state.className =
+      "status-text";
+
+  }
+
+
+  setTimeout(() => {
+
+    $("loginEmail")?.focus();
+
+  }, 0);
+
+}
+
+
+async function loadAccountSession() {
+
+  try {
+
+    const response =
+      await fetch(
+        `${API_BASE}/api/me`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store"
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.ok &&
+      data.ok &&
+      data.user
+    ) {
+
+      setAccountState(
+        data.user
+      );
+
+      return data.user;
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Account session:",
+      error
+    );
+
+  }
+
+
+  setAccountState(null);
+
+  return null;
+
+}
+
+
+async function signIn(event) {
+
+  event.preventDefault();
+
+
+  const email =
+    $("loginEmail")?.value.trim() ||
+    "";
+
+  const password =
+    $("loginPassword")?.value ||
+    "";
+
+  const submit =
+    $("loginSubmit");
+
+  const state =
+    $("loginState");
+
+
+  if (!email || !password) {
+
+    if (state) {
+
+      state.className =
+        "status-text error";
+
+      state.textContent =
+        "Please enter your email and password.";
+
+    }
+
+    return;
+
+  }
+
+
+  if (submit) {
+
+    submit.disabled = true;
+
+    submit.textContent =
+      "Signing in…";
+
+  }
+
+
+  if (state) {
+
+    state.className =
+      "status-text";
+
+    state.textContent =
+      "Checking your account…";
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API_BASE}/api/login`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "content-type":
+              "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      !response.ok ||
+      !data.ok
+    ) {
+
+      const messages = {
+
+        invalid_credentials:
+          "Email or password is incorrect.",
+
+        email_not_verified:
+          "Please verify your email before signing in.",
+
+        rate_limited:
+          "Too many attempts. Please try again shortly.",
+
+        registration_not_configured:
+          "Account service is temporarily unavailable."
+
+      };
+
+
+      throw new Error(
+        messages[data.error] ||
+        data.message ||
+        "Sign in failed. Please try again."
+      );
+
+    }
+
+
+    setAccountState(
+      data.user || null
+    );
+
+
+    closeLoginModal();
+
+
+    if (data.user) {
+      window.location.href =
+        "/dashboard.html";
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      "Sign in:",
+      error
+    );
+
+
+    if (state) {
+
+      state.className =
+        "status-text error";
+
+      state.textContent =
+        error.message ||
+        "Sign in failed.";
+
+    }
+
+  } finally {
+
+    if (submit) {
+
+      submit.disabled = false;
+
+      submit.textContent =
+        "Sign In";
+
+    }
+
+  }
+
+}
+
+
+async function signOut() {
+
+  try {
+
+    await fetch(
+      `${API_BASE}/api/logout`,
+      {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type":
+            "application/json"
+        }
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Sign out:",
+      error
+    );
+
+  }
+
+
+  setAccountState(null);
+
+
+  const menu =
+    $("accountMenu");
+
+
+  if (menu) {
+    menu.open = false;
+  }
+
+}
+
+
+const openLogin =
+  $("openLogin");
+
+
+if (openLogin) {
+
+  openLogin.addEventListener(
+    "click",
+    openLoginModal
+  );
+
+}
+
+
+const mobileLogin =
+  $("mobileLogin");
+
+
+if (mobileLogin) {
+
+  mobileLogin.addEventListener(
+    "click",
+    async () => {
+
+      const signedIn =
+        $("accountMenu")
+          ?.classList
+          .contains(
+            "signed-in"
+          );
+
+
+      const mobileNav =
+        document.querySelector(
+          ".mobile-nav"
+        );
+
+
+      if (mobileNav) {
+        mobileNav.open = false;
+      }
+
+
+      if (signedIn) {
+
+        await signOut();
+
+      } else {
+
+        openLoginModal();
+
+      }
+
+    }
+  );
+
+}
+
+
+const accountLogout =
+  $("accountLogout");
+
+
+if (accountLogout) {
+
+  accountLogout.addEventListener(
+    "click",
+    signOut
+  );
+
+}
+
+
+const closeLogin =
+  $("closeLogin");
+
+
+if (closeLogin) {
+
+  closeLogin.addEventListener(
+    "click",
+    closeLoginModal
+  );
+
+}
+
+
+const loginModal =
+  $("loginModal");
+
+
+if (loginModal) {
+
+  loginModal.addEventListener(
+    "click",
+    event => {
+
+      if (
+        event.target.matches(
+          "[data-close-login=\"true\"]"
+        )
+      ) {
+
+        closeLoginModal();
+
+      }
+
+    }
+  );
+
+}
+
+
+const loginForm =
+  $("loginForm");
+
+
+if (loginForm) {
+
+  loginForm.addEventListener(
+    "submit",
+    signIn
+  );
+
+}
+
+
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key === "Escape" &&
+      !$("loginModal")?.hidden
+    ) {
+
+      closeLoginModal();
+
+    }
+
+  }
+);
+
+
 /* START */
 
 loadMarket();
@@ -1029,10 +1623,14 @@ loadChart();
 
 restoreWallet();
 
+loadAccountSession();
+
+
 setInterval(
   loadMarket,
   15000
 );
+
 
 window.addEventListener(
   "resize",
