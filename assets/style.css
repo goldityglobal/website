@@ -11,6 +11,8 @@
   --panel-3:#15130f;
   --gold:#d9b45b;
   --brand-gold:#bf7a12;
+  --brand-gold-light:#e7b84f;
+  --brand-gold-dark:#8b560b;
   --gold-light:#f4dc91;
   --gold-bright:#ffe9a8;
   --gold-deep:#9f6c1d;
@@ -123,8 +125,8 @@ img{max-width:100%}
   box-shadow:0 0 18px rgba(217,180,91,.11);
 }
 .brand-copy{display:flex;align-items:baseline;gap:7px;white-space:nowrap}
-.brand-copy strong{font-size:15px;letter-spacing:.055em;color:var(--brand-gold);text-shadow:0 0 12px rgba(191,122,18,.16)}
-.brand-copy b{font-size:10px;letter-spacing:.14em;color:var(--brand-gold)}
+.brand-copy strong{font-size:15px;letter-spacing:.055em;background:var(--brand-gold-gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 12px rgba(191,122,18,.14)}
+.brand-copy b{font-size:10px;letter-spacing:.14em;background:var(--brand-gold-gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .main-nav{
   min-width:0;
   flex:1;
@@ -215,8 +217,8 @@ img{max-width:100%}
   z-index:1;
   pointer-events:none;
   background:
-    linear-gradient(90deg,rgba(10,8,4,.86) 0%,rgba(5,5,4,.72) 28%,rgba(3,3,3,.32) 50%,rgba(3,3,3,.07) 78%),
-    radial-gradient(circle at 16% 38%,rgba(217,180,91,.11),transparent 33%),
+    linear-gradient(90deg,rgba(10,8,4,.68) 0%,rgba(5,5,4,.57) 28%,rgba(3,3,3,.27) 50%,rgba(3,3,3,.06) 78%),
+    radial-gradient(circle at 16% 38%,rgba(217,180,91,.16),transparent 36%),
     linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.08) 55%,rgba(0,0,0,.6));
 }
 .hero-inner{position:relative;z-index:2;width:min(var(--content),calc(100% - 48px));min-height:650px;margin:0 auto;display:flex;align-items:center}
@@ -229,7 +231,7 @@ img{max-width:100%}
   line-height:.86;
   letter-spacing:-.035em;
   font-weight:700;
-  background:linear-gradient(180deg,#fff8d1 0%,#f8df86 18%,#d4a13a 43%,#98651c 58%,#f1d273 76%,#fff0a7 87%,#bd8226 100%);
+  background:var(--brand-gold-gradient);
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
@@ -435,7 +437,7 @@ img{max-width:100%}
    ========================================================= */
 @media(max-width:760px){
   .site-header,header{min-height:64px}.header-inner{width:calc(100% - 28px);min-height:64px;gap:9px}.brand-logo{width:34px;height:34px}.brand-copy strong{font-size:13px}.brand-copy b{font-size:9px}.main-nav{display:none}.mobile-nav{display:block}.header-actions{margin-left:auto}.wallet{min-height:40px;padding:8px 11px;font-size:10px}.wallet-icon{display:none}.wallet-menu{top:58px;right:0;width:min(280px,calc(100vw - 28px))}
-  .hero{position:relative;min-height:0;display:flex;flex-direction:column;background:#040404}.hero-art{position:relative;inset:auto;height:410px;order:0}.hero-art img{object-position:60% center}.hero-backdrop{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02) 35%,rgba(3,3,3,.7) 80%,#040404 100%)}.hero-inner{width:100%;min-height:0;display:block;order:1}.hero-copy{width:100%;padding:25px 20px 35px}.hero h1{font-size:clamp(52px,17vw,78px)}.hero-tagline{font-size:18px;margin-top:18px}.hero-lead{font-size:13px;line-height:1.7}.hero-actions{margin-top:22px;display:grid;grid-template-columns:1fr 1fr}.hero-actions .cta:last-child{grid-column:1/-1}.hero-trust-row{margin-top:28px}.hero-trust-row div{min-width:0;flex:1;padding-right:10px;margin-right:10px}.hero-trust-row strong{font-size:13px}.hero-trust-row span{font-size:8px}
+  .hero{position:relative;min-height:0;display:flex;flex-direction:column;background:#040404}.hero-art{position:relative;inset:auto;height:410px;order:0}.hero-art img{object-position:70% center}.hero-backdrop{position:absolute;inset:0;background:radial-gradient(circle at 16% 42%,rgba(217,180,91,.09),transparent 38%),linear-gradient(180deg,rgba(0,0,0,.01) 35%,rgba(3,3,3,.64) 80%,#040404 100%)}.hero-inner{width:100%;min-height:0;display:block;order:1}.hero-copy{width:100%;padding:25px 20px 35px}.hero h1{font-size:clamp(52px,17vw,78px)}.hero-tagline{font-size:18px;margin-top:18px}.hero-lead{font-size:13px;line-height:1.7}.hero-actions{margin-top:22px;display:grid;grid-template-columns:1fr 1fr}.hero-actions .cta:last-child{grid-column:1/-1}.hero-trust-row{margin-top:28px}.hero-trust-row div{min-width:0;flex:1;padding-right:10px;margin-right:10px}.hero-trust-row strong{font-size:13px}.hero-trust-row span{font-size:8px}
   .contract-strip{padding:0 0 8px}.contract-card{width:calc(100% - 28px);grid-template-columns:48px minmax(0,1fr);gap:13px;padding:16px}.contract-logo{width:48px;height:48px}.contract-heading{display:block}.contract-badge{display:inline-block;margin-top:7px}.contract-main code{font-size:13px;line-height:1.55}.contract-meta{gap:5px}.contract-meta span{font-size:8px;padding:4px 7px}.contract-actions{grid-column:1/-1}.contract-actions .cta{flex:1}.contract-explorer{width:42px;height:42px}
   .section-shell{width:calc(100% - 28px)}.market,.token,.buy,.security,.why{padding:58px 0}.section-heading{display:block}.section-heading h2,.market h2,.token h2,.buy h2,.security h2,.why h2{font-size:28px}.market-status-wrap{margin-top:14px;text-align:left}.market-grid,.token-grid,.security-grid,.buy-grid{grid-template-columns:1fr;gap:11px}.market-card{min-height:125px}.dex-prices{grid-template-columns:1fr}.chart-box{min-height:335px}.chart-header{display:block}.ranges{justify-content:flex-start;margin-top:8px}#chart{height:265px}
   .why-grid{grid-template-columns:1fr 1fr}.why-grid article{padding:24px 13px;border-bottom:1px solid var(--line)}.why-grid article:nth-child(2){border-right:0}.why-grid article:nth-child(3),.why-grid article:nth-child(4){border-bottom:0}.why-grid h3{font-size:15px}.why-grid p{font-size:10px}
@@ -450,3 +452,125 @@ img{max-width:100%}
 }
 
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* =========================================================
+   MARKET V3 — LARGE REFERENCE PRICE + JALLO-INSPIRED ANALYTICS RHYTHM
+   ========================================================= */
+.market-grid-v3{grid-template-columns:minmax(0,2fr) minmax(170px,.8fr) minmax(170px,.8fr)}
+.average-price-card{min-height:175px;padding:24px 25px;border-color:#55421f;background:radial-gradient(circle at 88% 0,rgba(217,180,91,.16),transparent 38%),linear-gradient(145deg,#15120b,#090908 72%)}
+.average-price-card strong{font-size:clamp(38px,4.4vw,58px);letter-spacing:-.045em;margin-top:15px;font-variant-numeric:tabular-nums}
+.average-price-card .card-caption{max-width:620px;line-height:1.5;text-transform:none;letter-spacing:.02em;font-size:10px}
+.average-method{display:inline-flex;margin-top:13px;padding:5px 8px;border:1px solid rgba(217,180,91,.24);border-radius:999px;color:#d8c28d;font-size:8px;font-weight:800;letter-spacing:.12em}
+.chart-header>div:first-child{display:flex;flex-direction:column;gap:4px}
+.chart-header>div:first-child small{color:var(--muted-2);font-size:9px}
+.ranges button{min-width:48px;padding:7px 10px}
+
+@media(max-width:1050px){.market-grid-v3{grid-template-columns:1fr 1fr}.average-price-card{grid-column:span 2}}
+@media(max-width:760px){.market-grid-v3{grid-template-columns:1fr}.average-price-card{grid-column:auto;min-height:155px}.average-price-card strong{font-size:42px}.chart-header{gap:12px}.chart-header>div:first-child{gap:3px}.ranges{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%}.ranges button{min-width:0;padding:8px 6px}}
+
+
+/* =========================================================
+   XALGO-INSPIRED MARKET COCKPIT — GOLDITY ADAPTATION
+   Visual direction: glassy dark panels, compact top-level metrics,
+   strong chart hierarchy, warm GOLDITY gold, restrained glow.
+   This is an original GOLDITY implementation, not a copy of the reference.
+   ========================================================= */
+.market-dashboard{display:grid;grid-template-columns:minmax(0,1fr) 255px;gap:14px;align-items:stretch}
+.market-main-panel{position:relative;min-width:0;padding:20px;border:1px solid rgba(217,180,91,.18);border-radius:18px;background:linear-gradient(145deg,rgba(23,24,25,.96),rgba(8,9,10,.98));box-shadow:0 22px 60px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.035);overflow:hidden}
+.market-main-panel::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 76% 0,rgba(191,122,18,.12),transparent 32%),linear-gradient(120deg,rgba(255,255,255,.025),transparent 34%)}
+.market-panel-head,.market-panel-foot{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+.market-panel-head>div:first-child{min-width:0}
+.panel-kicker{display:flex;align-items:center;gap:7px;color:#a79e91;font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.market-panel-head>div:first-child>strong{display:block;margin-top:9px;color:#f1eadc;font-size:clamp(38px,4.7vw,58px);line-height:1;font-weight:650;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.market-panel-head p{max-width:620px;margin:9px 0 0;color:#817b72;font-size:10px;line-height:1.55}
+.market-panel-head .ranges{flex:0 0 auto;padding:3px;border:1px solid rgba(255,255,255,.06);border-radius:10px;background:rgba(0,0,0,.22)}
+.market-panel-head .ranges button{min-width:45px;border:0;border-radius:7px;color:#8f8b84;background:transparent}
+.market-panel-head .ranges button:hover{color:#ece5d7;background:rgba(255,255,255,.045)}
+.market-panel-head .ranges button.active{color:#17120a;background:linear-gradient(180deg,#e2bd65,#b97813);box-shadow:0 5px 18px rgba(191,122,18,.2)}
+.market-chart-wrap{position:relative;height:365px;margin-top:15px;border:1px solid rgba(255,255,255,.055);border-radius:13px;background:linear-gradient(180deg,rgba(9,11,12,.75),rgba(5,6,7,.94));overflow:hidden}
+.market-chart-wrap::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px);background-size:20% 25%;opacity:.6}
+.market-chart-wrap canvas{position:relative;z-index:1;width:100%;height:100%;display:block}
+.market-chart-wrap #chartState{position:absolute;left:50%;top:50%;z-index:2;transform:translate(-50%,-50%);padding:7px 10px;border:1px solid rgba(217,180,91,.14);border-radius:8px;color:#777268;background:rgba(6,7,8,.72);font-size:9px;white-space:nowrap}
+.market-panel-foot{align-items:center;margin-top:10px;color:#625e57;font-size:8px;font-weight:800;letter-spacing:.13em}
+.market-panel-foot span:last-child{color:#9b824c}
+.market-side-rail{display:grid;grid-template-rows:repeat(4,1fr);gap:12px}
+.market-side-card{min-width:0;padding:18px;border:1px solid rgba(255,255,255,.065);border-radius:16px;background:linear-gradient(145deg,#15171a,#0b0c0e);box-shadow:0 16px 38px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.025)}
+.market-side-card:hover{border-color:rgba(217,180,91,.2);transform:translateY(-1px)}
+.side-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.side-card-head small{color:#8c877f;font-size:8px;font-weight:800;letter-spacing:.12em}
+.side-card-head span{color:#786f62;font-size:8px;font-weight:800;letter-spacing:.08em}
+.market-side-card strong{display:block;margin-top:13px;color:#eee7da;font-size:22px;line-height:1.1;font-weight:650;font-variant-numeric:tabular-nums;word-break:break-word}
+.market-side-card p{margin:7px 0 0;color:#706b64;font-size:9px;line-height:1.45}
+.market-side-price{border-color:rgba(217,180,91,.2);background:radial-gradient(circle at 100% 0,rgba(191,122,18,.13),transparent 48%),linear-gradient(145deg,#18150e,#0c0d0f)}
+.market-side-price .side-card-head span{color:#c49b4a}
+.market-side-price strong{color:#f0d08a;font-size:27px}
+.market-side-card:last-child strong{color:#d9b45b}
+
+@media(max-width:1050px){.market-dashboard{grid-template-columns:1fr}.market-side-rail{grid-template-columns:repeat(4,1fr);grid-template-rows:1fr}.market-chart-wrap{height:345px}}
+@media(max-width:760px){.market-dashboard{display:block}.market-main-panel{padding:15px;border-radius:15px}.market-panel-head{display:block}.market-panel-head>div:first-child>strong{font-size:40px}.market-panel-head p{font-size:9px}.market-panel-head .ranges{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);width:100%}.market-panel-head .ranges button{min-width:0}.market-chart-wrap{height:300px;margin-top:12px}.market-side-rail{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto;gap:10px;margin-top:10px}.market-side-card{padding:15px;border-radius:13px}.market-side-card strong{font-size:19px}.market-side-price strong{font-size:23px}.market-panel-foot{font-size:7px}}
+@media(max-width:420px){.market-main-panel{padding:13px}.market-panel-head>div:first-child>strong{font-size:34px}.market-chart-wrap{height:270px}.market-side-rail{grid-template-columns:1fr}.market-side-card{min-height:108px}}
+
+/* =========================================================
+   ACCOUNT / REFERRAL ACCESS — GOLDITY
+   ========================================================= */
+:root{--brand-gold-gradient:linear-gradient(135deg,#f5d982 0%,#bf7a12 52%,#8b560b 100%)}
+.account-menu{position:relative;flex:0 0 auto}
+.account-menu summary{list-style:none;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:9px 12px;border:1px solid rgba(217,180,91,.22);border-radius:9px;background:rgba(217,180,91,.025);color:#d9c79c;font-size:10px;font-weight:800;letter-spacing:.01em;cursor:pointer;white-space:nowrap;transition:.2s ease}
+.account-menu summary::-webkit-details-marker{display:none}
+.account-menu summary:hover{background:rgba(217,180,91,.08);border-color:rgba(217,180,91,.48);color:#f4dc91}
+.account-status-dot{width:7px;height:7px;border-radius:50%;background:#77736c;box-shadow:0 0 0 3px rgba(119,115,108,.08);flex:0 0 auto}
+.account-menu.signed-in summary{border-color:rgba(156,204,155,.3);color:#dbead9;background:rgba(156,204,155,.035)}
+.account-menu.signed-in .account-status-dot{background:#8fd08b;box-shadow:0 0 0 3px rgba(143,208,139,.1),0 0 12px rgba(143,208,139,.35)}
+.account-dropdown{position:absolute;right:0;top:50px;width:300px;padding:16px;background:rgba(10,10,9,.985);border:1px solid #3b3324;border-radius:13px;box-shadow:var(--shadow);backdrop-filter:blur(18px)}
+.account-dropdown strong{display:block;color:#f0e7d5;font-size:13px}
+.account-dropdown p{margin:7px 0 13px;color:#827b70;font-size:10px;line-height:1.55}
+.account-dropdown-actions{display:flex;gap:8px;align-items:center}
+.account-dropdown-actions .btn{flex:1}
+.account-actions-stack{display:grid}
+.account-actions-stack .btn{width:100%}
+.mobile-account-links{margin:0 0 7px;padding:7px 0 9px;border-bottom:1px solid var(--line)}
+.mobile-account-title{display:block;padding:5px 11px 6px;color:#8e846f;font-size:8px;font-weight:900;letter-spacing:.15em}
+.mobile-account-links a,.mobile-account-links button{width:100%;display:block;padding:9px 11px;border:0;border-radius:6px;background:transparent;color:#d4ccbf;font-size:12px;text-align:left;cursor:pointer}
+.mobile-account-links a:hover,.mobile-account-links button:hover{background:rgba(217,180,91,.07);color:var(--gold-light)}
+.mobile-account-links .account-mobile-signed{color:#b8ddb6}
+.referral-highlight{position:relative}
+.referral-highlight>a{display:inline-block;margin-top:12px;color:var(--gold-light);font-size:10px;font-weight:800}
+.referral-highlight>a:hover{text-decoration:underline;text-underline-offset:3px}
+
+/* =========================================================
+   SIGN-IN MODAL
+   ========================================================= */
+.auth-modal{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:20px}
+.auth-modal[hidden]{display:none}
+.auth-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px)}
+.auth-modal-card{position:relative;z-index:1;width:min(430px,100%);padding:30px;border:1px solid rgba(217,180,91,.24);border-radius:18px;background:linear-gradient(145deg,#15130f,#090a0b 72%);box-shadow:0 30px 100px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.035)}
+.auth-modal-card h2{margin:0;color:#f1eadf;font-family:Georgia,"Times New Roman",serif;font-size:29px;line-height:1.15}
+.auth-modal-lead{margin:10px 0 22px;color:#8d867b;font-size:11px;line-height:1.6}
+.auth-modal-close{position:absolute;right:12px;top:10px;width:34px;height:34px;border:1px solid transparent;border-radius:8px;background:transparent;color:#8e877c;font-size:24px;line-height:1;cursor:pointer}
+.auth-modal-close:hover{border-color:#40382a;color:#f1eadf;background:rgba(255,255,255,.025)}
+.auth-form{display:grid;gap:13px}
+.auth-form label{display:grid;gap:6px;color:#cfc6b8;font-size:11px;font-weight:700}
+.auth-form input{width:100%;padding:12px 13px;border:1px solid #393329;border-radius:9px;background:#070807;color:#f5f0e6;font-size:12px}
+.auth-form input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,180,91,.07)}
+.auth-form .btn{width:100%;margin-top:2px}
+.auth-register-note{margin:17px 0 0;color:#777067;font-size:10px;text-align:center}
+.auth-register-note a{color:var(--gold-light);font-weight:800}
+.auth-register-note a:hover{text-decoration:underline;text-underline-offset:3px}
+
+@media(max-width:1050px){
+  .header-inner{gap:14px}
+  .main-nav{gap:12px}
+  .main-nav a{font-size:10px}
+  .account-menu summary{padding:9px 10px}
+}
+
+@media(max-width:760px){
+  .account-menu{display:none}
+  .auth-modal{padding:14px}
+  .auth-modal-card{padding:25px 20px}
+}
+
+@media(max-width:420px){
+  .auth-modal-card h2{font-size:25px}
+}
