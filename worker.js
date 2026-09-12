@@ -74,17 +74,66 @@ function cors(e) {
   };
 }
 
-async function rpc(e, method, params=[]) {
-  if (!e.BSC_RPC_URL) throw new Error("rpc_unavailable");
-  const r = await fetch(e.BSC_RPC_URL, {
-    method:"POST",
-    headers:{"content-type":"application/json"},
-    body:JSON.stringify({jsonrpc:"2.0", id:1, method, params})
-  });
-  if (!r.ok) throw new Error("rpc_http_error");
-  const j = await r.json();
-  if (j.error) throw new Error("rpc_error");
-  return j.result;
+async function rpc(e, method, params = []) {
+  const endpoints = [
+    e.BSC_RPC_URL,
+    "https://bsc-dataseed-public.bnbchain.org",
+    "https://bsc-dataseed.nariox.org"
+  ].filter(Boolean);
+
+  let lastError = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const r = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method,
+          params
+        })
+      });
+
+      const text = await r.text();
+
+      if (!r.ok) {
+        throw new Error(`rpc_http_${r.status}`);
+      }
+
+      let j;
+      try {
+        j = JSON.parse(text);
+      } catch {
+        throw new Error("rpc_invalid_json");
+      }
+
+      if (j.error) {
+        throw new Error(
+          `rpc_error_${j.error.code ?? "unknown"}`
+        );
+      }
+
+      if (!("result" in j)) {
+        throw new Error("rpc_missing_result");
+      }
+
+      return j.result;
+    } catch (err) {
+      lastError = err;
+
+      console.error("GOLDITY RPC endpoint failed", {
+        endpoint,
+        method,
+        error: err instanceof Error ? err.message : String(err)
+      });
+    }
+  }
+
+  throw lastError || new Error("rpc_unavailable");
 }
 
 async function call(e,to,data) {
