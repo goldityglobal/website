@@ -1,436 +1,935 @@
 <!doctype html>
+
 <html lang="en">
+
 <head>
+
   <meta charset="utf-8">
+
   <meta name="viewport" content="width=device-width,initial-scale=1">
+
   <title>GOLDITY — Dashboard</title>
+
   <meta name="description" content="Your GOLDITY account, wallet, portfolio, referral rewards and support dashboard.">
+
   <link rel="stylesheet" href="/assets/style.css">
+
 </head>
+
+ 
 
 <body>
 
+ 
+
 <header class="site-header">
+
   <div class="header-inner">
+
     <a class="brand" href="/">GOLDITY</a>
 
+ 
+
     <nav class="main-nav">
+
       <a href="/">Home</a>
+
       <a href="/market.html">Market</a>
+
       <a href="/contract.html">Contract</a>
+
       <a href="/whitepaper.html">Whitepaper</a>
+
     </nav>
 
+ 
+
     <button id="logout" class="btn btn-outline" type="button">
+
       Sign out
+
     </button>
+
   </div>
+
 </header>
+
+ 
 
 <main class="dashboard-page">
 
+ 
+
   <section class="dashboard-hero">
+
     <div>
+
       <span class="eyebrow">GOLDITY ACCOUNT</span>
+
       <h1>Dashboard</h1>
+
       <p>
+
         Manage your wallet, portfolio, referral rewards and support requests.
+
       </p>
+
     </div>
+
+ 
 
     <div id="accountState" class="status-text"></div>
+
   </section>
 
+ 
+
+ 
 
   <!-- ACCOUNT -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Account</h2>
+
     </div>
+
+ 
 
     <div class="dashboard-grid">
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Name</span>
+
         <strong id="name">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Email</span>
+
         <strong id="email">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Country</span>
+
         <strong id="country">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Account Status</span>
+
         <strong id="accountStatus">Active</strong>
+
       </article>
+
+ 
 
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- WALLET -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Wallet</h2>
+
       <button id="connectWallet" class="btn btn-gold" type="button">
+
         Connect Wallet
+
       </button>
+
     </div>
+
+ 
 
     <div class="dashboard-card wallet-card">
 
+ 
+
       <div class="wallet-status">
+
         <span class="card-label">Status</span>
+
         <strong id="walletStatus">Not connected</strong>
+
       </div>
+
+ 
 
       <div class="wallet-address-wrap">
+
         <span class="card-label">Wallet Address</span>
+
         <code id="walletAddress">—</code>
+
       </div>
 
+ 
+
     </div>
+
+ 
 
     <div class="dashboard-grid balance-grid">
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">GDTY Balance</span>
+
         <strong id="gdtyBalance">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">USDT Balance</span>
+
         <strong id="usdtBalance">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">BNB Balance</span>
+
         <strong id="bnbBalance">—</strong>
+
       </article>
+
+ 
 
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- PORTFOLIO -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Portfolio</h2>
+
     </div>
+
+ 
 
     <div class="dashboard-grid portfolio-grid">
 
+ 
+
       <article class="dashboard-card featured-card">
+
         <span class="card-label">Portfolio Value</span>
+
         <strong id="portfolioValue">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">P&amp;L</span>
+
         <strong id="pnl">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Average Buy Price</span>
+
         <strong id="averageBuyPrice">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Total GDTY Purchased</span>
+
         <strong id="totalPurchased">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Total GDTY Sold</span>
+
         <strong id="totalSold">—</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Realized P&amp;L</span>
+
         <strong id="realizedPnl">—</strong>
+
       </article>
+
+ 
 
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- REFERRAL -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Referral Program</h2>
+
       <span class="badge">5%</span>
+
     </div>
+
+ 
 
     <div class="dashboard-grid">
 
+ 
+
       <article class="dashboard-card referral-code-card">
+
         <span class="card-label">Your Referral Code</span>
 
+ 
+
         <div class="copy-row">
+
           <code id="ref">—</code>
+
           <button id="copyReferralCode" class="btn btn-small" type="button">
+
             Copy
+
           </button>
+
         </div>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">People Referred</span>
+
         <strong id="refs">0</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Available Rewards</span>
+
         <strong id="rewardAvailable">0 GDTY</strong>
+
       </article>
 
+ 
+
       <article class="dashboard-card">
+
         <span class="card-label">Total Referral Rewards</span>
+
         <strong id="rewardTotal">0 GDTY</strong>
+
       </article>
+
+ 
 
     </div>
+
+ 
 
     <div class="dashboard-card referral-link-card">
 
+ 
+
       <span class="card-label">Referral Link</span>
+
+ 
 
       <div class="copy-row">
 
+ 
+
         <input
+
           id="referralLink"
+
           type="text"
+
           readonly
+
           value=""
+
           aria-label="Referral link"
+
         >
 
+ 
+
         <button id="copyReferralLink" class="btn btn-small" type="button">
+
           Copy
+
+        </button>
+
+ 
+
+      </div>
+
+ 
+
+      <p class="card-note">
+
+        Earn 5% of verified GDTY purchases made by users registered through your referral code.
+
+      </p>
+
+ 
+
+    </div>
+
+ 
+
+    <div class="dashboard-card referral-withdraw-card">
+
+ 
+
+      <div class="section-heading">
+
+        <div>
+
+          <span class="card-label">Referral Rewards</span>
+
+          <strong id="withdrawAvailable">0 GDTY</strong>
+
+        </div>
+
+ 
+
+        <button
+
+          id="withdrawRewards"
+
+          class="btn btn-gold"
+
+          type="button"
+
+          disabled
+
+        >
+
+          Withdraw Rewards
+
         </button>
 
       </div>
 
-      <p class="card-note">
-        Earn 5% of verified GDTY purchases made by users registered through your referral code.
-      </p>
+ 
+
+      <div id="withdrawState" class="status-text" role="status" aria-live="polite"></div>
+
+ 
+
+      <div id="withdrawTx" class="card-note hidden"></div>
+
+ 
+
+      <button
+
+        id="refreshWithdrawStatus"
+
+        class="btn btn-outline btn-small"
+
+        type="button"
+
+      >
+
+        Check Withdrawal Status
+
+      </button>
+
+ 
 
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- PURCHASE HISTORY -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Purchase &amp; Trade History</h2>
+
     </div>
+
+ 
 
     <div class="table-wrap">
 
+ 
+
       <table class="dashboard-table">
 
+ 
+
         <thead>
+
           <tr>
+
             <th>Date</th>
+
             <th>DEX</th>
+
             <th>Side</th>
+
             <th>GDTY</th>
+
             <th>USDT</th>
+
             <th>Status</th>
+
             <th>TX</th>
+
           </tr>
+
         </thead>
 
+ 
+
         <tbody id="tradeHistory">
+
           <tr>
+
             <td colspan="7">Loading…</td>
+
           </tr>
+
         </tbody>
+
+ 
 
       </table>
 
+ 
+
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- NOTIFICATIONS -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Notifications</h2>
+
     </div>
 
+ 
+
     <div id="notifications" class="notification-list">
+
       <div class="dashboard-card">
+
         No notifications.
+
       </div>
+
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- SUPPORT -->
+
   <section class="dashboard-section">
 
+ 
+
     <div class="section-heading">
+
       <h2>Support</h2>
 
+ 
+
       <button
+
         id="newTicket"
+
         class="btn btn-gold"
+
         type="button"
+
       >
+
         New Ticket
+
       </button>
+
     </div>
+
+ 
 
     <div id="supportState" class="status-text"></div>
 
+ 
+
     <div id="ticketList" class="ticket-list">
+
       <div class="dashboard-card">
+
         Loading support tickets…
+
       </div>
+
     </div>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- NEW TICKET -->
+
   <section
+
     id="ticketFormSection"
+
     class="dashboard-section hidden"
+
   >
 
+ 
+
     <div class="section-heading">
+
       <h2>Contact Support</h2>
+
     </div>
+
+ 
 
     <form id="ticketForm" class="dashboard-form">
 
+ 
+
       <label>
+
         Category
 
+ 
+
         <select id="ticketCategory" required>
+
           <option value="">Select category</option>
+
           <option value="Account">Account</option>
+
           <option value="Wallet">Wallet</option>
+
           <option value="Referral">Referral</option>
+
           <option value="Purchase">Purchase</option>
+
           <option value="Technical">Technical</option>
+
           <option value="Security">Security</option>
+
           <option value="Other">Other</option>
+
         </select>
+
       </label>
 
+ 
+
       <label>
+
         Subject
 
+ 
+
         <input
+
           id="ticketSubject"
+
           type="text"
+
           maxlength="160"
+
           required
+
         >
+
       </label>
+
+ 
 
       <label>
+
         Message
 
+ 
+
         <textarea
+
           id="ticketMessage"
+
           maxlength="4000"
+
           rows="7"
+
           required
+
         ></textarea>
+
       </label>
+
+ 
 
       <div class="form-actions">
 
-        <button
-          type="submit"
-          class="btn btn-gold"
-        >
-          Submit Ticket
-        </button>
+ 
 
         <button
-          id="cancelTicket"
-          type="button"
-          class="btn btn-outline"
+
+          type="submit"
+
+          class="btn btn-gold"
+
         >
-          Cancel
+
+          Submit Ticket
+
         </button>
+
+ 
+
+        <button
+
+          id="cancelTicket"
+
+          type="button"
+
+          class="btn btn-outline"
+
+        >
+
+          Cancel
+
+        </button>
+
+ 
 
       </div>
 
+ 
+
     </form>
+
+ 
 
   </section>
 
+ 
+
+ 
 
   <!-- SECURITY NOTICE -->
+
   <section class="dashboard-section">
+
+ 
 
     <div class="dashboard-card security-note">
 
+ 
+
       <h3>Security</h3>
 
-      <p>
-        GOLDITY support will never ask for your seed phrase,
-        private key or wallet password.
-      </p>
+ 
 
       <p>
-        Only sign wallet verification messages that clearly state
-        their purpose. Wallet verification does not authorize
-        a blockchain transaction.
+
+        GOLDITY support will never ask for your seed phrase,
+
+        private key or wallet password.
+
       </p>
+
+ 
+
+      <p>
+
+        Only sign wallet verification messages that clearly state
+
+        their purpose. Wallet verification does not authorize
+
+        a blockchain transaction.
+
+      </p>
+
+ 
 
     </div>
+
+ 
 
   </section>
 
+ 
+
 </main>
 
+ 
+
+ 
 
 <footer class="site-footer">
 
+ 
+
   <div class="footer-inner">
 
+ 
+
     <div>
+
       <strong>GOLDITY</strong>
+
       <p>Digital asset ecosystem on BNB Smart Chain.</p>
+
     </div>
 
+ 
+
     <div class="footer-links">
+
       <a href="/privacy.html">Privacy</a>
+
       <a href="/terms.html">Terms</a>
+
       <a href="/whitepaper.html">Whitepaper</a>
+
       <a href="mailto:info@goldityglobal.com">Contact</a>
+
     </div>
+
+ 
 
   </div>
 
+ 
+
 </footer>
 
+ 
+
+ 
 
 <script src="/assets/dashboard.js"></script>
 
+ 
+
 </body>
+
 </html>
