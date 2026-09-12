@@ -7,6 +7,7 @@ const A = {
   UNI: "0x779fcD915CD293266676B81f9503EBE8CE751a6".toLowerCase(),
   PF: "0xca143ce32fe78f1f7019d7d551a6402fc5350c73".toLowerCase()
 };
+const REFERRAL_PAYOUT_WALLET = "0x4908aB7FCceb4D762B71C765c17dEa4456cbF22d".toLowerCase();
 const Z = "0x0000000000000000000000000000000000000000";
 const S = {
   t0: "0x0dfe1681",
@@ -436,7 +437,7 @@ async function verifyEmail(e,req) {
 }
 
 function bytes(hexString) {
-  const h=hexString.replace(/^0x/,"");
+  const h=hexString.replace(/^0x/i,"");
   const a=new Uint8Array(h.length/2);
 
   for(let i=0;i<a.length;i++)
@@ -483,6 +484,948 @@ function recoveredAddress(signatureHex,message) {
     [...h.slice(-20)]
       .map(x=>x.toString(16).padStart(2,"0"))
       .join("");
+}
+
+function bytesToHex(a) {
+  return "0x"+[...new Uint8Array(a)]
+    .map(x=>x.toString(16).padStart(2,"0"))
+    .join("");
+}
+
+function concatBytes(...parts) {
+  const total=parts.reduce((n,p)=>n+p.length,0);
+  const out=new Uint8Array(total);
+  let offset=0;
+  for(const part of parts){
+    out.set(part,offset);
+    offset+=part.length;
+  }
+  return out;
+}
+
+function bigIntBytes(v) {
+  const n=BigInt(v);
+  if(n<0n)throw new Error("negative_integer");
+  if(n===0n)return new Uint8Array();
+  let h=n.toString(16);
+  if(h.length%2)h="0"+h;
+  return bytes("0x"+h);
+}
+
+function rlpLengthPrefix(length,offset) {
+  if(length<=55)
+    return new Uint8Array([offset+length]);
+
+  const lenBytes=bigIntBytes(BigInt(length));
+  return concatBytes(
+    new Uint8Array([offset+55+lenBytes.length]),
+    lenBytes
+  );
+}
+
+function rlpEncode(value) {
+  if(value instanceof Uint8Array){
+    if(value.length===1&&value[0]<0x80)
+      return value;
+
+    return concatBytes(
+      rlpLengthPrefix(value.length,0x80),
+      value
+    );
+  }
+
+  if(Array.isArray(value)){
+    const payload=concatBytes(...value.map(rlpEncode));
+    return concatBytes(
+      rlpLengthPrefix(payload.length,0xc0),
+      payload
+    );
+  }
+
+  throw new Error("invalid_rlp_value");
+}
+
+function referralTransferData(recipient,amountWei) {
+  if(!walletRe.test(recipient))
+    throw new Error("invalid_wallet");
+
+  const amount=BigInt(amountWei);
+  if(amount<=0n)
+    throw new Error("invalid_payout_amount");
+
+  return "0xa9059cbb"+
+    pad(recipient)+
+    amount.toString(16).padStart(64,"0");
+}
+
+function getReferralPayoutPrivateKey(e) {
+  const raw=String(e.REFERRAL_PAYOUT_PRIVATE_KEY||"")
+    .trim()
+    .replace(/^0x/i,"");
+
+  if(!/^[0-9a-fA-F]{64}$/.test(raw))
+    throw new Error("payout_key_not_configured");
+
+  const priv=bytes("0x"+raw);
+  const pub=secp.getPublicKey(priv,false);
+  const derived="0x"+[...keccak_256(pub.slice(1)).slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("").toLowerCase();
+
+  if(derived!==REFERRAL_PAYOUT_WALLET)
+    throw new Error("payout_key_wallet_mismatch");
+
+  return priv;
+}
+
+async function buildReferralPayoutTx(payout,privateKey) {
+  const nonce=BigInt(payout.nonce);
+  const gasPrice=BigInt(payout.gas_price_wei);
+  const gasLimit=BigInt(payout.gas_limit);
+  const amount=BigInt(payout.amount_wei);
+  const data=bytes(referralTransferData(payout.wallet_address,amount));
+
+  const signing=rlpEncode([
+    bigIntBytes(nonce),
+    bigIntBytes(gasPrice),
+    bigIntBytes(gasLimit),
+    bytes(A.G),
+    bigIntBytes(0n),
+    data,
+    bigIntBytes(56n),
+    new Uint8Array(),
+    new Uint8Array()
+  ]);
+
+  const digest=keccak_256(signing);
+  const sigBytes=await secp.signAsync(
+    digest,
+    privateKey,
+    {prehash:false,format:"recovered"}
+  );
+
+  const recovery=Number(sigBytes[0]);
+  if(recovery!==0&&recovery!==1)
+    throw new Error("invalid_signature_recovery");
+
+  const sigR=BigInt("0x"+Array.from(sigBytes.slice(1,33))
+    .map(x=>x.toString(16).padStart(2,"0")).join(""));
+  const sigS=BigInt("0x"+Array.from(sigBytes.slice(33,65))
+    .map(x=>x.toString(16).padStart(2,"0")).join(""));
+
+  const v=35n+(56n*2n)+BigInt(recovery);
+
+  const raw=bytesToHex(
+    rlpEncode([
+      bigIntBytes(nonce),
+      bigIntBytes(gasPrice),
+      bigIntBytes(gasLimit),
+      bytes(A.G),
+      bigIntBytes(0n),
+      data,
+      bigIntBytes(v),
+      bigIntBytes(sigR),
+      bigIntBytes(sigS)
+    ])
+  );
+
+  return {
+    raw,
+    hash:bytesToHex(keccak_256(bytes(raw))),
+    nonce,
+    gasPrice,
+    gasLimit
+  };
+}
+
+async function referralGasPlan(e,wallet,amountWei) {
+  const data=referralTransferData(wallet,amountWei);
+
+  const gasPrice=BigInt(await rpc(e,"eth_gasPrice"));
+  let gasEstimate;
+
+  try{
+    gasEstimate=BigInt(
+      await rpc(e,"eth_estimateGas",[{
+        from:REFERRAL_PAYOUT_WALLET,
+        to:A.G,
+        value:"0x0",
+        data
+      },"latest"])
+    );
+  }catch{
+    gasEstimate=65000n;
+  }
+
+  const gasLimit=
+    gasEstimate>0n
+      ?(gasEstimate*120n+99n)/100n
+      :65000n;
+
+  return {
+    gasPrice,
+    gasLimit
+  };
+}
+
+async function nextReferralPayoutNonce(e) {
+  const [chainHex,maxRow]=await Promise.all([
+    rpc(e,"eth_getTransactionCount",[REFERRAL_PAYOUT_WALLET,"pending"]),
+    e.DB.prepare(
+      "SELECT MAX(nonce) AS max_nonce FROM referral_payouts WHERE nonce IS NOT NULL"
+    ).first()
+  ]);
+
+  const chainNonce=BigInt(chainHex);
+  const maxDbNonce=
+    maxRow?.max_nonce===null||
+    maxRow?.max_nonce===undefined
+      ?-1n
+      :BigInt(maxRow.max_nonce);
+
+  return chainNonce>maxDbNonce
+    ?chainNonce
+    :maxDbNonce+1n;
+}
+
+async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
+  for(let attempt=0;attempt<6;attempt++){
+    const nonce=await nextReferralPayoutNonce(e);
+    const payoutId=id();
+    const now=nowIso();
+
+    try{
+      const results=await e.DB.batch([
+        e.DB.prepare(`
+          INSERT INTO referral_payouts(
+            id,user_id,wallet_address,amount_wei,status,tx_hash,
+            created_at,broadcast_at,paid_at,error_message,
+            nonce,gas_price_wei,gas_limit
+          )
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).bind(
+          payoutId,
+          u.id,
+          wallet,
+          amountWei.toString(),
+          "processing",
+          null,
+          now,
+          null,
+          null,
+          null,
+          nonce.toString(),
+          gasPrice.toString(),
+          gasLimit.toString()
+        ),
+        e.DB.prepare(`
+          UPDATE referral_rewards
+          SET status='processing',payout_id=?
+          WHERE referrer_user_id=?
+            AND status='available'
+            AND payout_id IS NULL
+        `).bind(payoutId,u.id)
+      ]);
+
+      const changes=Number(results?.[1]?.meta?.changes||0);
+      if(changes>0){
+        const payout=await e.DB.prepare(
+          "SELECT * FROM referral_payouts WHERE id=?"
+        ).bind(payoutId).first();
+
+        if(!payout)
+          throw new Error("payout_reservation_missing");
+
+        return payout;
+      }
+
+      await e.DB.prepare(`
+        UPDATE referral_payouts
+        SET status='failed',
+            error_message='No available referral rewards remained during reservation.'
+        WHERE id=? AND status='processing'
+      `).bind(payoutId).run();
+
+      throw new Error("no_rewards_available");
+    }catch(err){
+      const active=await e.DB.prepare(`
+        SELECT *
+        FROM referral_payouts
+        WHERE user_id=?
+          AND status IN ('processing','broadcast')
+        ORDER BY created_at DESC
+        LIMIT 1
+      `).bind(u.id).first();
+
+      if(active)
+        return {existing:true,payout:active};
+
+      const message=err instanceof Error?err.message:String(err);
+
+      if(
+        message.includes("UNIQUE")||
+        message.includes("unique constraint")||
+        message.includes("idx_referral_payouts_nonce")||
+        message.includes("idx_referral_payouts_active_user")
+      )
+        continue;
+
+      throw err;
+    }
+  }
+
+  throw new Error("payout_nonce_reservation_failed");
+}
+
+async function failReferralPayoutBeforeBroadcast(e,payout,errorMessage) {
+  await e.DB.batch([
+    e.DB.prepare(`
+      UPDATE referral_rewards
+      SET status='available',
+          payout_id=NULL,
+          paid_at=NULL,
+          payout_tx_hash=NULL
+      WHERE payout_id=? AND status='processing'
+    `).bind(payout.id),
+
+    e.DB.prepare(`
+      UPDATE referral_payouts
+      SET status='failed',
+          nonce=NULL,
+          gas_price_wei=NULL,
+          gas_limit=NULL,
+          tx_hash=NULL,
+          error_message=?
+      WHERE id=? AND status='processing'
+    `).bind(
+      clean(errorMessage,500),
+      payout.id
+    )
+  ]);
+}
+
+async function finalizeReferralPayout(e,payout,receipt) {
+  const now=nowIso();
+  const success=String(receipt?.status||"").toLowerCase()==="0x1";
+
+  if(success){
+    await e.DB.batch([
+      e.DB.prepare(`
+        UPDATE referral_rewards
+        SET status='paid',
+            paid_at=?,
+            payout_tx_hash=?
+        WHERE payout_id=? AND status='processing'
+      `).bind(now,payout.tx_hash,payout.id),
+
+      e.DB.prepare(`
+        UPDATE referral_payouts
+        SET status='paid',
+            paid_at=?,
+            error_message=NULL
+        WHERE id=? AND status IN ('processing','broadcast')
+      `).bind(now,payout.id)
+    ]);
+
+    return {
+      ok:true,
+      status:"paid",
+      payoutId:payout.id,
+      amountWei:payout.amount_wei,
+      txHash:payout.tx_hash
+    };
+  }
+
+  await e.DB.batch([
+    e.DB.prepare(`
+      UPDATE referral_rewards
+      SET status='available',
+          payout_id=NULL,
+          paid_at=NULL,
+          payout_tx_hash=NULL
+      WHERE payout_id=? AND status='processing'
+    `).bind(payout.id),
+
+    e.DB.prepare(`
+      UPDATE referral_payouts
+      SET status='failed',
+          paid_at=NULL,
+          error_message=?
+      WHERE id=? AND status IN ('processing','broadcast')
+    `).bind(
+      "The BSC payout transaction failed on-chain.",
+      payout.id
+    )
+  ]);
+
+  return {
+    ok:false,
+    status:"failed",
+    payoutId:payout.id,
+    amountWei:payout.amount_wei,
+    txHash:payout.tx_hash,
+    error:"payout_transaction_failed"
+  };
+}
+
+async function processReferralPayout(e,payout,privateKey) {
+  let txHash=String(payout.tx_hash||"").toLowerCase();
+  let receipt=null;
+  let tx=null;
+
+  try{
+    if(txHash){
+      tx=await rpc(
+        e,
+        "eth_getTransactionByHash",
+        [txHash]
+      );
+
+      receipt=await rpc(
+        e,
+        "eth_getTransactionReceipt",
+        [txHash]
+      );
+
+      if(receipt)
+        return await finalizeReferralPayout(e,payout,receipt);
+
+      if(tx){
+        if(payout.status!=="broadcast"){
+          await e.DB.prepare(`
+            UPDATE referral_payouts
+            SET status='broadcast',broadcast_at=COALESCE(broadcast_at,?)
+            WHERE id=? AND status='processing'
+          `).bind(nowIso(),payout.id).run();
+        }
+
+        return {
+          ok:true,
+          status:"broadcast",
+          payoutId:payout.id,
+          amountWei:payout.amount_wei,
+          txHash
+        };
+      }
+    }
+
+    if(
+      payout.nonce===null||
+      payout.nonce===undefined||
+      payout.gas_price_wei===null||
+      payout.gas_price_wei===undefined||
+      payout.gas_limit===null||
+      payout.gas_limit===undefined
+    ){
+      return {
+        ok:false,
+        status:payout.status,
+        payoutId:payout.id,
+        amountWei:payout.amount_wei,
+        txHash:txHash||null,
+        error:"payout_recovery_data_missing"
+      };
+    }
+
+    const built=await buildReferralPayoutTx(payout,privateKey);
+
+    if(txHash&&txHash!==built.hash.toLowerCase())
+      return {
+        ok:false,
+        status:"processing",
+        payoutId:payout.id,
+        amountWei:payout.amount_wei,
+        txHash,
+        error:"payout_transaction_integrity_mismatch"
+      };
+
+    txHash=built.hash.toLowerCase();
+
+    if(!payout.tx_hash){
+      await e.DB.prepare(`
+        UPDATE referral_payouts
+        SET tx_hash=?
+        WHERE id=? AND status='processing' AND tx_hash IS NULL
+      `).bind(txHash,payout.id).run();
+    }
+
+    const [gdty,bnb]=await Promise.all([
+      tokenBalance(e,A.G,REFERRAL_PAYOUT_WALLET),
+      rpc(e,"eth_getBalance",[REFERRAL_PAYOUT_WALLET,"latest"]).then(BigInt)
+    ]);
+
+    const amount=BigInt(payout.amount_wei);
+    const gasCost=built.gasPrice*built.gasLimit;
+
+    if(gdty<amount){
+      await failReferralPayoutBeforeBroadcast(
+        e,
+        payout,
+        "Referral payout wallet has insufficient GDTY balance."
+      );
+
+      return {
+        ok:false,
+        status:"failed",
+        payoutId:payout.id,
+        amountWei:payout.amount_wei,
+        txHash:null,
+        error:"insufficient_payout_gdty"
+      };
+    }
+
+    if(bnb<gasCost){
+      await failReferralPayoutBeforeBroadcast(
+        e,
+        payout,
+        "Referral payout wallet has insufficient BNB for network fees."
+      );
+
+      return {
+        ok:false,
+        status:"failed",
+        payoutId:payout.id,
+        amountWei:payout.amount_wei,
+        txHash:null,
+        error:"insufficient_payout_bnb"
+      };
+    }
+
+    try{
+      const sent=String(
+        await rpc(e,"eth_sendRawTransaction",[built.raw])
+      ).toLowerCase();
+
+      if(sent!==txHash){
+        const seen=await rpc(
+          e,
+          "eth_getTransactionByHash",
+          [txHash]
+        );
+
+        if(!seen)
+          return {
+            ok:false,
+            status:"processing",
+            payoutId:payout.id,
+            amountWei:payout.amount_wei,
+            txHash,
+            error:"payout_hash_mismatch"
+          };
+      }
+    }catch(err){
+      const seen=await rpc(
+        e,
+        "eth_getTransactionByHash",
+        [txHash]
+      ).catch(()=>null);
+
+      if(!seen){
+        return {
+          ok:false,
+          status:"processing",
+          payoutId:payout.id,
+          amountWei:payout.amount_wei,
+          txHash,
+          error:"payout_broadcast_pending_retry"
+        };
+      }
+    }
+
+    await e.DB.prepare(`
+      UPDATE referral_payouts
+      SET status='broadcast',
+          broadcast_at=COALESCE(broadcast_at,?),
+          error_message=NULL
+      WHERE id=? AND status='processing'
+    `).bind(nowIso(),payout.id).run();
+
+    const immediateReceipt=await rpc(
+      e,
+      "eth_getTransactionReceipt",
+      [txHash]
+    );
+
+    if(immediateReceipt)
+      return await finalizeReferralPayout(
+        e,
+        {...payout,tx_hash:txHash},
+        immediateReceipt
+      );
+
+    return {
+      ok:true,
+      status:"broadcast",
+      payoutId:payout.id,
+      amountWei:payout.amount_wei,
+      txHash
+    };
+  }catch(err){
+    console.error(
+      "GOLDITY referral payout processing error",
+      err instanceof Error?err.message:String(err)
+    );
+
+    const current=await e.DB.prepare(
+      "SELECT status FROM referral_payouts WHERE id=?"
+    ).bind(payout.id).first().catch(()=>null);
+
+    const status=String(
+      current?.status||payout.status||"processing"
+    );
+
+    return {
+      ok:status==="broadcast",
+      status,
+      payoutId:payout.id,
+      amountWei:payout.amount_wei,
+      txHash:txHash||null,
+      error:"payout_processing_error"
+    };
+  }
+}
+
+async function referralActiveGasCommitment(e) {
+  const rows=await e.DB.prepare(`
+    SELECT gas_price_wei,gas_limit
+    FROM referral_payouts
+    WHERE status IN ('processing','broadcast')
+      AND gas_price_wei IS NOT NULL
+      AND gas_limit IS NOT NULL
+  `).all();
+
+  let total=0n;
+
+  for(const row of (rows.results||[])){
+    try{
+      const gasPrice=BigInt(row.gas_price_wei);
+      const gasLimit=BigInt(row.gas_limit);
+
+      if(gasPrice>0n&&gasLimit>0n)
+        total+=gasPrice*gasLimit;
+    }catch{
+      // Ignore malformed historical commitment rows; processing will fail safely.
+    }
+  }
+
+  return total;
+}
+
+async function referralWithdraw(e,req) {
+  const u=await currentUser(e,req);
+
+  if(!u)
+    return out(
+      {ok:false,error:"unauthorized"},
+      401,
+      0,
+      cors(e)
+    );
+
+  if(!await requireOrigin(e,req))
+    return out(
+      {ok:false,error:"forbidden"},
+      403,
+      0,
+      cors(e)
+    );
+
+  if(!await rateLimit(
+    e,
+    `referral_withdraw:${u.id}`,
+    3,
+    60000
+  ))
+    return out(
+      {ok:false,error:"rate_limited"},
+      429,
+      0,
+      cors(e)
+    );
+
+  if(!e.DB)
+    return out(
+      {ok:false,error:"database_not_configured"},
+      503,
+      0,
+      cors(e)
+    );
+
+  if(!u.wallet_address||!walletRe.test(u.wallet_address))
+    return out(
+      {ok:false,error:"wallet_not_connected",message:"Please connect and verify your BNB Smart Chain wallet before withdrawing."},
+      400,
+      0,
+      cors(e)
+    );
+
+  const wallet=String(u.wallet_address).toLowerCase();
+
+  const verified=await e.DB.prepare(`
+    SELECT address
+    FROM wallets
+    WHERE user_id=?
+      AND address=?
+      AND chain_id=56
+      AND verified=1
+    LIMIT 1
+  `).bind(u.id,wallet).first();
+
+  if(!verified)
+    return out(
+      {ok:false,error:"wallet_not_verified",message:"Your wallet must be verified before withdrawing referral rewards."},
+      403,
+      0,
+      cors(e)
+    );
+
+  let privateKey;
+  try{
+    privateKey=getReferralPayoutPrivateKey(e);
+  }catch(err){
+    const code=err instanceof Error?err.message:"payout_key_not_configured";
+
+    console.error("GOLDITY referral payout key error",code);
+
+    return out(
+      {ok:false,error:code==="payout_key_wallet_mismatch"?"payout_wallet_mismatch":"payout_not_configured"},
+      503,
+      0,
+      cors(e)
+    );
+  }
+
+  const active=await e.DB.prepare(`
+    SELECT *
+    FROM referral_payouts
+    WHERE user_id=?
+      AND status IN ('processing','broadcast')
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(u.id).first();
+
+  if(active){
+    const result=await processReferralPayout(
+      e,
+      active,
+      privateKey
+    );
+
+    return out(
+      result,
+      result.status==="failed"?502:200,
+      0,
+      cors(e)
+    );
+  }
+
+  const rewardRows=await e.DB.prepare(`
+    SELECT id,reward_amount_wei
+    FROM referral_rewards
+    WHERE referrer_user_id=?
+      AND status='available'
+      AND payout_id IS NULL
+    ORDER BY created_at ASC
+  `).bind(u.id).all();
+
+  const rewards=rewardRows.results||[];
+  let amount=0n;
+
+  for(const r of rewards)
+    amount+=BigInt(r.reward_amount_wei||"0");
+
+  if(amount<=0n)
+    return out(
+      {ok:false,error:"no_rewards_available",message:"There are no referral rewards available for withdrawal."},
+      400,
+      0,
+      cors(e)
+    );
+
+  const [gdty,bnb,gas]=await Promise.all([
+    tokenBalance(e,A.G,REFERRAL_PAYOUT_WALLET),
+    rpc(e,"eth_getBalance",[REFERRAL_PAYOUT_WALLET,"latest"]).then(BigInt),
+    referralGasPlan(e,wallet,amount)
+  ]);
+
+  if(gdty<amount)
+    return out(
+      {ok:false,error:"insufficient_payout_gdty",message:"The referral payout wallet does not currently have enough GDTY to complete this withdrawal."},
+      400,
+      0,
+      cors(e)
+    );
+
+  const gasCost=gas.gasPrice*gas.gasLimit;
+  const activeGasCommitment=await referralActiveGasCommitment(e);
+
+  if(bnb<activeGasCommitment+gasCost)
+    return out(
+      {ok:false,error:"insufficient_payout_bnb",message:"The referral payout wallet does not currently have enough BNB to cover this withdrawal and the network fees already reserved for other payouts."},
+      400,
+      0,
+      cors(e)
+    );
+
+  let reserved;
+
+  try{
+    reserved=await reserveReferralPayout(
+      e,
+      u,
+      wallet,
+      amount,
+      gas.gasPrice,
+      gas.gasLimit
+    );
+  }catch(err){
+    const code=err instanceof Error?err.message:"payout_reservation_failed";
+
+    console.error(
+      "GOLDITY referral payout reservation error",
+      code
+    );
+
+    if(code==="no_rewards_available")
+      return out(
+        {ok:false,error:"no_rewards_available"},
+        400,
+        0,
+        cors(e)
+      );
+
+    return out(
+      {ok:false,error:"payout_reservation_failed"},
+      503,
+      0,
+      cors(e)
+    );
+  }
+
+  if(!reserved?.existing){
+    const postReserveBnb=BigInt(await rpc(
+      e,
+      "eth_getBalance",
+      [REFERRAL_PAYOUT_WALLET,"latest"]
+    ));
+    const postReserveCommitment=await referralActiveGasCommitment(e);
+
+    if(postReserveBnb<postReserveCommitment){
+      await failReferralPayoutBeforeBroadcast(
+        e,
+        reserved,
+        "insufficient_payout_bnb_after_reservation"
+      );
+
+      return out(
+        {ok:false,error:"insufficient_payout_bnb",message:"The referral payout wallet does not currently have enough BNB to cover all reserved payout network fees."},
+        400,
+        0,
+        cors(e)
+      );
+    }
+  }
+
+  if(reserved?.existing){
+    const result=await processReferralPayout(
+      e,
+      reserved.payout,
+      privateKey
+    );
+
+    return out(
+      result,
+      result.status==="failed"?502:200,
+      0,
+      cors(e)
+    );
+  }
+
+  const result=await processReferralPayout(
+    e,
+    reserved,
+    privateKey
+  );
+
+  return out(
+    result,
+    result.status==="failed"?502:200,
+    0,
+    cors(e)
+  );
+}
+
+async function referralWithdrawStatus(e,req) {
+  const u=await currentUser(e,req);
+
+  if(!u)
+    return out(
+      {ok:false,error:"unauthorized"},
+      401,
+      0,
+      cors(e)
+    );
+
+  if(!await requireOrigin(e,req))
+    return out(
+      {ok:false,error:"forbidden"},
+      403,
+      0,
+      cors(e)
+    );
+
+  const latest=await e.DB.prepare(`
+    SELECT *
+    FROM referral_payouts
+    WHERE user_id=?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(u.id).first();
+
+  let payout=latest;
+
+  if(
+    payout &&
+    (payout.status==='processing'||payout.status==='broadcast')
+  ){
+    try{
+      const privateKey=getReferralPayoutPrivateKey(e);
+      await processReferralPayout(e,payout,privateKey);
+
+      payout=await e.DB.prepare(`
+        SELECT *
+        FROM referral_payouts
+        WHERE id=?
+        LIMIT 1
+      `).bind(payout.id).first();
+    }catch(err){
+      console.error(
+        "GOLDITY referral payout status recovery error",
+        err instanceof Error?err.message:String(err)
+      );
+    }
+  }
+
+  const responsePayout=payout
+    ?{
+      id:payout.id,
+      amountWei:payout.amount_wei,
+      status:payout.status,
+      txHash:payout.tx_hash,
+      createdAt:payout.created_at,
+      broadcastAt:payout.broadcast_at,
+      paidAt:payout.paid_at,
+      errorMessage:payout.error_message
+    }
+    :null;
+
+  return out(
+    {
+      ok:true,
+      payout:responsePayout
+    },
+    200,
+    0,
+    cors(e)
+  );
 }
 
 async function walletChallenge(e,req) {
@@ -1003,10 +1946,7 @@ async function dashboard(e,req) {
 
     rewardTotal+=amount;
 
-    if(
-      r.status==="available"||
-      r.status==="paid"
-    ){
+    if(r.status==="available"){
       rewardAvailable+=amount;
     }
   }
@@ -1469,6 +2409,18 @@ export default {
           baseHeaders
         );
       }
+
+      if(
+        u.pathname==="/api/referral/withdraw"&&
+        req.method==="POST"
+      )
+        return await referralWithdraw(e,req);
+
+      if(
+        u.pathname==="/api/referral/withdraw/status"&&
+        req.method==="GET"
+      )
+        return await referralWithdrawStatus(e,req);
 
       if(
         u.pathname==="/api/referral/check"&&
