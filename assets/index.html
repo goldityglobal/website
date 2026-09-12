@@ -37,6 +37,31 @@
     </nav>
 
     <div class="header-actions">
+      <details class="account-menu" id="accountMenu">
+        <summary id="accountSummary">
+          <span class="account-status-dot" aria-hidden="true"></span>
+          <span id="accountLabel">Register / Sign In</span>
+        </summary>
+        <div class="account-dropdown">
+          <div id="accountGuest">
+            <strong>GOLDITY Account</strong>
+            <p>Create an account to get your personal referral code and access the 5% referral reward system.</p>
+            <div class="account-dropdown-actions">
+              <a class="btn btn-gold btn-small" href="/register.html">Create Account</a>
+              <button class="btn btn-outline btn-small" id="openLogin" type="button">Sign In</button>
+            </div>
+          </div>
+          <div id="accountSignedIn" hidden>
+            <strong id="accountUserName">Account</strong>
+            <p id="accountUserEmail">Signed in</p>
+            <div class="account-dropdown-actions account-actions-stack">
+              <a class="btn btn-gold btn-small" href="/dashboard.html">My Dashboard</a>
+              <button class="btn btn-outline btn-small" id="accountLogout" type="button">Sign Out</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
       <button class="wallet wallet-header" id="walletBtn" type="button">
         <span class="wallet-icon" aria-hidden="true">◈</span>
         <span>Connect Wallet</span>
@@ -45,6 +70,12 @@
       <details class="mobile-nav">
         <summary aria-label="Open navigation"><span></span><span></span><span></span></summary>
         <nav aria-label="Mobile navigation">
+          <div class="mobile-account-links">
+            <span class="mobile-account-title">ACCOUNT</span>
+            <a href="/register.html">Register / Create Account</a>
+            <button id="mobileLogin" type="button">Sign In</button>
+            <a href="/dashboard.html">My Dashboard · 5% Rewards</a>
+          </div>
           <a href="#top">Home</a>
           <a href="#market">Market</a>
           <a href="#token">Token</a>
@@ -125,7 +156,7 @@
       <div>
         <p class="eyebrow">LIVE MARKET DATA</p>
         <h2>GDTY Market</h2>
-        <p class="section-lead">Live reference data and liquidity sourced from the GOLDITY market endpoints.</p>
+        <p class="section-lead">A focused market cockpit inspired by premium trading dashboards: one clear reference price, one large chart, and compact supporting metrics.</p>
       </div>
       <div class="market-status-wrap">
         <strong id="status">Loading market data…</strong>
@@ -133,52 +164,53 @@
       </div>
     </div>
 
-    <div class="market-grid">
-      <article class="market-card featured-market-card">
-        <div class="card-top"><small>Reference Price</small><span class="live-dot"></span></div>
-        <strong id="price">—</strong>
-        <span class="card-caption">GDTY / USD</span>
-      </article>
-      <article class="market-card">
-        <div class="card-top"><small>Total Liquidity</small><span class="metric-symbol">◌</span></div>
-        <strong id="liq">—</strong>
-        <span class="card-caption">USD liquidity</span>
-      </article>
-      <article class="market-card">
-        <div class="card-top"><small>Network</small><span class="metric-symbol">◇</span></div>
-        <strong id="network">BNB Smart Chain</strong>
-        <span class="card-caption">Chain ID 56</span>
-      </article>
-      <article class="market-card">
-        <div class="card-top"><small>Token</small><span class="metric-symbol">G</span></div>
-        <strong>GDTY</strong>
-        <span class="card-caption">GOLDITY</span>
-      </article>
-    </div>
-
-    <div class="dex-prices">
-      <div class="dex-card">
-        <div><span>PancakeSwap V2</span><strong id="pcs">—</strong></div>
-        <span class="dex-arrow">→</span>
-      </div>
-      <div class="dex-card">
-        <div><span>Uniswap V2</span><strong id="uni">—</strong></div>
-        <span class="dex-arrow">→</span>
-      </div>
-    </div>
-
-    <div class="chart-box">
-      <div class="chart-header">
-        <span>Verified market history</span>
-        <div class="ranges" id="ranges">
-          <button type="button" data-range="1D" class="active">1D</button>
-          <button type="button" data-range="7D">7D</button>
-          <button type="button" data-range="30D">30D</button>
-          <button type="button" data-range="90D">90D</button>
+    <div class="market-dashboard">
+      <div class="market-main-panel">
+        <div class="market-panel-head">
+          <div>
+            <div class="panel-kicker"><span class="live-dot"></span> GDTY / USDT REFERENCE</div>
+            <strong id="price">—</strong>
+            <p>Arithmetic mean of valid Uniswap V2 + PancakeSwap V2 pool prices.</p>
+          </div>
+          <div class="ranges" id="ranges" aria-label="Chart time range">
+            <button type="button" data-range="4H" class="active">4H</button>
+            <button type="button" data-range="1D">24H</button>
+            <button type="button" data-range="1W">1W</button>
+            <button type="button" data-range="1M">1M</button>
+          </div>
+        </div>
+        <div class="market-chart-wrap">
+          <canvas id="chart"></canvas>
+          <div id="chartState">Loading real market history…</div>
+        </div>
+        <div class="market-panel-foot">
+          <span>REFERENCE SERIES</span>
+          <span>LIVE · V2 POOLS</span>
         </div>
       </div>
-      <canvas id="chart"></canvas>
-      <div id="chartState">Loading real market history…</div>
+
+      <aside class="market-side-rail" aria-label="GDTY market metrics">
+        <article class="market-side-card market-side-price">
+          <div class="side-card-head"><small>REFERENCE PRICE</small><span>LIVE</span></div>
+          <strong id="sidePrice">—</strong>
+          <p>Unified GDTY/USDT rate</p>
+        </article>
+        <article class="market-side-card">
+          <div class="side-card-head"><small>LIQUIDITY</small><span>USD</span></div>
+          <strong id="liq">—</strong>
+          <p>Total tracked V2 liquidity</p>
+        </article>
+        <article class="market-side-card">
+          <div class="side-card-head"><small>NETWORK</small><span>56</span></div>
+          <strong id="network">BNB Smart Chain</strong>
+          <p>BNB Smart Chain · BEP20</p>
+        </article>
+        <article class="market-side-card">
+          <div class="side-card-head"><small>BUY / SELL TAX</small><span>VERIFIED</span></div>
+          <strong>0%</strong>
+          <p>No token tax on buys or sells</p>
+        </article>
+      </aside>
     </div>
   </section>
 
@@ -191,7 +223,7 @@
       <article><span class="why-icon">◇</span><h3>Scarcity</h3><p>Fixed total supply designed for transparent, measurable token economics.</p></article>
       <article><span class="why-icon">⌾</span><h3>Security</h3><p>On-chain infrastructure with a publicly verifiable contract address.</p></article>
       <article><span class="why-icon">◎</span><h3>Global Access</h3><p>Designed for direct decentralized access on BNB Smart Chain.</p></article>
-      <article><span class="why-icon">▣</span><h3>Real Utility</h3><p>Wallet connectivity, market data, referral rewards and ecosystem access.</p></article>
+      <article class="referral-highlight"><span class="why-icon">✦</span><h3>Referral Rewards</h3><p>Register to receive your personal referral code and earn a 5% referral reward on eligible verified GDTY purchases made through your code.</p><a href="/register.html">Create your account →</a></article>
     </div>
   </section>
 
@@ -205,8 +237,8 @@
       <div class="token-card"><small>Chain ID</small><strong>56</strong></div>
       <div class="token-card"><small>Total Supply</small><strong>19,100,000 GDTY</strong></div>
       <div class="token-card"><small>Decimals</small><strong>18</strong></div>
-      <div class="token-card"><small>Buy Tax</small><strong>0.05%</strong></div>
-      <div class="token-card"><small>Sell Tax</small><strong>0.05%</strong></div>
+      <div class="token-card"><small>Buy Tax</small><strong>0%</strong></div>
+      <div class="token-card"><small>Sell Tax</small><strong>0%</strong></div>
       <div class="token-card"><small>Wallet Transfer</small><strong>0%</strong></div>
     </div>
   </section>
@@ -264,6 +296,27 @@
       </div>
     </div>
   </section>
+
+  <div class="auth-modal" id="loginModal" hidden aria-hidden="true">
+    <div class="auth-modal-backdrop" data-close-login="true"></div>
+    <section class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <button class="auth-modal-close" id="closeLogin" type="button" aria-label="Close sign in">×</button>
+      <p class="eyebrow">GOLDITY ACCOUNT</p>
+      <h2 id="loginTitle">Sign in to your account</h2>
+      <p class="auth-modal-lead">Access your dashboard, referral code and 5% referral rewards.</p>
+      <form id="loginForm" class="auth-form">
+        <label>Email
+          <input id="loginEmail" name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <div id="loginState" class="status-text" aria-live="polite"></div>
+        <button class="btn btn-gold" id="loginSubmit" type="submit">Sign In</button>
+      </form>
+      <p class="auth-register-note">Don't have an account? <a href="/register.html">Create one here</a>.</p>
+    </section>
+  </div>
 
 </main>
 
