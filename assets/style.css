@@ -983,228 +983,283 @@ img{max-width:100%}
     width: 100%;
   }
 }
+
 /* =========================================================
-   GOLDITY HERO — SIGNATURE METALLIC GOLD
-   Single authoritative Hero typography layer
+   GOLDITY HERO — FINAL METALLIC FOIL SYSTEM
+   One authoritative layer — placed last to prevent overrides.
    ========================================================= */
 
 :root{
-  --goldity-hero-gold:
+  --goldity-foil:
     linear-gradient(
       180deg,
-      #FFF4B0 0%,
-      #FFE68A 13%,
-      #F5C95C 28%,
-      #D99A27 44%,
-      #A96808 56%,
-      #D99A27 68%,
-      #F7D56F 82%,
-      #FFF1A5 92%,
-      #C17B0B 100%
+      #fff8c9 0%,
+      #ffeaa0 7%,
+      #f7cf63 17%,
+      #d99a27 30%,
+      #9a5c05 40%,
+      #e7ad35 48%,
+      #fff0a3 56%,
+      #c47a0a 66%,
+      #f3c957 76%,
+      #fff4b4 87%,
+      #d38b16 100%
     );
 
-  --goldity-hero-champagne:
+  --goldity-foil-hover:
     linear-gradient(
       180deg,
-      #FFF3B0 0%,
-      #F4D77C 35%,
-      #D5A743 65%,
-      #FFE99A 100%
+      #fffde0 0%,
+      #ffeaa0 10%,
+      #efbd46 25%,
+      #a86406 39%,
+      #f4c958 50%,
+      #fff7c7 61%,
+      #d68b13 74%,
+      #f7d36b 87%,
+      #fff8d0 100%
+    );
+
+  --goldity-champagne:
+    linear-gradient(
+      180deg,
+      #fff6c5 0%,
+      #f7df91 30%,
+      #d7a63f 58%,
+      #fff0a4 78%,
+      #c88918 100%
     );
 }
 
-/* Eyebrow */
-.hero-copy > .eyebrow{
+/* Hero base — keep the approved artwork and composition */
+.hero{
   position:relative;
+  isolation:isolate;
+}
+
+.hero-copy{
+  position:relative;
+  z-index:4;
+}
+
+/* Refined eyebrow */
+.hero-copy > .eyebrow{
   display:flex;
   align-items:center;
   gap:12px;
   width:max-content;
   max-width:100%;
   margin:0 0 18px;
-  color:#F5D77B;
+  color:#f5d36f;
   font-family:Inter,system-ui,sans-serif;
   font-size:10px;
-  font-weight:800;
-  letter-spacing:.28em;
+  font-weight:850;
   line-height:1.2;
+  letter-spacing:.30em;
   text-transform:uppercase;
-  text-shadow:0 1px 3px rgba(0,0,0,.85);
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
 }
 
 .hero-copy > .eyebrow::before,
 .hero-copy > .eyebrow::after{
   content:"";
-  width:44px;
+  display:block;
+  width:42px;
   height:1px;
-  flex:0 0 44px;
-  background:linear-gradient(90deg,transparent,#D8A43C);
-  opacity:.9;
+  flex:0 0 42px;
+  background:linear-gradient(90deg,transparent,#e2ad43);
+  box-shadow:0 0 8px rgba(226,173,67,.18);
 }
 
 .hero-copy > .eyebrow::after{
-  background:linear-gradient(90deg,#D8A43C,transparent);
+  background:linear-gradient(90deg,#e2ad43,transparent);
 }
 
-/* Main GOLDITY title */
+/* =========================================================
+   MAIN WORDMARK
+   Strong foil bands + crisp edge + controlled depth.
+   Explicit !important values protect the title from legacy rules.
+   ========================================================= */
+
 .hero h1.hero-title{
-  margin:0;
-  font-family:
-    "Bodoni 72",
-    "Didot",
-    "Bodoni MT",
-    "Times New Roman",
-    Georgia,
-    serif;
-  font-size:clamp(64px,7.8vw,108px);
-  font-weight:600;
-  line-height:.84;
-  letter-spacing:-.035em;
+  margin:0 !important;
+  font-family:"Bailon","Bodoni 72","Didot","Bodoni MT","Times New Roman",Georgia,serif !important;
+  font-size:clamp(66px,7.8vw,112px) !important;
+  font-weight:400 !important;
+  line-height:.84 !important;
+  letter-spacing:-.028em !important;
   font-variant-ligatures:common-ligatures;
-  background:var(--goldity-hero-gold);
-  background-size:100% 220%;
-  background-position:50% 0%;
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  color:transparent;
-  -webkit-text-stroke:0.2px rgba(255,225,135,.18);
-  filter:drop-shadow(0 3px 2px rgba(0,0,0,.72));
-  text-shadow:none;
+
+  /* IMPORTANT: image is on the glyphs, not the whole heading box */
+  background-image:var(--goldity-foil) !important;
+  background-repeat:no-repeat !important;
+  background-size:100% 100% !important;
+  background-position:center !important;
+
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  color:transparent !important;
+
+  /* Fine metallic rim */
+  -webkit-text-stroke:1px rgba(255,226,137,.30);
+
+  /* Depth + reflected-gold halo */
+  filter:
+    drop-shadow(0 2px 1px rgba(0,0,0,.92))
+    drop-shadow(0 7px 12px rgba(0,0,0,.42))
+    drop-shadow(0 0 18px rgba(205,139,27,.16));
+
+  text-shadow:none !important;
+  text-rendering:geometricPrecision;
 }
 
-/* GDTY subtitle inside title */
+/* A subtle highlight band that follows the letter form through the
+   gradient itself; no animation, no visual distraction. */
 .hero h1.hero-title span{
-  display:block;
-  margin-top:13px;
-  font-family:Inter,system-ui,sans-serif;
-  font-size:.285em;
-  font-weight:700;
-  line-height:1;
-  letter-spacing:.34em;
-  color:#F4D477;
-  background:var(--goldity-hero-champagne);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  text-shadow:0 1px 3px rgba(0,0,0,.8);
+  display:block !important;
+  margin-top:13px !important;
+  font-family:Inter,system-ui,sans-serif !important;
+  font-size:.285em !important;
+  font-weight:750 !important;
+  line-height:1 !important;
+  letter-spacing:.34em !important;
+
+  background-image:var(--goldity-champagne) !important;
+  background-repeat:no-repeat !important;
+  background-size:100% 100% !important;
+  background-position:center !important;
+
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  color:transparent !important;
+
+  -webkit-text-stroke:.35px rgba(255,224,140,.25);
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.75));
 }
 
-/* Tagline */
+/* Tagline — warm champagne rather than flat yellow */
 .hero-tagline{
-  margin:24px 0 11px;
+  margin:24px 0 11px !important;
   max-width:650px;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  font-size:clamp(17px,1.55vw,22px);
-  font-weight:600;
-  line-height:1.35;
-  letter-spacing:.075em;
-  text-transform:none;
-  color:#F3D57B;
-  text-shadow:
-    0 1px 3px rgba(0,0,0,.85),
-    0 0 14px rgba(217,154,39,.12);
+  color:#f6e5ad !important;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+  font-size:clamp(17px,1.55vw,22px) !important;
+  font-weight:650 !important;
+  line-height:1.35 !important;
+  letter-spacing:.055em !important;
+  text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 16px rgba(216,156,40,.10);
 }
 
-/* Description */
+/* Description — neutral ivory so the title remains the gold focal point */
 .hero-lead{
   max-width:530px;
   margin:0;
-  color:#D7C9A5;
-  font-family:Inter,system-ui,sans-serif;
-  font-size:14px;
+  color:#e2d8c6 !important;
+  font-family:Inter,system-ui,sans-serif !important;
+  font-size:14px !important;
   font-weight:400;
-  line-height:1.8;
-  text-shadow:0 1px 3px rgba(0,0,0,.82);
+  line-height:1.8 !important;
+  text-shadow:0 1px 4px rgba(0,0,0,.92);
 }
 
-/* Hero action buttons */
+/* Buttons — polished gold, not orange */
 .hero-actions .cta.primary{
-  color:#171109;
-  background:linear-gradient(
-    180deg,
-    #FFE79A 0%,
-    #F4CA60 30%,
-    #D99A27 62%,
-    #B87309 100%
-  );
-  border-color:#F0C85E;
+  color:#171108 !important;
+  background:
+    linear-gradient(
+      180deg,
+      #fff1a8 0%,
+      #f7d46e 20%,
+      #d99a27 52%,
+      #b87308 78%,
+      #e2ad3c 100%
+    ) !important;
+  border:1px solid #f2cf67 !important;
   box-shadow:
-    0 8px 24px rgba(190,125,10,.18),
-    inset 0 1px 0 rgba(255,255,255,.5);
+    0 8px 25px rgba(173,111,8,.20),
+    inset 0 1px 0 rgba(255,255,255,.72),
+    inset 0 -1px 0 rgba(104,61,0,.35);
 }
 
 .hero-actions .cta.primary:hover{
-  background:linear-gradient(
-    180deg,
-    #FFF0B0 0%,
-    #F8D477 35%,
-    #E0A43A 70%,
-    #C17B0B 100%
-  );
-  border-color:#FFE18A;
+  color:#100c05 !important;
+  background:
+    linear-gradient(
+      180deg,
+      #fff9cf 0%,
+      #ffe99a 25%,
+      #efc457 52%,
+      #c98712 78%,
+      #f0c75d 100%
+    ) !important;
+  border-color:#ffe39a !important;
   box-shadow:
-    0 10px 30px rgba(207,143,23,.25),
-    inset 0 1px 0 rgba(255,255,255,.62);
+    0 11px 32px rgba(197,136,19,.27),
+    inset 0 1px 0 rgba(255,255,255,.82);
 }
 
 .hero-actions .cta.secondary{
-  color:#EFD17A;
-  border-color:rgba(226,177,69,.48);
-  background:rgba(5,5,4,.30);
+  color:#f0d487 !important;
+  border-color:rgba(226,177,69,.58) !important;
+  background:rgba(5,5,4,.36) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
 }
 
 .hero-actions .cta.secondary:hover{
-  color:#FFF0AE;
-  border-color:#E4B84F;
-  background:rgba(217,154,39,.09);
+  color:#fff3bd !important;
+  border-color:#edc861 !important;
+  background:rgba(217,154,39,.105) !important;
+  box-shadow:0 8px 24px rgba(181,119,12,.12);
 }
 
-/* Hero trust values */
+/* Trust row */
+.hero-trust-row{
+  border-top-color:rgba(230,185,78,.22) !important;
+}
+
+.hero-trust-row div{
+  border-right-color:rgba(230,185,78,.15) !important;
+}
+
 .hero-trust-row strong{
-  display:block;
-  color:#F3D57B;
-  font-family:Inter,system-ui,sans-serif;
-  font-size:15px;
-  font-weight:750;
-  text-shadow:0 1px 3px rgba(0,0,0,.75);
+  color:#f5d77b !important;
+  text-shadow:0 1px 3px rgba(0,0,0,.85);
 }
 
 .hero-trust-row span{
-  display:block;
-  margin-top:3px;
-  color:#AFA078;
-  font-family:Inter,system-ui,sans-serif;
-  font-size:10px;
-  font-weight:500;
-  text-transform:uppercase;
-  letter-spacing:.1em;
+  color:#bcae8c !important;
 }
 
-/* Keep the artwork/background dark enough for the metallic type */
+/* Keep the artwork rich while giving the wordmark enough contrast */
 .hero-backdrop{
-  z-index:1;
-}
-
-.hero-copy{
-  position:relative;
-  z-index:3;
+  z-index:2;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(7,6,4,.74) 0%,
+      rgba(5,5,4,.60) 25%,
+      rgba(3,3,3,.30) 49%,
+      rgba(3,3,3,.08) 78%
+    ),
+    radial-gradient(
+      circle at 20% 40%,
+      rgba(221,177,73,.13),
+      transparent 35%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,.10) 0%,
+      rgba(0,0,0,.08) 52%,
+      rgba(0,0,0,.58) 100%
+    ) !important;
 }
 
 /* Tablet */
 @media(max-width:1050px){
   .hero h1.hero-title{
-    font-size:clamp(60px,8vw,92px);
-  }
-
-  .hero-tagline{
-    font-size:19px;
+    font-size:clamp(60px,8.2vw,94px) !important;
   }
 }
 
@@ -1224,25 +1279,25 @@ img{max-width:100%}
   }
 
   .hero h1.hero-title{
-    font-size:clamp(52px,17vw,78px);
-    letter-spacing:-.03em;
+    font-size:clamp(53px,17vw,80px) !important;
+    letter-spacing:-.025em !important;
   }
 
   .hero h1.hero-title span{
-    margin-top:11px;
-    font-size:.29em;
-    letter-spacing:.28em;
+    margin-top:11px !important;
+    font-size:.29em !important;
+    letter-spacing:.28em !important;
   }
 
   .hero-tagline{
-    margin-top:19px;
-    font-size:18px;
-    letter-spacing:.045em;
+    margin-top:19px !important;
+    font-size:18px !important;
+    letter-spacing:.04em !important;
   }
 
   .hero-lead{
-    font-size:13px;
-    line-height:1.7;
+    font-size:13px !important;
+    line-height:1.72 !important;
   }
 }
 
@@ -1259,15 +1314,15 @@ img{max-width:100%}
   }
 
   .hero h1.hero-title{
-    font-size:49px;
+    font-size:49px !important;
   }
 
   .hero h1.hero-title span{
-    margin-top:9px;
-    letter-spacing:.24em;
+    margin-top:9px !important;
+    letter-spacing:.24em !important;
   }
 
   .hero-tagline{
-    font-size:16px;
+    font-size:16px !important;
   }
 }
