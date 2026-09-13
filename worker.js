@@ -1,3 +1,6 @@
+import * as secp from "@noble/secp256k1";
+
+import { keccak_256 } from "@noble/hashes/sha3.js";
 
 const A = {
 
@@ -4761,9 +4764,35 @@ export default {
 
       }
 
-      if(e.ASSETS)
+      /* -------------------------------------------------------
+
+         STATIC ASSETS
+
+         Keep the Worker/API layer separate from the site files.
+
+         The root URL must explicitly resolve to index.html;
+
+         otherwise an asset resolver can expose the wrong file
+
+         at /.
+
+         ------------------------------------------------------- */
+
+      if(e.ASSETS){
+
+        if((req.method==="GET"||req.method==="HEAD")&&u.pathname==="/"){
+
+          const assetUrl=new URL(req.url);
+
+          assetUrl.pathname="/index.html";
+
+          return e.ASSETS.fetch(new Request(assetUrl.toString(),req));
+
+        }
 
         return e.ASSETS.fetch(req);
+
+      }
 
       return out(
 
