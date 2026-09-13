@@ -993,31 +993,31 @@ img{max-width:100%}
   --goldity-foil:
     linear-gradient(
       180deg,
-      #fff8c9 0%,
-      #ffeaa0 7%,
-      #f7cf63 17%,
-      #d99a27 30%,
-      #9a5c05 40%,
-      #e7ad35 48%,
-      #fff0a3 56%,
-      #c47a0a 66%,
-      #f3c957 76%,
-      #fff4b4 87%,
-      #d38b16 100%
+      #fff9cf 0%,
+      #ffeaa0 9%,
+      #f8d36b 19%,
+      #e6b447 31%,
+      #c98a20 43%,
+      #f4c95d 52%,
+      #ffe99a 62%,
+      #dba02f 73%,
+      #f6cf66 84%,
+      #fff3b2 93%,
+      #d99a27 100%
     );
 
   --goldity-foil-hover:
     linear-gradient(
       180deg,
-      #fffde0 0%,
-      #ffeaa0 10%,
-      #efbd46 25%,
-      #a86406 39%,
-      #f4c958 50%,
-      #fff7c7 61%,
-      #d68b13 74%,
-      #f7d36b 87%,
-      #fff8d0 100%
+      #fffde5 0%,
+      #ffefae 11%,
+      #f8d56d 24%,
+      #dda235 38%,
+      #f3c454 50%,
+      #fff3ad 62%,
+      #e1a333 76%,
+      #f7d673 89%,
+      #fff8d2 100%
     );
 
   --goldity-champagne:
@@ -1083,6 +1083,7 @@ img{max-width:100%}
 
 .hero h1.hero-title{
   margin:0 !important;
+  color:#f2c85a !important;
   font-family:"Bailon","Bodoni 72","Didot","Bodoni MT","Times New Roman",Georgia,serif !important;
   font-size:clamp(66px,7.8vw,112px) !important;
   font-weight:400 !important;
@@ -1093,7 +1094,7 @@ img{max-width:100%}
   /* IMPORTANT: image is on the glyphs, not the whole heading box */
   background-image:var(--goldity-foil) !important;
   background-repeat:no-repeat !important;
-  background-size:100% 100% !important;
+  background-size:100% 115% !important;
   background-position:center !important;
 
   -webkit-background-clip:text !important;
