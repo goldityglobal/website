@@ -1,9 +1,3 @@
-Registration requires email, password, age confirmation, Terms and Privacy. First name, last name, country, phone and referral code are optional. User creation and email-verification-token creation are atomic.
-
-import * as secp from "@noble/secp256k1";
-
-import { keccak_256 } from "@noble/hashes/sha3.js";
-
 
 const A = {
 
@@ -69,7 +63,6 @@ const ranges = {
 
 };
 
-
 const addr = x => "0x" + String(x).slice(-40).toLowerCase();
 
 const clean = (v, max=120) => String(v ?? "").trim().slice(0, max);
@@ -85,7 +78,6 @@ const token = () => [...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toS
 const id = () => crypto.randomUUID();
 
 const nowIso = () => new Date().toISOString();
-
 
 function out(data, status=200, ttl=0, extra={}) {
 
@@ -115,7 +107,6 @@ function out(data, status=200, ttl=0, extra={}) {
 
 }
 
-
 function htmlEscape(v) {
 
   return String(v ?? "").replace(/[&<>"']/g, c => ({
@@ -126,13 +117,11 @@ function htmlEscape(v) {
 
 }
 
-
 function cookie(name, value, maxAge) {
 
   return `${name}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Strict`;
 
 }
-
 
 function cors(e) {
 
@@ -146,7 +135,6 @@ function cors(e) {
 
 }
 
-
 async function rpc(e, method, params = []) {
 
   const endpoints = [
@@ -159,9 +147,7 @@ async function rpc(e, method, params = []) {
 
   ].filter(Boolean);
 
-
   let lastError = null;
-
 
   for (const endpoint of endpoints) {
 
@@ -191,16 +177,13 @@ async function rpc(e, method, params = []) {
 
       });
 
-
       const text = await r.text();
-
 
       if (!r.ok) {
 
         throw new Error(`rpc_http_${r.status}`);
 
       }
-
 
       let j;
 
@@ -214,7 +197,6 @@ async function rpc(e, method, params = []) {
 
       }
 
-
       if (j.error) {
 
         throw new Error(
@@ -225,20 +207,17 @@ async function rpc(e, method, params = []) {
 
       }
 
-
       if (!("result" in j)) {
 
         throw new Error("rpc_missing_result");
 
       }
 
-
       return j.result;
 
     } catch (err) {
 
       lastError = err;
-
 
       console.error("GOLDITY RPC endpoint failed", {
 
@@ -254,11 +233,9 @@ async function rpc(e, method, params = []) {
 
   }
 
-
   throw lastError || new Error("rpc_unavailable");
 
 }
-
 
 async function call(e,to,data) {
 
@@ -266,13 +243,11 @@ async function call(e,to,data) {
 
 }
 
-
 async function pair(e) {
 
   return addr(await call(e,A.PF,S.pair + pad(A.G) + pad(A.U)));
 
 }
-
 
 async function inspect(e,p,dex) {
 
@@ -298,7 +273,6 @@ async function inspect(e,p,dex) {
 
 }
 
-
 const mean=(a,b)=>{
 
   const v=[a,b].filter(Number.isFinite);
@@ -306,7 +280,6 @@ const mean=(a,b)=>{
   return v.length?v.reduce((x,y)=>x+y,0)/v.length:null;
 
 };
-
 
 async function geckoOHLCV(e,pool,cfg) {
 
@@ -326,7 +299,6 @@ async function geckoOHLCV(e,pool,cfg) {
 
 }
 
-
 function normalize(list,dex) {
 
   return list.map(x=>({
@@ -338,7 +310,6 @@ function normalize(list,dex) {
   })).filter(x=>x.ts&&[x.open,x.high,x.low,x.close].every(Number.isFinite));
 
 }
-
 
 function mergeReference(a,b) {
 
@@ -370,7 +341,6 @@ function mergeReference(a,b) {
 
 }
 
-
 function b64(bytes) {
 
   let s="";
@@ -381,7 +351,6 @@ function b64(bytes) {
 
 }
 
-
 async function sha256Text(v) {
 
   const h=await crypto.subtle.digest("SHA-256",enc.encode(v));
@@ -389,7 +358,6 @@ async function sha256Text(v) {
   return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,"0")).join("");
 
 }
-
 
 async function hashPassword(password,saltBytes,iterations=120000) {
 
@@ -405,9 +373,7 @@ async function hashPassword(password,saltBytes,iterations=120000) {
 
 }
 
-
 function validPassword(p){return typeof p==="string"&&p.length>=10&&p.length<=128;}
-
 
 async function currentUser(e,req) {
 
@@ -437,7 +403,6 @@ async function currentUser(e,req) {
 
 }
 
-
 async function requireOrigin(e,req) {
 
   const origin=req.headers.get("Origin");
@@ -447,7 +412,6 @@ async function requireOrigin(e,req) {
   return true;
 
 }
-
 
 async function rateLimit(e,key,limit=12,windowMs=60000) {
 
@@ -483,9 +447,7 @@ async function rateLimit(e,key,limit=12,windowMs=60000) {
 
 }
 
-
 function ip(req){return req.headers.get("CF-Connecting-IP")||"unknown";}
-
 
 async function loginUser(e,req) {
 
@@ -553,11 +515,9 @@ async function registerUser(e,req) {
 
     },503,cors(e));
 
-
   if(!await requireOrigin(e,req))
 
     return out({ok:false,error:"forbidden"},403,cors(e));
-
 
   try{
 
@@ -573,9 +533,7 @@ async function registerUser(e,req) {
 
       },429,cors(e));
 
-
     const d=await req.json().catch(()=>({}));
-
 
     const first=clean(d.firstName,80)||"";
 
@@ -590,7 +548,6 @@ async function registerUser(e,req) {
     const password=String(d.password||"");
 
     const ref=clean(d.referralCode,32).toUpperCase()||null;
-
 
     if(
 
@@ -616,13 +573,11 @@ async function registerUser(e,req) {
 
       },400,cors(e));
 
-
     const existing=await e.DB.prepare(
 
       "SELECT id FROM users WHERE email=?"
 
     ).bind(email).first();
-
 
     if(existing)
 
@@ -636,9 +591,7 @@ async function registerUser(e,req) {
 
       },409,cors(e));
 
-
     let referredBy=null;
-
 
     if(ref){
 
@@ -647,7 +600,6 @@ async function registerUser(e,req) {
         "SELECT referral_code FROM users WHERE referral_code=?"
 
       ).bind(ref).first();
-
 
       if(!r)
 
@@ -661,11 +613,9 @@ async function registerUser(e,req) {
 
         },400,cors(e));
 
-
       referredBy=r.referral_code;
 
     }
-
 
     const code=await makeReferralCode(e);
 
@@ -682,7 +632,6 @@ async function registerUser(e,req) {
     const verificationTokenHash=await sha256Text(rawVerificationToken);
 
     const verificationExpiresAt=new Date(Date.now()+86400000).toISOString();
-
 
     /*
 
@@ -748,7 +697,6 @@ async function registerUser(e,req) {
 
       ),
 
-
       e.DB.prepare(`
 
         INSERT INTO email_verification_tokens(
@@ -773,9 +721,7 @@ async function registerUser(e,req) {
 
     ]);
 
-
     let emailSent=false;
-
 
     if(e.RESEND_API_KEY&&e.FROM_EMAIL){
 
@@ -784,7 +730,6 @@ async function registerUser(e,req) {
         `${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}`+
 
         `/verify-email.html?token=${encodeURIComponent(rawVerificationToken)}`;
-
 
       const r=await fetch("https://api.resend.com/emails",{
 
@@ -834,11 +779,9 @@ async function registerUser(e,req) {
 
       });
 
-
       emailSent=!!r?.ok;
 
     }
-
 
     return out({
 
@@ -870,7 +813,6 @@ async function registerUser(e,req) {
 
     },201,cors(e));
 
-
   }catch(err){
 
     console.error("GOLDITY registration failed",{
@@ -880,7 +822,6 @@ async function registerUser(e,req) {
       message:err instanceof Error?err.message:String(err)
 
     });
-
 
     return out({
 
@@ -896,13 +837,11 @@ async function registerUser(e,req) {
 
 }
 
-
 async function makeReferralCode(e) {
 
   for(let i=0;i<8;i++){
 
     const c="GDTY-"+crypto.randomUUID().replace(/-/g,"").slice(0,8).toUpperCase();
-
 
     if(!await e.DB.prepare(
 
@@ -912,27 +851,21 @@ async function makeReferralCode(e) {
 
   }
 
-
   throw new Error("referral_code_generation_failed");
 
 }
-
 
 async function verifyEmail(e,req) {
 
   if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
 
-
   const raw=new URL(req.url).searchParams.get("token")||"";
-
 
   if(!raw)
 
     return out({ok:false,error:"invalid_token"},400,cors(e));
 
-
   const h=await sha256Text(raw);
-
 
   const row=await e.DB.prepare(`
 
@@ -946,7 +879,6 @@ async function verifyEmail(e,req) {
 
   `).bind(h).first();
 
-
   if(!row||new Date(row.expires_at)<=new Date())
 
     return out({
@@ -959,9 +891,7 @@ async function verifyEmail(e,req) {
 
     },400,cors(e));
 
-
   const now=nowIso();
-
 
   await e.DB.batch([
 
@@ -975,7 +905,6 @@ async function verifyEmail(e,req) {
 
     `).bind(now,row.user_id),
 
-
     e.DB.prepare(`
 
       UPDATE email_verification_tokens
@@ -988,7 +917,6 @@ async function verifyEmail(e,req) {
 
   ]);
 
-
   return out({
 
     ok:true,
@@ -999,28 +927,23 @@ async function verifyEmail(e,req) {
 
 }
 
-
 function bytes(hexString) {
 
   const h=hexString.replace(/^0x/i,"");
 
   const a=new Uint8Array(h.length/2);
 
-
   for(let i=0;i<a.length;i++)
 
     a[i]=parseInt(h.slice(i*2,i*2+2),16);
-
 
   return a;
 
 }
 
-
 function eip191Digest(message) {
 
   const m=enc.encode(message);
-
 
   return keccak_256(
 
@@ -1034,31 +957,25 @@ function eip191Digest(message) {
 
 }
 
-
 function recoveredAddress(signatureHex,message) {
 
   const raw=bytes(signatureHex);
-
 
   if(raw.length!==65)
 
     throw new Error("invalid_signature");
 
-
   let v=raw[64];
-
 
   if(v>=27)v-=27;
 
   if(v>1)throw new Error("invalid_signature");
-
 
   const sig=new Uint8Array(65);
 
   sig.set(raw.slice(0,64));
 
   sig[64]=v;
-
 
   const pub=secp.recoverPublicKey(
 
@@ -1070,11 +987,9 @@ function recoveredAddress(signatureHex,message) {
 
   );
 
-
   const uncompressed=pub.length===65?pub.slice(1):pub;
 
   const h=keccak_256(uncompressed);
-
 
   return "0x"+
 
@@ -1086,7 +1001,6 @@ function recoveredAddress(signatureHex,message) {
 
 }
 
-
 function bytesToHex(a) {
 
   return "0x"+[...new Uint8Array(a)]
@@ -1096,7 +1010,6 @@ function bytesToHex(a) {
     .join("");
 
 }
-
 
 function concatBytes(...parts) {
 
@@ -1118,7 +1031,6 @@ function concatBytes(...parts) {
 
 }
 
-
 function bigIntBytes(v) {
 
   const n=BigInt(v);
@@ -1135,13 +1047,11 @@ function bigIntBytes(v) {
 
 }
 
-
 function rlpLengthPrefix(length,offset) {
 
   if(length<=55)
 
     return new Uint8Array([offset+length]);
-
 
   const lenBytes=bigIntBytes(BigInt(length));
 
@@ -1155,7 +1065,6 @@ function rlpLengthPrefix(length,offset) {
 
 }
 
-
 function rlpEncode(value) {
 
   if(value instanceof Uint8Array){
@@ -1163,7 +1072,6 @@ function rlpEncode(value) {
     if(value.length===1&&value[0]<0x80)
 
       return value;
-
 
     return concatBytes(
 
@@ -1174,7 +1082,6 @@ function rlpEncode(value) {
     );
 
   }
-
 
   if(Array.isArray(value)){
 
@@ -1190,11 +1097,9 @@ function rlpEncode(value) {
 
   }
 
-
   throw new Error("invalid_rlp_value");
 
 }
-
 
 function referralTransferData(recipient,amountWei) {
 
@@ -1202,13 +1107,11 @@ function referralTransferData(recipient,amountWei) {
 
     throw new Error("invalid_wallet");
 
-
   const amount=BigInt(amountWei);
 
   if(amount<=0n)
 
     throw new Error("invalid_payout_amount");
-
 
   return "0xa9059cbb"+
 
@@ -1218,7 +1121,6 @@ function referralTransferData(recipient,amountWei) {
 
 }
 
-
 function getReferralPayoutPrivateKey(e) {
 
   const raw=String(e.REFERRAL_PAYOUT_PRIVATE_KEY||"")
@@ -1227,11 +1129,9 @@ function getReferralPayoutPrivateKey(e) {
 
     .replace(/^0x/i,"");
 
-
   if(!/^[0-9a-fA-F]{64}$/.test(raw))
 
     throw new Error("payout_key_not_configured");
-
 
   const priv=bytes("0x"+raw);
 
@@ -1239,16 +1139,13 @@ function getReferralPayoutPrivateKey(e) {
 
   const derived="0x"+[...keccak_256(pub.slice(1)).slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("").toLowerCase();
 
-
   if(derived!==REFERRAL_PAYOUT_WALLET)
 
     throw new Error("payout_key_wallet_mismatch");
 
-
   return priv;
 
 }
-
 
 async function buildReferralPayoutTx(payout,privateKey) {
 
@@ -1261,7 +1158,6 @@ async function buildReferralPayoutTx(payout,privateKey) {
   const amount=BigInt(payout.amount_wei);
 
   const data=bytes(referralTransferData(payout.wallet_address,amount));
-
 
   const signing=rlpEncode([
 
@@ -1285,7 +1181,6 @@ async function buildReferralPayoutTx(payout,privateKey) {
 
   ]);
 
-
   const digest=keccak_256(signing);
 
   const sigBytes=await secp.signAsync(
@@ -1298,13 +1193,11 @@ async function buildReferralPayoutTx(payout,privateKey) {
 
   );
 
-
   const recovery=Number(sigBytes[0]);
 
   if(recovery!==0&&recovery!==1)
 
     throw new Error("invalid_signature_recovery");
-
 
   const sigR=BigInt("0x"+Array.from(sigBytes.slice(1,33))
 
@@ -1314,9 +1207,7 @@ async function buildReferralPayoutTx(payout,privateKey) {
 
     .map(x=>x.toString(16).padStart(2,"0")).join(""));
 
-
   const v=35n+(56n*2n)+BigInt(recovery);
-
 
   const raw=bytesToHex(
 
@@ -1344,7 +1235,6 @@ async function buildReferralPayoutTx(payout,privateKey) {
 
   );
 
-
   return {
 
     raw,
@@ -1361,16 +1251,13 @@ async function buildReferralPayoutTx(payout,privateKey) {
 
 }
 
-
 async function referralGasPlan(e,wallet,amountWei) {
 
   const data=referralTransferData(wallet,amountWei);
 
-
   const gasPrice=BigInt(await rpc(e,"eth_gasPrice"));
 
   let gasEstimate;
-
 
   try{
 
@@ -1396,7 +1283,6 @@ async function referralGasPlan(e,wallet,amountWei) {
 
   }
 
-
   const gasLimit=
 
     gasEstimate>0n
@@ -1404,7 +1290,6 @@ async function referralGasPlan(e,wallet,amountWei) {
       ?(gasEstimate*120n+99n)/100n
 
       :65000n;
-
 
   return {
 
@@ -1415,7 +1300,6 @@ async function referralGasPlan(e,wallet,amountWei) {
   };
 
 }
-
 
 async function nextReferralPayoutNonce(e) {
 
@@ -1431,7 +1315,6 @@ async function nextReferralPayoutNonce(e) {
 
   ]);
 
-
   const chainNonce=BigInt(chainHex);
 
   const maxDbNonce=
@@ -1444,7 +1327,6 @@ async function nextReferralPayoutNonce(e) {
 
       :BigInt(maxRow.max_nonce);
 
-
   return chainNonce>maxDbNonce
 
     ?chainNonce
@@ -1452,7 +1334,6 @@ async function nextReferralPayoutNonce(e) {
     :maxDbNonce+1n;
 
 }
-
 
 async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
 
@@ -1463,7 +1344,6 @@ async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
     const payoutId=id();
 
     const now=nowIso();
-
 
     try{
 
@@ -1529,7 +1409,6 @@ async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
 
       ]);
 
-
       const changes=Number(results?.[1]?.meta?.changes||0);
 
       if(changes>0){
@@ -1540,16 +1419,13 @@ async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
 
         ).bind(payoutId).first();
 
-
         if(!payout)
 
           throw new Error("payout_reservation_missing");
 
-
         return payout;
 
       }
-
 
       await e.DB.prepare(`
 
@@ -1562,7 +1438,6 @@ async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
         WHERE id=? AND status='processing'
 
       `).bind(payoutId).run();
-
 
       throw new Error("no_rewards_available");
 
@@ -1584,14 +1459,11 @@ async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
 
       `).bind(u.id).first();
 
-
       if(active)
 
         return {existing:true,payout:active};
 
-
       const message=err instanceof Error?err.message:String(err);
-
 
       if(
 
@@ -1607,18 +1479,15 @@ async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
 
         continue;
 
-
       throw err;
 
     }
 
   }
 
-
   throw new Error("payout_nonce_reservation_failed");
 
 }
-
 
 async function failReferralPayoutBeforeBroadcast(e,payout,errorMessage) {
 
@@ -1639,7 +1508,6 @@ async function failReferralPayoutBeforeBroadcast(e,payout,errorMessage) {
       WHERE payout_id=? AND status='processing'
 
     `).bind(payout.id),
-
 
     e.DB.prepare(`
 
@@ -1671,13 +1539,11 @@ async function failReferralPayoutBeforeBroadcast(e,payout,errorMessage) {
 
 }
 
-
 async function finalizeReferralPayout(e,payout,receipt) {
 
   const now=nowIso();
 
   const success=String(receipt?.status||"").toLowerCase()==="0x1";
-
 
   if(success){
 
@@ -1697,7 +1563,6 @@ async function finalizeReferralPayout(e,payout,receipt) {
 
       `).bind(now,payout.tx_hash,payout.id),
 
-
       e.DB.prepare(`
 
         UPDATE referral_payouts
@@ -1714,7 +1579,6 @@ async function finalizeReferralPayout(e,payout,receipt) {
 
     ]);
 
-
     return {
 
       ok:true,
@@ -1730,7 +1594,6 @@ async function finalizeReferralPayout(e,payout,receipt) {
     };
 
   }
-
 
   await e.DB.batch([
 
@@ -1749,7 +1612,6 @@ async function finalizeReferralPayout(e,payout,receipt) {
       WHERE payout_id=? AND status='processing'
 
     `).bind(payout.id),
-
 
     e.DB.prepare(`
 
@@ -1773,7 +1635,6 @@ async function finalizeReferralPayout(e,payout,receipt) {
 
   ]);
 
-
   return {
 
     ok:false,
@@ -1792,7 +1653,6 @@ async function finalizeReferralPayout(e,payout,receipt) {
 
 }
 
-
 async function processReferralPayout(e,payout,privateKey) {
 
   let txHash=String(payout.tx_hash||"").toLowerCase();
@@ -1800,7 +1660,6 @@ async function processReferralPayout(e,payout,privateKey) {
   let receipt=null;
 
   let tx=null;
-
 
   try{
 
@@ -1816,7 +1675,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
       );
 
-
       receipt=await rpc(
 
         e,
@@ -1827,11 +1685,9 @@ async function processReferralPayout(e,payout,privateKey) {
 
       );
 
-
       if(receipt)
 
         return await finalizeReferralPayout(e,payout,receipt);
-
 
       if(tx){
 
@@ -1848,7 +1704,6 @@ async function processReferralPayout(e,payout,privateKey) {
           `).bind(nowIso(),payout.id).run();
 
         }
-
 
         return {
 
@@ -1867,7 +1722,6 @@ async function processReferralPayout(e,payout,privateKey) {
       }
 
     }
-
 
     if(
 
@@ -1903,9 +1757,7 @@ async function processReferralPayout(e,payout,privateKey) {
 
     }
 
-
     const built=await buildReferralPayoutTx(payout,privateKey);
-
 
     if(txHash&&txHash!==built.hash.toLowerCase())
 
@@ -1925,9 +1777,7 @@ async function processReferralPayout(e,payout,privateKey) {
 
       };
 
-
     txHash=built.hash.toLowerCase();
-
 
     if(!payout.tx_hash){
 
@@ -1943,7 +1793,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
     }
 
-
     const [gdty,bnb]=await Promise.all([
 
       tokenBalance(e,A.G,REFERRAL_PAYOUT_WALLET),
@@ -1952,11 +1801,9 @@ async function processReferralPayout(e,payout,privateKey) {
 
     ]);
 
-
     const amount=BigInt(payout.amount_wei);
 
     const gasCost=built.gasPrice*built.gasLimit;
-
 
     if(gdty<amount){
 
@@ -1969,7 +1816,6 @@ async function processReferralPayout(e,payout,privateKey) {
         "Referral payout wallet has insufficient GDTY balance."
 
       );
-
 
       return {
 
@@ -1989,7 +1835,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
     }
 
-
     if(bnb<gasCost){
 
       await failReferralPayoutBeforeBroadcast(
@@ -2001,7 +1846,6 @@ async function processReferralPayout(e,payout,privateKey) {
         "Referral payout wallet has insufficient BNB for network fees."
 
       );
-
 
       return {
 
@@ -2021,7 +1865,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
     }
 
-
     try{
 
       const sent=String(
@@ -2029,7 +1872,6 @@ async function processReferralPayout(e,payout,privateKey) {
         await rpc(e,"eth_sendRawTransaction",[built.raw])
 
       ).toLowerCase();
-
 
       if(sent!==txHash){
 
@@ -2042,7 +1884,6 @@ async function processReferralPayout(e,payout,privateKey) {
           [txHash]
 
         );
-
 
         if(!seen)
 
@@ -2076,7 +1917,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
       ).catch(()=>null);
 
-
       if(!seen){
 
         return {
@@ -2099,7 +1939,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
     }
 
-
     await e.DB.prepare(`
 
       UPDATE referral_payouts
@@ -2114,7 +1953,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
     `).bind(nowIso(),payout.id).run();
 
-
     const immediateReceipt=await rpc(
 
       e,
@@ -2124,7 +1962,6 @@ async function processReferralPayout(e,payout,privateKey) {
       [txHash]
 
     );
-
 
     if(immediateReceipt)
 
@@ -2137,7 +1974,6 @@ async function processReferralPayout(e,payout,privateKey) {
         immediateReceipt
 
       );
-
 
     return {
 
@@ -2163,20 +1999,17 @@ async function processReferralPayout(e,payout,privateKey) {
 
     );
 
-
     const current=await e.DB.prepare(
 
       "SELECT status FROM referral_payouts WHERE id=?"
 
     ).bind(payout.id).first().catch(()=>null);
 
-
     const status=String(
 
       current?.status||payout.status||"processing"
 
     );
-
 
     return {
 
@@ -2198,7 +2031,6 @@ async function processReferralPayout(e,payout,privateKey) {
 
 }
 
-
 async function referralActiveGasCommitment(e) {
 
   const rows=await e.DB.prepare(`
@@ -2215,9 +2047,7 @@ async function referralActiveGasCommitment(e) {
 
   `).all();
 
-
   let total=0n;
-
 
   for(const row of (rows.results||[])){
 
@@ -2226,7 +2056,6 @@ async function referralActiveGasCommitment(e) {
       const gasPrice=BigInt(row.gas_price_wei);
 
       const gasLimit=BigInt(row.gas_limit);
-
 
       if(gasPrice>0n&&gasLimit>0n)
 
@@ -2240,16 +2069,13 @@ async function referralActiveGasCommitment(e) {
 
   }
 
-
   return total;
 
 }
 
-
 async function referralWithdraw(e,req) {
 
   const u=await currentUser(e,req);
-
 
   if(!u)
 
@@ -2265,7 +2091,6 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   if(!await requireOrigin(e,req))
 
     return out(
@@ -2279,7 +2104,6 @@ async function referralWithdraw(e,req) {
       cors(e)
 
     );
-
 
   if(!await rateLimit(
 
@@ -2305,7 +2129,6 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   if(!e.DB)
 
     return out(
@@ -2319,7 +2142,6 @@ async function referralWithdraw(e,req) {
       cors(e)
 
     );
-
 
   if(!u.wallet_address||!walletRe.test(u.wallet_address))
 
@@ -2335,9 +2157,7 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   const wallet=String(u.wallet_address).toLowerCase();
-
 
   const verified=await e.DB.prepare(`
 
@@ -2357,7 +2177,6 @@ async function referralWithdraw(e,req) {
 
   `).bind(u.id,wallet).first();
 
-
   if(!verified)
 
     return out(
@@ -2372,7 +2191,6 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   let privateKey;
 
   try{
@@ -2383,9 +2201,7 @@ async function referralWithdraw(e,req) {
 
     const code=err instanceof Error?err.message:"payout_key_not_configured";
 
-
     console.error("GOLDITY referral payout key error",code);
-
 
     return out(
 
@@ -2400,7 +2216,6 @@ async function referralWithdraw(e,req) {
     );
 
   }
-
 
   const active=await e.DB.prepare(`
 
@@ -2418,7 +2233,6 @@ async function referralWithdraw(e,req) {
 
   `).bind(u.id).first();
 
-
   if(active){
 
     const result=await processReferralPayout(
@@ -2430,7 +2244,6 @@ async function referralWithdraw(e,req) {
       privateKey
 
     );
-
 
     return out(
 
@@ -2445,7 +2258,6 @@ async function referralWithdraw(e,req) {
     );
 
   }
-
 
   const rewardRows=await e.DB.prepare(`
 
@@ -2463,16 +2275,13 @@ async function referralWithdraw(e,req) {
 
   `).bind(u.id).all();
 
-
   const rewards=rewardRows.results||[];
 
   let amount=0n;
 
-
   for(const r of rewards)
 
     amount+=BigInt(r.reward_amount_wei||"0");
-
 
   if(amount<=0n)
 
@@ -2488,7 +2297,6 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   const [gdty,bnb,gas]=await Promise.all([
 
     tokenBalance(e,A.G,REFERRAL_PAYOUT_WALLET),
@@ -2498,7 +2306,6 @@ async function referralWithdraw(e,req) {
     referralGasPlan(e,wallet,amount)
 
   ]);
-
 
   if(gdty<amount)
 
@@ -2514,11 +2321,9 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   const gasCost=gas.gasPrice*gas.gasLimit;
 
   const activeGasCommitment=await referralActiveGasCommitment(e);
-
 
   if(bnb<activeGasCommitment+gasCost)
 
@@ -2534,9 +2339,7 @@ async function referralWithdraw(e,req) {
 
     );
 
-
   let reserved;
-
 
   try{
 
@@ -2560,7 +2363,6 @@ async function referralWithdraw(e,req) {
 
     const code=err instanceof Error?err.message:"payout_reservation_failed";
 
-
     console.error(
 
       "GOLDITY referral payout reservation error",
@@ -2568,7 +2370,6 @@ async function referralWithdraw(e,req) {
       code
 
     );
-
 
     if(code==="no_rewards_available")
 
@@ -2584,7 +2385,6 @@ async function referralWithdraw(e,req) {
 
       );
 
-
     return out(
 
       {ok:false,error:"payout_reservation_failed"},
@@ -2598,7 +2398,6 @@ async function referralWithdraw(e,req) {
     );
 
   }
-
 
   if(!reserved?.existing){
 
@@ -2614,7 +2413,6 @@ async function referralWithdraw(e,req) {
 
     const postReserveCommitment=await referralActiveGasCommitment(e);
 
-
     if(postReserveBnb<postReserveCommitment){
 
       await failReferralPayoutBeforeBroadcast(
@@ -2626,7 +2424,6 @@ async function referralWithdraw(e,req) {
         "insufficient_payout_bnb_after_reservation"
 
       );
-
 
       return out(
 
@@ -2644,7 +2441,6 @@ async function referralWithdraw(e,req) {
 
   }
 
-
   if(reserved?.existing){
 
     const result=await processReferralPayout(
@@ -2656,7 +2452,6 @@ async function referralWithdraw(e,req) {
       privateKey
 
     );
-
 
     return out(
 
@@ -2672,7 +2467,6 @@ async function referralWithdraw(e,req) {
 
   }
 
-
   const result=await processReferralPayout(
 
     e,
@@ -2682,7 +2476,6 @@ async function referralWithdraw(e,req) {
     privateKey
 
   );
-
 
   return out(
 
@@ -2698,11 +2491,9 @@ async function referralWithdraw(e,req) {
 
 }
 
-
 async function referralWithdrawStatus(e,req) {
 
   const u=await currentUser(e,req);
-
 
   if(!u)
 
@@ -2718,7 +2509,6 @@ async function referralWithdrawStatus(e,req) {
 
     );
 
-
   if(!await requireOrigin(e,req))
 
     return out(
@@ -2732,7 +2522,6 @@ async function referralWithdrawStatus(e,req) {
       cors(e)
 
     );
-
 
   const latest=await e.DB.prepare(`
 
@@ -2748,9 +2537,7 @@ async function referralWithdrawStatus(e,req) {
 
   `).bind(u.id).first();
 
-
   let payout=latest;
-
 
   if(
 
@@ -2765,7 +2552,6 @@ async function referralWithdrawStatus(e,req) {
       const privateKey=getReferralPayoutPrivateKey(e);
 
       await processReferralPayout(e,payout,privateKey);
-
 
       payout=await e.DB.prepare(`
 
@@ -2793,7 +2579,6 @@ async function referralWithdrawStatus(e,req) {
 
   }
 
-
   const responsePayout=payout
 
     ?{
@@ -2818,7 +2603,6 @@ async function referralWithdrawStatus(e,req) {
 
     :null;
 
-
   return out(
 
     {
@@ -2839,31 +2623,25 @@ async function referralWithdrawStatus(e,req) {
 
 }
 
-
 async function walletChallenge(e,req) {
 
   const u=await currentUser(e,req);
-
 
   if(!u)
 
     return out({ok:false,error:"unauthorized"},401,cors(e));
 
-
   if(!await requireOrigin(e,req))
 
     return out({ok:false,error:"forbidden"},403,cors(e));
-
 
   const d=await req.json().catch(()=>({}));
 
   const address=String(d.address||"").toLowerCase();
 
-
   if(!walletRe.test(address))
 
     return out({ok:false,error:"invalid_wallet"},400,cors(e));
-
 
   const existing=await e.DB.prepare(
 
@@ -2871,16 +2649,13 @@ async function walletChallenge(e,req) {
 
   ).bind(address).first();
 
-
   if(existing&&existing.user_id!==u.id)
 
     return out({ok:false,error:"wallet_already_bound"},409,cors(e));
 
-
   const challengeId=id();
 
   const nonce=token();
-
 
   const message=[
 
@@ -2898,13 +2673,11 @@ async function walletChallenge(e,req) {
 
   ].join("\n");
 
-
   const exp=new Date(
 
     Date.now()+10*60*1000
 
   ).toISOString();
-
 
   await e.DB.prepare(`
 
@@ -2915,7 +2688,6 @@ async function walletChallenge(e,req) {
       AND used_at IS NULL
 
   `).bind(u.id).run();
-
 
   await e.DB.prepare(`
 
@@ -2945,7 +2717,6 @@ async function walletChallenge(e,req) {
 
   ).run();
 
-
   return out({
 
     ok:true,
@@ -2960,24 +2731,19 @@ async function walletChallenge(e,req) {
 
 }
 
-
 async function walletVerify(e,req) {
 
   const u=await currentUser(e,req);
-
 
   if(!u)
 
     return out({ok:false,error:"unauthorized"},401,cors(e));
 
-
   if(!await requireOrigin(e,req))
 
     return out({ok:false,error:"forbidden"},403,cors(e));
 
-
   const d=await req.json().catch(()=>({}));
-
 
   const ch=await e.DB.prepare(`
 
@@ -2993,11 +2759,9 @@ async function walletVerify(e,req) {
 
   `).bind(d.challengeId,u.id).first();
 
-
   if(!ch||new Date(ch.expires_at)<=new Date())
 
     return out({ok:false,error:"challenge_expired"},400,cors(e));
-
 
   const recovered=recoveredAddress(
 
@@ -3007,11 +2771,9 @@ async function walletVerify(e,req) {
 
   );
 
-
   if(recovered!==String(ch.wallet_address).toLowerCase())
 
     return out({ok:false,error:"signature_mismatch"},401,cors(e));
-
 
   const bound=await e.DB.prepare(
 
@@ -3019,14 +2781,11 @@ async function walletVerify(e,req) {
 
   ).bind(recovered).first();
 
-
   if(bound&&bound.user_id!==u.id)
 
     return out({ok:false,error:"wallet_already_bound"},409,cors(e));
 
-
   const now=nowIso();
-
 
   await e.DB.batch([
 
@@ -3056,7 +2815,6 @@ async function walletVerify(e,req) {
 
     ),
 
-
     e.DB.prepare(`
 
       UPDATE users
@@ -3066,7 +2824,6 @@ async function walletVerify(e,req) {
       WHERE id=?
 
     `).bind(recovered,now,u.id),
-
 
     e.DB.prepare(`
 
@@ -3080,7 +2837,6 @@ async function walletVerify(e,req) {
 
   ]);
 
-
   return out({
 
     ok:true,
@@ -3090,7 +2846,6 @@ async function walletVerify(e,req) {
   },200,0,cors(e));
 
 }
-
 
 async function tokenBalance(e,tokenAddress,account) {
 
@@ -3104,21 +2859,17 @@ async function tokenBalance(e,tokenAddress,account) {
 
   );
 
-
   return raw ? BigInt(raw) : 0n;
 
 }
-
 
 async function walletData(e,u) {
 
   const address=u.wallet_address;
 
-
   if(!address||!walletRe.test(address))
 
     return {connected:false};
-
 
   const [gdty,usdt,bnb]=await Promise.all([
 
@@ -3129,7 +2880,6 @@ async function walletData(e,u) {
     rpc(e,"eth_getBalance",[address,"latest"]).then(BigInt)
 
   ]);
-
 
   return {
 
@@ -3147,7 +2897,6 @@ async function walletData(e,u) {
 
 }
 
-
 function parseTransfer(log) {
 
   if(
@@ -3155,7 +2904,6 @@ function parseTransfer(log) {
     String(log.topics?.[0]).toLowerCase()!==TOPIC_TRANSFER
 
   )return null;
-
 
   if(
 
@@ -3166,7 +2914,6 @@ function parseTransfer(log) {
     !log.data
 
   )return null;
-
 
   return {
 
@@ -3182,7 +2929,6 @@ function parseTransfer(log) {
 
 }
 
-
 async function verifyTrade(e,u,txHash) {
 
   if(!u.wallet_address)
@@ -3195,7 +2941,6 @@ async function verifyTrade(e,u,txHash) {
 
     };
 
-
   const tx=await rpc(
 
     e,
@@ -3205,7 +2950,6 @@ async function verifyTrade(e,u,txHash) {
     [txHash]
 
   );
-
 
   const receipt=await rpc(
 
@@ -3217,7 +2961,6 @@ async function verifyTrade(e,u,txHash) {
 
   );
 
-
   if(!tx||!receipt)
 
     return {
@@ -3227,7 +2970,6 @@ async function verifyTrade(e,u,txHash) {
       error:"transaction_not_found"
 
     };
-
 
   if(
 
@@ -3245,7 +2987,6 @@ async function verifyTrade(e,u,txHash) {
 
     };
 
-
   if(receipt.status!=="0x1")
 
     return {
@@ -3256,9 +2997,7 @@ async function verifyTrade(e,u,txHash) {
 
     };
 
-
   const pp=await pair(e);
-
 
   const pools=new Map([
 
@@ -3268,16 +3007,13 @@ async function verifyTrade(e,u,txHash) {
 
   ]);
 
-
   const logs=(receipt.logs||[])
 
     .map(parseTransfer)
 
     .filter(Boolean);
 
-
   for(const [p,name] of pools){
-
 
     const gBuy=logs.find(l=>
 
@@ -3289,7 +3025,6 @@ async function verifyTrade(e,u,txHash) {
 
     );
 
-
     const uBuy=logs.find(l=>
 
       l.token===A.U &&
@@ -3299,7 +3034,6 @@ async function verifyTrade(e,u,txHash) {
       l.to===p
 
     );
-
 
     if(gBuy&&uBuy){
 
@@ -3329,7 +3063,6 @@ async function verifyTrade(e,u,txHash) {
 
     }
 
-
     const gSell=logs.find(l=>
 
       l.token===A.G &&
@@ -3340,7 +3073,6 @@ async function verifyTrade(e,u,txHash) {
 
     );
 
-
     const uSell=logs.find(l=>
 
       l.token===A.U &&
@@ -3350,7 +3082,6 @@ async function verifyTrade(e,u,txHash) {
       l.to===u.wallet_address.toLowerCase()
 
     );
-
 
     if(gSell&&uSell){
 
@@ -3382,7 +3113,6 @@ async function verifyTrade(e,u,txHash) {
 
   }
 
-
   return {
 
     ok:false,
@@ -3399,7 +3129,6 @@ async function recordTrade(e,u,trade) {
 
   if(existing)return {ok:false,error:"transaction_already_recorded"};
 
-
   const latest=parseInt(await rpc(e,"eth_blockNumber"),16);
 
   const confirmations=Math.max(0,latest-trade.block);
@@ -3407,7 +3136,6 @@ async function recordTrade(e,u,trade) {
   const status=confirmations>=12?"confirmed":"pending";
 
   const tradeId=id(),now=nowIso();
-
 
   await e.DB.prepare(`
 
@@ -3457,13 +3185,11 @@ async function recordTrade(e,u,trade) {
 
   ).run();
 
-
   const p=await e.DB.prepare(
 
     "SELECT * FROM portfolio_accounts WHERE user_id=?"
 
   ).bind(u.id).first();
-
 
   const bought=BigInt(p?.gdty_bought_wei||"0");
 
@@ -3473,19 +3199,15 @@ async function recordTrade(e,u,trade) {
 
   const received=BigInt(p?.usdt_received_wei||"0");
 
-
   let cost=BigInt(p?.cost_basis_wei||"0");
 
   let realized=BigInt(p?.realized_pnl_wei||"0");
-
 
   const g=BigInt(trade.gdty);
 
   const uAmt=BigInt(trade.usdt);
 
-
   if(trade.side==="buy"){
-
 
     await e.DB.prepare(`
 
@@ -3541,9 +3263,7 @@ async function recordTrade(e,u,trade) {
 
     ).run();
 
-
     const reward=g/20n;
-
 
     const refUser=u.referred_by
 
@@ -3555,9 +3275,7 @@ async function recordTrade(e,u,trade) {
 
       :null;
 
-
     if(refUser&&reward>0n){
-
 
       await e.DB.prepare(`
 
@@ -3615,7 +3333,6 @@ async function recordTrade(e,u,trade) {
 
       ).run();
 
-
       await e.DB.prepare(`
 
         INSERT INTO notifications(
@@ -3654,9 +3371,7 @@ async function recordTrade(e,u,trade) {
 
     }
 
-
   }else{
-
 
     const qty=bought-sold;
 
@@ -3666,11 +3381,9 @@ async function recordTrade(e,u,trade) {
 
       :0n;
 
-
     realized+=uAmt-costReduction;
 
     cost=Math.max(0n,cost-costReduction);
-
 
     await e.DB.prepare(`
 
@@ -3730,7 +3443,6 @@ async function recordTrade(e,u,trade) {
 
   }
 
-
   return {
 
     ok:true,
@@ -3745,11 +3457,9 @@ async function recordTrade(e,u,trade) {
 
 }
 
-
 async function dashboard(e,req) {
 
   const u=await currentUser(e,req);
-
 
   if(!u)
 
@@ -3765,13 +3475,11 @@ async function dashboard(e,req) {
 
     );
 
-
   const refs=await e.DB.prepare(
 
     "SELECT COUNT(*) AS count FROM users WHERE referred_by=?"
 
   ).bind(u.referral_code).first();
-
 
   const rewardRows=await e.DB.prepare(`
 
@@ -3783,19 +3491,15 @@ async function dashboard(e,req) {
 
   `).bind(u.id).all();
 
-
   let rewardAvailable=0n;
 
   let rewardTotal=0n;
-
 
   for(const r of (rewardRows.results||[])){
 
     const amount=BigInt(r.reward_amount_wei||"0");
 
-
     rewardTotal+=amount;
-
 
     if(r.status==="available"){
 
@@ -3805,13 +3509,11 @@ async function dashboard(e,req) {
 
   }
 
-
   const p=await e.DB.prepare(
 
     "SELECT * FROM portfolio_accounts WHERE user_id=?"
 
   ).bind(u.id).first();
-
 
   const trades=await e.DB.prepare(`
 
@@ -3843,7 +3545,6 @@ async function dashboard(e,req) {
 
   `).bind(u.id).all();
 
-
   const notifications=await e.DB.prepare(`
 
     SELECT
@@ -3870,9 +3571,7 @@ async function dashboard(e,req) {
 
   `).bind(u.id).all();
 
-
   let wallet={connected:false};
-
 
   try{
 
@@ -3880,11 +3579,9 @@ async function dashboard(e,req) {
 
   }catch{}
 
-
   return out({
 
     ok:true,
-
 
     user:{
 
@@ -3914,9 +3611,7 @@ async function dashboard(e,req) {
 
     },
 
-
     wallet,
-
 
     portfolio:{
 
@@ -3934,7 +3629,6 @@ async function dashboard(e,req) {
 
     },
 
-
     referralRewards:{
 
       availableWei:rewardAvailable.toString(),
@@ -3943,19 +3637,15 @@ async function dashboard(e,req) {
 
     },
 
-
     trades:trades.results||[],
 
     notifications:notifications.results||[]
-
 
   },200,0,cors(e));
 
 }
 
-
 async function logout(e,req) {
-
 
   if(!await requireOrigin(e,req))
 
@@ -3971,7 +3661,6 @@ async function logout(e,req) {
 
     );
 
-
   const m=req.headers.get("Cookie")||"";
 
   const hit=m.match(
@@ -3980,11 +3669,9 @@ async function logout(e,req) {
 
   );
 
-
   if(hit&&e.DB){
 
     const h=await sha256Text(hit[1]);
-
 
     await e.DB.prepare(
 
@@ -3993,7 +3680,6 @@ async function logout(e,req) {
     ).bind(h).run();
 
   }
-
 
   return out(
 
@@ -4023,12 +3709,9 @@ async function logout(e,req) {
 
 }
 
-
 async function createTicket(e,req) {
 
-
   const u=await currentUser(e,req);
-
 
   if(!u)
 
@@ -4044,7 +3727,6 @@ async function createTicket(e,req) {
 
     );
 
-
   if(!await requireOrigin(e,req))
 
     return out(
@@ -4059,16 +3741,13 @@ async function createTicket(e,req) {
 
     );
 
-
   const d=await req.json().catch(()=>({}));
-
 
   const category=clean(d.category,40);
 
   const subject=clean(d.subject,160);
 
   const message=clean(d.message,4000);
-
 
   const allowed=[
 
@@ -4087,7 +3766,6 @@ async function createTicket(e,req) {
     "Other"
 
   ];
-
 
   if(
 
@@ -4113,9 +3791,7 @@ async function createTicket(e,req) {
 
   }
 
-
   const tid=id();
-
 
   const number=
 
@@ -4123,12 +3799,9 @@ async function createTicket(e,req) {
 
     `${crypto.randomUUID().slice(0,6).toUpperCase()}`;
 
-
   const now=nowIso();
 
-
   await e.DB.batch([
-
 
     e.DB.prepare(`
 
@@ -4178,7 +3851,6 @@ async function createTicket(e,req) {
 
     ),
 
-
     e.DB.prepare(`
 
       INSERT INTO support_messages(
@@ -4217,7 +3889,6 @@ async function createTicket(e,req) {
 
   ]);
 
-
   return out({
 
     ok:true,
@@ -4236,12 +3907,9 @@ async function createTicket(e,req) {
 
 }
 
-
 async function ticketList(e,req) {
 
-
   const u=await currentUser(e,req);
-
 
   if(!u)
 
@@ -4256,7 +3924,6 @@ async function ticketList(e,req) {
       cors(e)
 
     );
-
 
   const rows=await e.DB.prepare(`
 
@@ -4286,7 +3953,6 @@ async function ticketList(e,req) {
 
   `).bind(u.id).all();
 
-
   return out({
 
     ok:true,
@@ -4297,12 +3963,9 @@ async function ticketList(e,req) {
 
 }
 
-
 async function ticketMessages(e,req) {
 
-
   const u=await currentUser(e,req);
-
 
   if(!u)
 
@@ -4318,7 +3981,6 @@ async function ticketMessages(e,req) {
 
     );
 
-
   const ticketId=clean(
 
     new URL(req.url).searchParams.get("ticket"),
@@ -4326,7 +3988,6 @@ async function ticketMessages(e,req) {
     80
 
   );
-
 
   const t=await e.DB.prepare(`
 
@@ -4344,7 +4005,6 @@ async function ticketMessages(e,req) {
 
   ).first();
 
-
   if(!t)
 
     return out(
@@ -4358,7 +4018,6 @@ async function ticketMessages(e,req) {
       cors(e)
 
     );
-
 
   const rows=await e.DB.prepare(`
 
@@ -4382,7 +4041,6 @@ async function ticketMessages(e,req) {
 
   `).bind(ticketId).all();
 
-
   return out({
 
     ok:true,
@@ -4393,16 +4051,13 @@ async function ticketMessages(e,req) {
 
 }
 
-
 export default {
 
   async fetch(req,e) {
 
-
     const u=new URL(req.url);
 
     const baseHeaders=cors(e);
-
 
     if(req.method==="OPTIONS"){
 
@@ -4432,9 +4087,7 @@ export default {
 
     }
 
-
     try{
-
 
       if(
 
@@ -4446,7 +4099,6 @@ export default {
 
         return await registerUser(e,req);
 
-
       if(
 
         u.pathname==="/api/login"&&
@@ -4456,7 +4108,6 @@ export default {
       )
 
         return await loginUser(e,req);
-
 
       if(
 
@@ -4468,7 +4119,6 @@ export default {
 
         return await verifyEmail(e,req);
 
-
       if(
 
         u.pathname==="/api/logout"&&
@@ -4478,7 +4128,6 @@ export default {
       )
 
         return await logout(e,req);
-
 
       if(
 
@@ -4490,7 +4139,6 @@ export default {
 
         return await dashboard(e,req);
 
-
       if(
 
         u.pathname==="/api/wallet/challenge"&&
@@ -4500,7 +4148,6 @@ export default {
       )
 
         return await walletChallenge(e,req);
-
 
       if(
 
@@ -4512,7 +4159,6 @@ export default {
 
         return await walletVerify(e,req);
 
-
       if(
 
         u.pathname==="/api/trade/verify"&&
@@ -4521,9 +4167,7 @@ export default {
 
       ){
 
-
         const user=await currentUser(e,req);
-
 
         if(!user)
 
@@ -4539,7 +4183,6 @@ export default {
 
           );
 
-
         if(!await requireOrigin(e,req))
 
           return out(
@@ -4553,7 +4196,6 @@ export default {
             baseHeaders
 
           );
-
 
         if(!await rateLimit(
 
@@ -4579,7 +4221,6 @@ export default {
 
           );
 
-
         const d=await req.json().catch(()=>({}));
 
         const txHash=String(
@@ -4587,7 +4228,6 @@ export default {
           d.txHash||""
 
         ).toLowerCase();
-
 
         if(!txRe.test(txHash))
 
@@ -4603,7 +4243,6 @@ export default {
 
           );
 
-
         const trade=await verifyTrade(
 
           e,
@@ -4613,7 +4252,6 @@ export default {
           txHash
 
         );
-
 
         if(!trade.ok)
 
@@ -4629,9 +4267,7 @@ export default {
 
           );
 
-
         trade.txHash=txHash;
-
 
         return out(
 
@@ -4655,7 +4291,6 @@ export default {
 
       }
 
-
       if(
 
         u.pathname==="/api/referral/withdraw"&&
@@ -4665,7 +4300,6 @@ export default {
       )
 
         return await referralWithdraw(e,req);
-
 
       if(
 
@@ -4677,7 +4311,6 @@ export default {
 
         return await referralWithdrawStatus(e,req);
 
-
       if(
 
         u.pathname==="/api/referral/check"&&
@@ -4686,7 +4319,6 @@ export default {
 
       ){
 
-
         const code=clean(
 
           u.searchParams.get("code"),
@@ -4694,7 +4326,6 @@ export default {
           32
 
         ).toUpperCase();
-
 
         const row=
 
@@ -4707,7 +4338,6 @@ export default {
             ).bind(code).first()
 
             :null;
-
 
         return out({
 
@@ -4723,7 +4353,6 @@ export default {
 
       }
 
-
       if(
 
         u.pathname==="/api/support/tickets"&&
@@ -4733,7 +4362,6 @@ export default {
       )
 
         return await createTicket(e,req);
-
 
       if(
 
@@ -4745,7 +4373,6 @@ export default {
 
         return await ticketList(e,req);
 
-
       if(
 
         u.pathname==="/api/support/messages"&&
@@ -4756,12 +4383,9 @@ export default {
 
         return await ticketMessages(e,req);
 
-
       if(u.pathname==="/api/market"){
 
-
         const pp=await pair(e);
-
 
         const [uni,pcs]=await Promise.all([
 
@@ -4787,7 +4411,6 @@ export default {
 
         ]);
 
-
         const ref=mean(
 
           uni.price,
@@ -4795,7 +4418,6 @@ export default {
           pcs.price
 
         );
-
 
         const live=[
 
@@ -4809,18 +4431,13 @@ export default {
 
         );
 
-
         return out({
-
 
           ok:true,
 
-
           network:"BNB Smart Chain",
 
-
           chainId:56,
-
 
           token:{
 
@@ -4834,7 +4451,6 @@ export default {
 
           },
 
-
           quoteToken:{
 
             symbol:"USDT",
@@ -4845,14 +4461,11 @@ export default {
 
           },
 
-
           referencePrice:ref,
-
 
           priceMethod:
 
             "Arithmetic mean of valid GDTY/USDT V2 pool prices",
-
 
           liquidityUsd:
 
@@ -4866,7 +4479,6 @@ export default {
 
             )||null,
 
-
           markets:{
 
             uniswap:uni,
@@ -4875,9 +4487,7 @@ export default {
 
           },
 
-
           lastUpdated:nowIso(),
-
 
           dataStatus:
 
@@ -4887,17 +4497,13 @@ export default {
 
               :"live"
 
-
         },200,10,baseHeaders);
 
       }
 
-
       if(u.pathname==="/api/chart"){
 
-
         const pp=await pair(e);
-
 
         const range=
 
@@ -4909,9 +4515,7 @@ export default {
 
           ).toUpperCase();
 
-
         const cfg=ranges[range];
-
 
         if(!cfg)
 
@@ -4924,7 +4528,6 @@ export default {
             allowed:Object.keys(ranges)
 
           },400,0,baseHeaders);
-
 
         const [uni,pcs]=await Promise.allSettled([
 
@@ -4950,7 +4553,6 @@ export default {
 
         ]);
 
-
         const a=
 
           uni.status==="fulfilled"
@@ -4964,7 +4566,6 @@ export default {
             )
 
             :[];
-
 
         const b=
 
@@ -4980,28 +4581,21 @@ export default {
 
             :[];
 
-
         const candles=
 
           mergeReference(a,b);
 
-
         return out({
-
 
           ok:true,
 
-
           range,
-
 
           method:
 
             "Arithmetic mean of valid pool OHLC values by timestamp",
 
-
           candles,
-
 
           sources:{
 
@@ -5021,7 +4615,6 @@ export default {
 
             },
 
-
             pancakeswap:{
 
               status:
@@ -5040,7 +4633,6 @@ export default {
 
           },
 
-
           historyStatus:
 
             candles.length
@@ -5049,16 +4641,13 @@ export default {
 
               :"unavailable",
 
-
           note:
 
             "Candles use indexed market data. No synthetic history is generated."
 
-
         },200,30,baseHeaders);
 
       }
-
 
       if(
 
@@ -5067,7 +4656,6 @@ export default {
         req.method==="GET"
 
       ){
-
 
         if(!e.DB)
 
@@ -5082,7 +4670,6 @@ export default {
             baseHeaders
 
           );
-
 
         const rows=await e.DB.prepare(`
 
@@ -5108,7 +4695,6 @@ export default {
 
         `).all();
 
-
         return out({
 
           ok:true,
@@ -5119,7 +4705,6 @@ export default {
 
       }
 
-
       if(
 
         u.pathname==="/api/resources"&&
@@ -5127,7 +4712,6 @@ export default {
         req.method==="GET"
 
       ){
-
 
         if(!e.DB)
 
@@ -5142,7 +4726,6 @@ export default {
             baseHeaders
 
           );
-
 
         const rows=await e.DB.prepare(`
 
@@ -5168,7 +4751,6 @@ export default {
 
         `).all();
 
-
         return out({
 
           ok:true,
@@ -5179,11 +4761,9 @@ export default {
 
       }
 
-
       if(e.ASSETS)
 
         return e.ASSETS.fetch(req);
-
 
       return out(
 
@@ -5197,9 +4777,7 @@ export default {
 
       );
 
-
     }catch(err){
-
 
       console.error(
 
@@ -5208,7 +4786,6 @@ export default {
         err
 
       );
-
 
       return out(
 
