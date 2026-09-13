@@ -24,7 +24,6 @@
   --gold-light:#F5D16E;
   --gold-bright:#F5D16E;
   --gold-deep:#BA7802;
-  --hero-gold-metal:linear-gradient(180deg,#F5D16E 0%,#E0B34B 18%,#BA7802 48%,#7A4D01 76%,#C58B22 100%);
   --line:#29251e;
   --line-soft:#1b1915;
   --text:#f6f1e7;
@@ -238,53 +237,103 @@ img{max-width:100%}
 .mobile-nav nav a:hover{background:rgba(217,180,91,.07);color:var(--gold-light)}
 
 /* =========================================================
-   HOME HERO
+   GOLDITY HOME HERO — MASTER WORDMARK SYSTEM
+   Robust metallic-gold rendering.
+   No dark foil stops. No black stroke. No black fallback.
    ========================================================= */
 .hero{
   position:relative;
   min-height:650px;
   overflow:hidden;
+  isolation:isolate;
   background:#030303;
   border-bottom:1px solid var(--line);
 }
 .hero-art{position:absolute;inset:0;z-index:0;overflow:hidden}
 .hero-art img{width:100%;height:100%;display:block;object-fit:cover;object-position:center center}
 .hero-backdrop{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  pointer-events:none;
+  position:absolute;inset:0;z-index:1;pointer-events:none;
   background:
-    linear-gradient(90deg,rgba(10,8,4,.68) 0%,rgba(5,5,4,.57) 28%,rgba(3,3,3,.27) 50%,rgba(3,3,3,.06) 78%),
-    radial-gradient(circle at 16% 38%,rgba(217,180,91,.16),transparent 36%),
-    linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.08) 55%,rgba(0,0,0,.6));
+    linear-gradient(90deg,rgba(7,6,4,.72) 0%,rgba(5,5,4,.57) 27%,rgba(3,3,3,.25) 51%,rgba(3,3,3,.06) 78%),
+    radial-gradient(circle at 18% 38%,rgba(230,183,73,.13),transparent 36%),
+    linear-gradient(180deg,rgba(0,0,0,.10),rgba(0,0,0,.08) 54%,rgba(0,0,0,.55));
 }
-.hero-inner{position:relative;z-index:2;width:min(var(--content),calc(100% - 48px));min-height:650px;margin:0 auto;display:flex;align-items:center}
-.hero-copy{width:min(600px,55%);padding:55px 0}
-.eyebrow{margin:0 0 12px;color:var(--gold);font-size:10px;font-weight:900;letter-spacing:.23em;text-transform:uppercase}
-.hero h1{
-  margin:0;
-  font-family:"Bailon",Georgia,"Times New Roman",serif;
-  font-size:clamp(60px,7.5vw,106px);
-  line-height:.86;
-  letter-spacing:-.018em;
-  font-weight:400;
-  background:var(--hero-gold-metal);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  color:transparent;
-  text-shadow:0 3px 5px rgba(0,0,0,.78),0 0 20px rgba(186,120,2,.18);
+.hero-inner{
+  position:relative;z-index:3;width:min(var(--content),calc(100% - 48px));
+  min-height:650px;margin:0 auto;display:flex;align-items:center;
 }
-.hero h1 span{display:block;margin-top:10px;font-family:Inter,system-ui,sans-serif;font-size:.31em;letter-spacing:.3em;line-height:1;color:var(--gold-light);-webkit-text-fill-color:var(--gold-light)}
-.hero-tagline{margin:22px 0 10px;color:#f5eee0;font-family:Georgia,"Times New Roman",serif;font-size:21px;font-weight:600}
-.hero-lead{max-width:530px;margin:0;color:#c8c0b3;font-size:14px;line-height:1.8}
+.hero-copy{position:relative;z-index:4;width:min(600px,55%);padding:55px 0}
+.hero-copy > .eyebrow{
+  display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;
+  margin:0 0 18px;color:#f4d477;font-size:10px;font-weight:900;
+  line-height:1.2;letter-spacing:.28em;text-transform:uppercase;text-shadow:0 1px 3px rgba(0,0,0,.9);
+}
+.hero-copy > .eyebrow::before,.hero-copy > .eyebrow::after{
+  content:"";display:block;width:42px;height:1px;flex:0 0 42px;
+  background:linear-gradient(90deg,transparent,#e4b64f);box-shadow:0 0 7px rgba(228,182,79,.18);
+}
+.hero-copy > .eyebrow::after{background:linear-gradient(90deg,#e4b64f,transparent)}
+
+/* GOLDITY WORDMARK — single authoritative rule */
+.hero h1.hero-title{
+  position:relative;margin:0;
+  font-family:"Bailon","Bodoni 72","Didot","Bodoni MT","Times New Roman",Georgia,serif;
+  font-size:clamp(66px,7.8vw,112px);font-weight:400;line-height:.84;letter-spacing:-.025em;
+  font-variant-ligatures:common-ligatures;
+
+  /* Bright gold fallback: never black */
+  color:#f6d477;
+
+  /* Metallic gold only — no black/brown stops */
+  background-image:linear-gradient(180deg,
+    #fffbe3 0%,#fff2bb 8%,#ffe28a 17%,#f5c95c 28%,#dca12f 39%,
+    #f7d56f 49%,#fff3b3 59%,#efbd45 70%,#f8d879 81%,#fff6c9 91%,#e7ad35 100%);
+  background-repeat:no-repeat;background-size:100% 100%;background-position:center;
+  -webkit-background-clip:text;background-clip:text;
+
+  /*
+    IMPORTANT:
+    Keep the WebKit fill GOLD, not transparent.
+    This eliminates the black/transparent upper-glyph artifact.
+  */
+  -webkit-text-fill-color:#f6d477;
+  text-shadow:0 1px 0 rgba(255,250,220,.38),0 2px 0 rgba(214,161,43,.30),0 5px 10px rgba(57,34,4,.30);
+  -webkit-text-stroke:0;
+  text-rendering:geometricPrecision;
+}
+
+/* Apply true foil only when Chromium explicitly supports the clip */
+@supports (-webkit-background-clip:text){
+  .hero h1.hero-title{-webkit-text-fill-color:transparent}
+}
+
+.hero h1.hero-title span{
+  display:block;margin-top:13px;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:.285em;font-weight:750;line-height:1;letter-spacing:.34em;
+  color:#f4d98c;
+  background-image:linear-gradient(180deg,#fff8d5 0%,#ffeaa8 18%,#f3cd67 36%,#e0aa39 52%,#fff0a8 68%,#f2c95e 84%,#fff5c2 100%);
+  background-repeat:no-repeat;background-size:100% 100%;background-position:center;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:#f4d98c;
+  text-shadow:0 2px 4px rgba(57,34,4,.28);-webkit-text-stroke:0;
+}
+@supports (-webkit-background-clip:text){
+  .hero h1.hero-title span{-webkit-text-fill-color:transparent}
+}
+
+.hero-tagline{
+  margin:24px 0 11px;color:#f5e1a5;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:clamp(17px,1.55vw,22px);font-weight:650;line-height:1.35;letter-spacing:.045em;
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
+}
+.hero-lead{max-width:530px;margin:0;color:#e4dac8;font-size:14px;line-height:1.8;text-shadow:0 1px 4px rgba(0,0,0,.92)}
 .hero-actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:27px}
-.hero-trust-row{display:flex;gap:0;margin-top:38px;max-width:540px;border-top:1px solid rgba(217,180,91,.16)}
-.hero-trust-row div{min-width:120px;padding:15px 20px 0 0;margin-right:20px;border-right:1px solid rgba(217,180,91,.12)}
+.hero-trust-row{display:flex;gap:0;margin-top:38px;max-width:540px;border-top:1px solid rgba(230,185,78,.22)}
+.hero-trust-row div{min-width:120px;padding:15px 20px 0 0;margin-right:20px;border-right:1px solid rgba(230,185,78,.15)}
 .hero-trust-row div:last-child{border-right:0}
-.hero-trust-row strong{display:block;color:var(--gold-light);font-size:15px}
-.hero-trust-row span{display:block;margin-top:3px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}
+.hero-trust-row strong{display:block;color:#f5d77b;font-size:15px;text-shadow:0 1px 3px rgba(0,0,0,.85)}
+.hero-trust-row span{display:block;margin-top:3px;color:#bcae8c;font-size:10px;text-transform:uppercase;letter-spacing:.1em}
 
 /* =========================================================
    CONTRACT
@@ -482,7 +531,7 @@ img{max-width:100%}
    ========================================================= */
 @media(max-width:760px){
   .site-header,header{min-height:64px}.header-inner{width:calc(100% - 28px);min-height:64px;gap:9px}.brand-logo{width:34px;height:34px}.brand-copy strong{font-size:13px}.brand-copy b{font-size:9px}.main-nav{display:none}.mobile-nav{display:block}.header-actions{margin-left:auto}.wallet{min-height:40px;padding:8px 11px;font-size:10px}.wallet-icon{display:none}.wallet-menu{top:58px;right:0;width:min(280px,calc(100vw - 28px))}
-  .hero{position:relative;min-height:0;display:flex;flex-direction:column;background:#040404}.hero-art{position:relative;inset:auto;height:410px;order:0}.hero-art img{object-position:70% center}.hero-backdrop{position:absolute;inset:0;background:radial-gradient(circle at 16% 42%,rgba(217,180,91,.09),transparent 38%),linear-gradient(180deg,rgba(0,0,0,.01) 35%,rgba(3,3,3,.64) 80%,#040404 100%)}.hero-inner{width:100%;min-height:0;display:block;order:1}.hero-copy{width:100%;padding:25px 20px 35px}.hero h1{font-size:clamp(52px,17vw,78px)}.hero-tagline{font-size:18px;margin-top:18px}.hero-lead{font-size:13px;line-height:1.7}.hero-actions{margin-top:22px;display:grid;grid-template-columns:1fr 1fr}.hero-actions .cta:last-child{grid-column:1/-1}.hero-trust-row{margin-top:28px}.hero-trust-row div{min-width:0;flex:1;padding-right:10px;margin-right:10px}.hero-trust-row strong{font-size:13px}.hero-trust-row span{font-size:8px}
+  .hero{position:relative;min-height:0;display:flex;flex-direction:column;background:#040404}.hero-art{position:relative;inset:auto;height:410px;order:0}.hero-art img{object-position:70% center}.hero-backdrop{position:absolute;inset:0;background:radial-gradient(circle at 16% 42%,rgba(217,180,91,.09),transparent 38%),linear-gradient(180deg,rgba(0,0,0,.01) 35%,rgba(3,3,3,.64) 80%,#040404 100%)}.hero-inner{width:100%;min-height:0;display:block;order:1}.hero-copy{width:100%;padding:25px 20px 35px}.hero h1.hero-title{font-size:clamp(52px,17vw,78px)}.hero-tagline{font-size:18px;margin-top:18px}.hero-lead{font-size:13px;line-height:1.7}.hero-actions{margin-top:22px;display:grid;grid-template-columns:1fr 1fr}.hero-actions .cta:last-child{grid-column:1/-1}.hero-trust-row{margin-top:28px}.hero-trust-row div{min-width:0;flex:1;padding-right:10px;margin-right:10px}.hero-trust-row strong{font-size:13px}.hero-trust-row span{font-size:8px}
   .contract-strip{padding:0 0 8px}.contract-card{width:calc(100% - 28px);grid-template-columns:48px minmax(0,1fr);gap:13px;padding:16px}.contract-logo{width:48px;height:48px}.contract-heading{display:block}.contract-badge{display:inline-block;margin-top:7px}.contract-main code{font-size:13px;line-height:1.55}.contract-meta{gap:5px}.contract-meta span{font-size:8px;padding:4px 7px}.contract-actions{grid-column:1/-1}.contract-actions .cta{flex:1}.contract-explorer{width:42px;height:42px}
   .section-shell{width:calc(100% - 28px)}.market,.token,.buy,.security,.why{padding:58px 0}.section-heading{display:block}.section-heading h2,.market h2,.token h2,.buy h2,.security h2,.why h2{font-size:28px}.market-status-wrap{margin-top:14px;text-align:left}.market-grid,.token-grid,.security-grid,.buy-grid{grid-template-columns:1fr;gap:11px}.market-card{min-height:125px}.dex-prices{grid-template-columns:1fr}.chart-box{min-height:335px}.chart-header{display:block}.ranges{justify-content:flex-start;margin-top:8px}#chart{height:265px}
   .why-grid{grid-template-columns:1fr 1fr}.why-grid article{padding:24px 13px;border-bottom:1px solid var(--line)}.why-grid article:nth-child(2){border-right:0}.why-grid article:nth-child(3),.why-grid article:nth-child(4){border-bottom:0}.why-grid h3{font-size:15px}.why-grid p{font-size:10px}
@@ -493,7 +542,7 @@ img{max-width:100%}
 }
 
 @media(max-width:420px){
-  .brand-copy strong{font-size:12px;color:var(--brand-gold)}.brand-copy b{font-size:8px}.wallet{padding:8px 10px}.mobile-nav summary{width:40px;height:40px}.hero-art{height:360px}.hero-copy{padding:23px 14px 31px}.hero h1{font-size:49px}.hero-actions{grid-template-columns:1fr}.hero-actions .cta:last-child{grid-column:auto}.contract-card{width:calc(100% - 20px);grid-template-columns:42px minmax(0,1fr);padding:13px}.contract-logo{width:42px;height:42px}.contract-main code{font-size:11px}.contract-actions{grid-column:1/-1}.contract-meta span{font-size:7px}.section-shell{width:calc(100% - 20px)}.why-grid{grid-template-columns:1fr}.why-grid article,.why-grid article:nth-child(2){border-right:0;border-bottom:1px solid var(--line)}.why-grid article:last-child{border-bottom:0}.community h2{font-size:26px}.dashboard-page{width:calc(100% - 20px)}.dashboard-card{padding:18px}.referral-withdraw-card{padding:19px}
+  .brand-copy strong{font-size:12px;color:var(--brand-gold)}.brand-copy b{font-size:8px}.wallet{padding:8px 10px}.mobile-nav summary{width:40px;height:40px}.hero-art{height:360px}.hero-copy{padding:23px 14px 31px}.hero h1.hero-title{font-size:49px}.hero-actions{grid-template-columns:1fr}.hero-actions .cta:last-child{grid-column:auto}.contract-card{width:calc(100% - 20px);grid-template-columns:42px minmax(0,1fr);padding:13px}.contract-logo{width:42px;height:42px}.contract-main code{font-size:11px}.contract-actions{grid-column:1/-1}.contract-meta span{font-size:7px}.section-shell{width:calc(100% - 20px)}.why-grid{grid-template-columns:1fr}.why-grid article,.why-grid article:nth-child(2){border-right:0;border-bottom:1px solid var(--line)}.why-grid article:last-child{border-bottom:0}.community h2{font-size:26px}.dashboard-page{width:calc(100% - 20px)}.dashboard-card{padding:18px}.referral-withdraw-card{padding:19px}
 }
 
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
@@ -985,345 +1034,83 @@ img{max-width:100%}
 }
 
 /* =========================================================
-   GOLDITY HERO — FINAL METALLIC FOIL SYSTEM
-   One authoritative layer — placed last to prevent overrides.
+   HERO RESPONSIVE OVERRIDES
    ========================================================= */
-
-:root{
-  --goldity-foil:
-    linear-gradient(
-      180deg,
-      #fff9cf 0%,
-      #ffeaa0 9%,
-      #f8d36b 19%,
-      #e6b447 31%,
-      #c98a20 43%,
-      #f4c95d 52%,
-      #ffe99a 62%,
-      #dba02f 73%,
-      #f6cf66 84%,
-      #fff3b2 93%,
-      #d99a27 100%
-    );
-
-  --goldity-foil-hover:
-    linear-gradient(
-      180deg,
-      #fffde5 0%,
-      #ffefae 11%,
-      #f8d56d 24%,
-      #dda235 38%,
-      #f3c454 50%,
-      #fff3ad 62%,
-      #e1a333 76%,
-      #f7d673 89%,
-      #fff8d2 100%
-    );
-
-  --goldity-champagne:
-    linear-gradient(
-      180deg,
-      #fff6c5 0%,
-      #f7df91 30%,
-      #d7a63f 58%,
-      #fff0a4 78%,
-      #c88918 100%
-    );
-}
-
-/* Hero base — keep the approved artwork and composition */
-.hero{
-  position:relative;
-  isolation:isolate;
-}
-
-.hero-copy{
-  position:relative;
-  z-index:4;
-}
-
-/* Refined eyebrow */
-.hero-copy > .eyebrow{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  width:max-content;
-  max-width:100%;
-  margin:0 0 18px;
-  color:#f5d36f;
-  font-family:Inter,system-ui,sans-serif;
-  font-size:10px;
-  font-weight:850;
-  line-height:1.2;
-  letter-spacing:.30em;
-  text-transform:uppercase;
-  text-shadow:0 1px 4px rgba(0,0,0,.9);
-}
-
-.hero-copy > .eyebrow::before,
-.hero-copy > .eyebrow::after{
-  content:"";
-  display:block;
-  width:42px;
-  height:1px;
-  flex:0 0 42px;
-  background:linear-gradient(90deg,transparent,#e2ad43);
-  box-shadow:0 0 8px rgba(226,173,67,.18);
-}
-
-.hero-copy > .eyebrow::after{
-  background:linear-gradient(90deg,#e2ad43,transparent);
-}
-
-/* =========================================================
-   MAIN WORDMARK
-   Strong foil bands + crisp edge + controlled depth.
-   Explicit !important values protect the title from legacy rules.
-   ========================================================= */
-
-.hero h1.hero-title{
-  margin:0 !important;
-  color:#f2c85a !important;
-  font-family:"Bailon","Bodoni 72","Didot","Bodoni MT","Times New Roman",Georgia,serif !important;
-  font-size:clamp(66px,7.8vw,112px) !important;
-  font-weight:400 !important;
-  line-height:.84 !important;
-  letter-spacing:-.028em !important;
-  font-variant-ligatures:common-ligatures;
-
-  /* IMPORTANT: image is on the glyphs, not the whole heading box */
-  background-image:var(--goldity-foil) !important;
-  background-repeat:no-repeat !important;
-  background-size:100% 115% !important;
-  background-position:center !important;
-
-  -webkit-background-clip:text !important;
-  background-clip:text !important;
-  -webkit-text-fill-color:transparent !important;
-  color:transparent !important;
-
-  /* Fine metallic rim */
-  -webkit-text-stroke:1px rgba(255,226,137,.30);
-
-  /* Depth + reflected-gold halo */
-  filter:
-    drop-shadow(0 2px 1px rgba(0,0,0,.92))
-    drop-shadow(0 7px 12px rgba(0,0,0,.42))
-    drop-shadow(0 0 18px rgba(205,139,27,.16));
-
-  text-shadow:none !important;
-  text-rendering:geometricPrecision;
-}
-
-/* A subtle highlight band that follows the letter form through the
-   gradient itself; no animation, no visual distraction. */
-.hero h1.hero-title span{
-  display:block !important;
-  margin-top:13px !important;
-  font-family:Inter,system-ui,sans-serif !important;
-  font-size:.285em !important;
-  font-weight:750 !important;
-  line-height:1 !important;
-  letter-spacing:.34em !important;
-
-  background-image:var(--goldity-champagne) !important;
-  background-repeat:no-repeat !important;
-  background-size:100% 100% !important;
-  background-position:center !important;
-
-  -webkit-background-clip:text !important;
-  background-clip:text !important;
-  -webkit-text-fill-color:transparent !important;
-  color:transparent !important;
-
-  -webkit-text-stroke:.35px rgba(255,224,140,.25);
-  filter:drop-shadow(0 2px 2px rgba(0,0,0,.75));
-}
-
-/* Tagline — warm champagne rather than flat yellow */
-.hero-tagline{
-  margin:24px 0 11px !important;
-  max-width:650px;
-  color:#f6e5ad !important;
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
-  font-size:clamp(17px,1.55vw,22px) !important;
-  font-weight:650 !important;
-  line-height:1.35 !important;
-  letter-spacing:.055em !important;
-  text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 16px rgba(216,156,40,.10);
-}
-
-/* Description — neutral ivory so the title remains the gold focal point */
-.hero-lead{
-  max-width:530px;
-  margin:0;
-  color:#e2d8c6 !important;
-  font-family:Inter,system-ui,sans-serif !important;
-  font-size:14px !important;
-  font-weight:400;
-  line-height:1.8 !important;
-  text-shadow:0 1px 4px rgba(0,0,0,.92);
-}
-
-/* Buttons — polished gold, not orange */
-.hero-actions .cta.primary{
-  color:#171108 !important;
-  background:
-    linear-gradient(
-      180deg,
-      #fff1a8 0%,
-      #f7d46e 20%,
-      #d99a27 52%,
-      #b87308 78%,
-      #e2ad3c 100%
-    ) !important;
-  border:1px solid #f2cf67 !important;
-  box-shadow:
-    0 8px 25px rgba(173,111,8,.20),
-    inset 0 1px 0 rgba(255,255,255,.72),
-    inset 0 -1px 0 rgba(104,61,0,.35);
-}
-
-.hero-actions .cta.primary:hover{
-  color:#100c05 !important;
-  background:
-    linear-gradient(
-      180deg,
-      #fff9cf 0%,
-      #ffe99a 25%,
-      #efc457 52%,
-      #c98712 78%,
-      #f0c75d 100%
-    ) !important;
-  border-color:#ffe39a !important;
-  box-shadow:
-    0 11px 32px rgba(197,136,19,.27),
-    inset 0 1px 0 rgba(255,255,255,.82);
-}
-
-.hero-actions .cta.secondary{
-  color:#f0d487 !important;
-  border-color:rgba(226,177,69,.58) !important;
-  background:rgba(5,5,4,.36) !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
-}
-
-.hero-actions .cta.secondary:hover{
-  color:#fff3bd !important;
-  border-color:#edc861 !important;
-  background:rgba(217,154,39,.105) !important;
-  box-shadow:0 8px 24px rgba(181,119,12,.12);
-}
-
-/* Trust row */
-.hero-trust-row{
-  border-top-color:rgba(230,185,78,.22) !important;
-}
-
-.hero-trust-row div{
-  border-right-color:rgba(230,185,78,.15) !important;
-}
-
-.hero-trust-row strong{
-  color:#f5d77b !important;
-  text-shadow:0 1px 3px rgba(0,0,0,.85);
-}
-
-.hero-trust-row span{
-  color:#bcae8c !important;
-}
-
-/* Keep the artwork rich while giving the wordmark enough contrast */
-.hero-backdrop{
-  z-index:2;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(7,6,4,.74) 0%,
-      rgba(5,5,4,.60) 25%,
-      rgba(3,3,3,.30) 49%,
-      rgba(3,3,3,.08) 78%
-    ),
-    radial-gradient(
-      circle at 20% 40%,
-      rgba(221,177,73,.13),
-      transparent 35%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(0,0,0,.10) 0%,
-      rgba(0,0,0,.08) 52%,
-      rgba(0,0,0,.58) 100%
-    ) !important;
-}
-
-/* Tablet */
 @media(max-width:1050px){
-  .hero h1.hero-title{
-    font-size:clamp(60px,8.2vw,94px) !important;
-  }
+  .hero{min-height:620px}
+  .hero-inner{min-height:620px}
+  .hero-copy{width:58%}
+  .hero h1.hero-title{font-size:clamp(60px,8.2vw,94px)}
 }
 
-/* Mobile */
 @media(max-width:760px){
+  .hero{
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .hero-art{
+    position:relative;
+    inset:auto;
+    height:410px;
+    order:0;
+  }
+  .hero-art img{object-position:70% center}
+  .hero-backdrop{
+    position:absolute;
+    inset:0;
+    background:
+      radial-gradient(circle at 16% 42%,rgba(225,176,66,.09),transparent 38%),
+      linear-gradient(180deg,rgba(0,0,0,.01) 35%,rgba(3,3,3,.58) 80%,#040404 100%);
+  }
+  .hero-inner{
+    width:100%;
+    min-height:0;
+    display:block;
+    order:1;
+  }
+  .hero-copy{
+    width:100%;
+    padding:25px 20px 35px;
+  }
   .hero-copy > .eyebrow{
     gap:8px;
     margin-bottom:15px;
     font-size:8px;
     letter-spacing:.20em;
   }
-
   .hero-copy > .eyebrow::before,
   .hero-copy > .eyebrow::after{
     width:24px;
     flex-basis:24px;
   }
-
   .hero h1.hero-title{
-    font-size:clamp(53px,17vw,80px) !important;
-    letter-spacing:-.025em !important;
+    font-size:clamp(53px,17vw,80px);
+    letter-spacing:-.022em;
   }
-
   .hero h1.hero-title span{
-    margin-top:11px !important;
-    font-size:.29em !important;
-    letter-spacing:.28em !important;
+    margin-top:11px;
+    font-size:.29em;
+    letter-spacing:.28em;
   }
-
   .hero-tagline{
-    margin-top:19px !important;
-    font-size:18px !important;
-    letter-spacing:.04em !important;
+    margin-top:19px;
+    font-size:18px;
+    letter-spacing:.035em;
   }
-
-  .hero-lead{
-    font-size:13px !important;
-    line-height:1.72 !important;
-  }
+  .hero-lead{font-size:13px;line-height:1.72}
 }
 
 @media(max-width:420px){
-  .hero-copy > .eyebrow{
-    font-size:7px;
-    letter-spacing:.16em;
-  }
-
+  .hero-art{height:360px}
+  .hero-copy{padding:23px 14px 31px}
+  .hero-copy > .eyebrow{font-size:7px;letter-spacing:.16em}
   .hero-copy > .eyebrow::before,
   .hero-copy > .eyebrow::after{
     width:18px;
     flex-basis:18px;
   }
-
-  .hero h1.hero-title{
-    font-size:49px !important;
-  }
-
-  .hero h1.hero-title span{
-    margin-top:9px !important;
-    letter-spacing:.24em !important;
-  }
-
-  .hero-tagline{
-    font-size:16px !important;
-  }
+  .hero h1.hero-title{font-size:49px}
+  .hero h1.hero-title span{margin-top:9px;letter-spacing:.24em}
+  .hero-tagline{font-size:16px}
 }
