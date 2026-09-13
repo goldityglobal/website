@@ -1,3 +1,4 @@
+
 import * as secp from "@noble/secp256k1";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 
@@ -243,7 +244,7 @@ async function registerUser(e,req) {
   const first=clean(d.firstName,80),last=clean(d.lastName,80),email=normalizeEmail(d.email);
   const country=clean(d.country,80),phone=clean(d.phone,40)||null;
   const password=String(d.password||""),ref=clean(d.referralCode,32).toUpperCase()||null;
-  if(!first||!last||!emailRe.test(email)||!country||!validPassword(password)||!d.ageConfirmed||!d.termsAccepted||!d.privacyAccepted)
+  if(!emailRe.test(email)||!validPassword(password)||!d.ageConfirmed||!d.termsAccepted||!d.privacyAccepted)
     return out({ok:false,error:"validation_failed",message:"Please complete the required registration fields and accept the required terms."},400,cors(e));
   if(await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first())
     return out({ok:false,error:"email_exists",message:"An account with this email already exists."},409,cors(e));
