@@ -2966,7 +2966,17 @@ export default {
 
           liquidityUsd:live.reduce((s,x)=>s+(x.liquidityUsd||0),0)||null,
 
- 
+          totalUsdtReserve:
+  uni.status==="live" && pcs.status==="live"
+    ? (uni.usdtReserve||0) + (pcs.usdtReserve||0)
+    : null,
+
+totalGdtyReserve:
+  uni.status==="live" && pcs.status==="live"
+    ? (uni.gdtyReserve||0) + (pcs.gdtyReserve||0)
+    : null,
+
+reserveMethod:"Sum of Uniswap V2 + PancakeSwap V2 pool reserves",
 
           markets:{uniswap:uni,pancakeswap:pcs},
 
