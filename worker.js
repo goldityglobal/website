@@ -1,3 +1,5 @@
+Registration requires email, password, age confirmation, Terms and Privacy. First name, last name, country, phone and referral code are optional. User creation and email-verification-token creation are atomic.
+
 import * as secp from "@noble/secp256k1";
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
@@ -575,9 +577,9 @@ async function registerUser(e,req) {
     const d=await req.json().catch(()=>({}));
 
 
-    const first=clean(d.firstName,80);
+    const first=clean(d.firstName,80)||"";
 
-    const last=clean(d.lastName,80);
+    const last=clean(d.lastName,80)||"";
 
     const email=normalizeEmail(d.email);
 
@@ -591,10 +593,6 @@ async function registerUser(e,req) {
 
 
     if(
-
-      !first||
-
-      !last||
 
       !emailRe.test(email)||
 
@@ -814,7 +812,7 @@ async function registerUser(e,req) {
 
             `<h2>Welcome to GOLDITY</h2>`+
 
-            `<p>Hello ${htmlEscape(first)},</p>`+
+            `<p>Hello${first?` ${htmlEscape(first)}`:""},</p>`+
 
             `<p>Verify your email to activate your account.</p>`+
 
