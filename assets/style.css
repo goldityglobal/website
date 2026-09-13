@@ -983,3 +983,105 @@ img{max-width:100%}
     width: 100%;
   }
 }
+
+
+/* =========================================================
+   GOLDITY — HERO / BANNER METALLIC GOLD TYPOGRAPHY
+   Premium reflective-gold text, matched to the site palette
+   ========================================================= */
+
+:root{
+  --brand-gold-gradient:linear-gradient(
+    180deg,
+    #FFF1A8 0%,
+    #F5D16E 16%,
+    #D9A83F 38%,
+    #A96A06 54%,
+    #F0C85D 72%,
+    #FFF0A0 88%,
+    #B87808 100%
+  );
+
+  --banner-gold-metal:linear-gradient(
+    180deg,
+    #FFF5B8 0%,
+    #F7D873 14%,
+    #D6A33B 31%,
+    #9A5D04 48%,
+    #E2B84F 63%,
+    #FFF0A0 78%,
+    #C18112 90%,
+    #F2CD66 100%
+  );
+}
+
+.hero .eyebrow{
+  color:#E7C15A;
+  text-shadow:0 0 12px rgba(245,209,110,.16);
+}
+
+.hero h1{
+  background:var(--banner-gold-metal);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:transparent;
+  text-shadow:
+    0 2px 2px rgba(0,0,0,.72),
+    0 0 10px rgba(245,209,110,.14),
+    0 0 24px rgba(186,120,2,.10);
+}
+
+.hero h1 span{
+  background:linear-gradient(
+    180deg,
+    #FFF3AC 0%,
+    #F0CA61 32%,
+    #B9790B 55%,
+    #F4D474 76%,
+    #FFEBA0 100%
+  );
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:transparent;
+  text-shadow:0 0 14px rgba(245,209,110,.12);
+}
+
+.hero-tagline{
+  background:linear-gradient(
+    180deg,
+    #FFF2AA 0%,
+    #F2CE68 30%,
+    #C58A20 55%,
+    #F3D67D 78%,
+    #FFEAA0 100%
+  );
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:transparent;
+  text-shadow:0 1px 3px rgba(0,0,0,.7);
+}
+
+.hero-lead{
+  color:#D8C99E;
+  text-shadow:0 1px 3px rgba(0,0,0,.75);
+}
+
+.hero-trust-row{
+  border-top-color:rgba(245,209,110,.18);
+}
+
+.hero-trust-row strong{
+  background:linear-gradient(180deg,#FFF0A0,#D6A13B 55%,#F2D47B);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:transparent;
+  text-shadow:0 0 10px rgba(245,209,110,.10);
+}
+
+.hero-trust-row span{
+  color:#A99568;
+}
