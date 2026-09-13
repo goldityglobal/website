@@ -2,6 +2,7 @@ import * as secp from "@noble/secp256k1";
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
 
+
 const A = {
 
   G: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801".toLowerCase(),
@@ -13,8 +14,6 @@ const A = {
   PF: "0xca143ce32fe78f1f7019d7d551a6402fc5350c73".toLowerCase()
 
 };
-
-const REFERRAL_PAYOUT_WALLET = "0x4908aB7FCceb4D762B71C765c17dEa4456cbF22d".toLowerCase();
 
 const Z = "0x0000000000000000000000000000000000000000";
 
@@ -66,6 +65,7 @@ const ranges = {
 
 };
 
+
 const addr = x => "0x" + String(x).slice(-40).toLowerCase();
 
 const clean = (v, max=120) => String(v ?? "").trim().slice(0, max);
@@ -81,6 +81,7 @@ const token = () => [...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toS
 const id = () => crypto.randomUUID();
 
 const nowIso = () => new Date().toISOString();
+
 
 function out(data, status=200, ttl=0, extra={}) {
 
@@ -110,6 +111,7 @@ function out(data, status=200, ttl=0, extra={}) {
 
 }
 
+
 function htmlEscape(v) {
 
   return String(v ?? "").replace(/[&<>"']/g, c => ({
@@ -120,11 +122,13 @@ function htmlEscape(v) {
 
 }
 
+
 function cookie(name, value, maxAge) {
 
   return `${name}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Strict`;
 
 }
+
 
 function cors(e) {
 
@@ -138,107 +142,109 @@ function cors(e) {
 
 }
 
-async function rpc(e, method, params = []) {
 
-  const endpoints = [
+const RPC_FALLBACKS = [
 
-    e.BSC_RPC_URL,
+  "https://bsc-dataseed.bnbchain.org",
 
-    "https://bsc-dataseed-public.bnbchain.org",
+  "https://bsc-dataseed-public.bnbchain.org",
 
-    "https://bsc-dataseed.nariox.org"
+  "https://bsc-dataseed.nariox.org",
 
-  ].filter(Boolean);
+  "https://bsc-dataseed.defibit.io"
 
-  let lastError = null;
+];
 
-  for (const endpoint of endpoints) {
+const RPC_TIMEOUT_MS = 5000;
 
-    try {
 
-      const r = await fetch(endpoint, {
+function rpcEndpoints(e) {
 
-        method: "POST",
+  return [...new Set([
 
-        headers: {
+    String(e.BSC_RPC_URL||"").trim(),
 
-          "content-type": "application/json"
+    ...RPC_FALLBACKS
 
-        },
+  ].filter(Boolean))];
 
-        body: JSON.stringify({
+}
 
-          jsonrpc: "2.0",
 
-          id: 1,
+async function rpc(e, method, params=[]) {
 
-          method,
+  const endpoints=rpcEndpoints(e);
 
-          params
+  if(!endpoints.length)throw new Error("rpc_unavailable");
 
-        })
+  let lastError=null;
+
+
+  for(const endpoint of endpoints){
+
+    const controller=new AbortController();
+
+    const timer=setTimeout(()=>controller.abort(),RPC_TIMEOUT_MS);
+
+    try{
+
+      const r=await fetch(endpoint,{
+
+        method:"POST",
+
+        headers:{"content-type":"application/json"},
+
+        body:JSON.stringify({jsonrpc:"2.0",id:1,method,params}),
+
+        signal:controller.signal
 
       });
 
-      const text = await r.text();
+      if(!r.ok){
 
-      if (!r.ok) {
+        lastError=new Error("rpc_http_error");
 
-        throw new Error(`rpc_http_${r.status}`);
-
-      }
-
-      let j;
-
-      try {
-
-        j = JSON.parse(text);
-
-      } catch {
-
-        throw new Error("rpc_invalid_json");
+        continue;
 
       }
 
-      if (j.error) {
+      const j=await r.json();
 
-        throw new Error(
+      if(j?.error){
 
-          `rpc_error_${j.error.code ?? "unknown"}`
+        lastError=new Error("rpc_error");
 
-        );
+        continue;
 
       }
 
-      if (!("result" in j)) {
+      if(typeof j?.result==="undefined"){
 
-        throw new Error("rpc_missing_result");
+        lastError=new Error("rpc_invalid_response");
+
+        continue;
 
       }
 
       return j.result;
 
-    } catch (err) {
+    }catch(err){
 
-      lastError = err;
+      lastError=err?.name==="AbortError"?new Error("rpc_timeout"):(err instanceof Error?err:new Error("rpc_unavailable"));
 
-      console.error("GOLDITY RPC endpoint failed", {
+    }finally{
 
-        endpoint,
-
-        method,
-
-        error: err instanceof Error ? err.message : String(err)
-
-      });
+      clearTimeout(timer);
 
     }
 
   }
 
-  throw lastError || new Error("rpc_unavailable");
+
+  throw lastError||new Error("rpc_unavailable");
 
 }
+
 
 async function call(e,to,data) {
 
@@ -246,35 +252,85 @@ async function call(e,to,data) {
 
 }
 
+
 async function pair(e) {
 
   return addr(await call(e,A.PF,S.pair + pad(A.G) + pad(A.U)));
 
 }
 
+
+async function safePair(e) {
+
+  try{
+
+    const p=await pair(e);
+
+    return {address:p&&p!==Z?p:null,reason:p&&p!==Z?null:"pair_not_found"};
+
+  }catch(err){
+
+    return {address:null,reason:marketErrorReason(err)};
+
+  }
+
+}
+
+
+function marketErrorReason(err) {
+
+  const code=String(err?.message||"");
+
+  if(["rpc_http_error","rpc_error","rpc_invalid_response","rpc_unavailable"].includes(code))return code;
+
+  return "market_data_error";
+
+}
+
+
 async function inspect(e,p,dex) {
 
-  if (!p || p===Z) return {dex,status:"unavailable",reason:"pair_not_found"};
+  if(!p || p===Z)return {dex,status:"unavailable",reason:"pair_not_found",pair:p||null};
 
-  const [x0,x1] = await Promise.all([call(e,p,S.t0),call(e,p,S.t1)]);
+  const [x0,x1]=await Promise.all([call(e,p,S.t0),call(e,p,S.t1)]);
 
-  const t0=addr(x0), t1=addr(x1);
+  const t0=addr(x0),t1=addr(x1);
 
-  if (!((t0===A.G&&t1===A.U)||(t0===A.U&&t1===A.G)))
+  if(!((t0===A.G&&t1===A.U)||(t0===A.U&&t1===A.G)))
 
     return {dex,status:"unavailable",reason:"token_mismatch",pair:p};
 
-  const [rr,d0x,d1x] = await Promise.all([call(e,p,S.r),call(e,t0,S.dec),call(e,t1,S.dec)]);
+  const [rr,d0x,d1x]=await Promise.all([call(e,p,S.r),call(e,t0,S.dec),call(e,t1,S.dec)]);
 
   const r0=Number(uint("0x"+rr.slice(2,66)))/10**Number(uint(d0x));
 
   const r1=Number(uint("0x"+rr.slice(66,130)))/10**Number(uint(d1x));
 
-  const g=t0===A.G?r0:r1, u=t0===A.U?r0:r1;
+  const g=t0===A.G?r0:r1,u=t0===A.U?r0:r1;
 
-  return {dex,status:g>0?"live":"unavailable",pair:p,gdtyReserve:g,usdtReserve:u,price:g?u/g:null,liquidityUsd:g?2*u:null};
+  if(!Number.isFinite(g)||!Number.isFinite(u)||g<=0||u<0)
+
+    return {dex,status:"unavailable",reason:"invalid_reserves",pair:p};
+
+  const price=u/g;
+
+  if(!Number.isFinite(price)||price<=0)
+
+    return {dex,status:"unavailable",reason:"invalid_price",pair:p};
+
+  return {dex,status:"live",pair:p,gdtyReserve:g,usdtReserve:u,price,liquidityUsd:2*u};
 
 }
+
+
+async function safeInspect(e,p,dex) {
+
+  try{return await inspect(e,p,dex);}
+
+  catch(err){return {dex,status:"unavailable",reason:marketErrorReason(err),pair:p||null};}
+
+}
+
 
 const mean=(a,b)=>{
 
@@ -283,6 +339,7 @@ const mean=(a,b)=>{
   return v.length?v.reduce((x,y)=>x+y,0)/v.length:null;
 
 };
+
 
 async function geckoOHLCV(e,pool,cfg) {
 
@@ -302,6 +359,7 @@ async function geckoOHLCV(e,pool,cfg) {
 
 }
 
+
 function normalize(list,dex) {
 
   return list.map(x=>({
@@ -313,6 +371,7 @@ function normalize(list,dex) {
   })).filter(x=>x.ts&&[x.open,x.high,x.low,x.close].every(Number.isFinite));
 
 }
+
 
 function mergeReference(a,b) {
 
@@ -344,6 +403,7 @@ function mergeReference(a,b) {
 
 }
 
+
 function b64(bytes) {
 
   let s="";
@@ -354,6 +414,7 @@ function b64(bytes) {
 
 }
 
+
 async function sha256Text(v) {
 
   const h=await crypto.subtle.digest("SHA-256",enc.encode(v));
@@ -361,6 +422,7 @@ async function sha256Text(v) {
   return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,"0")).join("");
 
 }
+
 
 async function hashPassword(password,saltBytes,iterations=120000) {
 
@@ -376,7 +438,9 @@ async function hashPassword(password,saltBytes,iterations=120000) {
 
 }
 
+
 function validPassword(p){return typeof p==="string"&&p.length>=10&&p.length<=128;}
+
 
 async function currentUser(e,req) {
 
@@ -406,6 +470,7 @@ async function currentUser(e,req) {
 
 }
 
+
 async function requireOrigin(e,req) {
 
   const origin=req.headers.get("Origin");
@@ -415,6 +480,7 @@ async function requireOrigin(e,req) {
   return true;
 
 }
+
 
 async function rateLimit(e,key,limit=12,windowMs=60000) {
 
@@ -450,7 +516,9 @@ async function rateLimit(e,key,limit=12,windowMs=60000) {
 
 }
 
+
 function ip(req){return req.headers.get("CF-Connecting-IP")||"unknown";}
+
 
 async function loginUser(e,req) {
 
@@ -504,341 +572,105 @@ async function loginUser(e,req) {
 
 }
 
+
 async function registerUser(e,req) {
 
-  if(!e.DB)
+  if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
 
-    return out({
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
 
-      ok:false,
+  if(!await rateLimit(e,`register:${ip(req)}`,5,3600000))return out({ok:false,error:"rate_limited"},429,cors(e));
 
-      error:"registration_not_configured",
+  const d=await req.json().catch(()=>({}));
 
-      message:"Registration is temporarily unavailable."
+  const first=clean(d.firstName,80),last=clean(d.lastName,80),email=normalizeEmail(d.email);
 
-    },503,cors(e));
+  const country=clean(d.country,80),phone=clean(d.phone,40)||null;
 
-  if(!await requireOrigin(e,req))
+  const password=String(d.password||""),ref=clean(d.referralCode,32).toUpperCase()||null;
 
-    return out({ok:false,error:"forbidden"},403,cors(e));
+  if(!first||!last||!emailRe.test(email)||!country||!validPassword(password)||!d.ageConfirmed||!d.termsAccepted||!d.privacyAccepted)
 
-  try{
+    return out({ok:false,error:"validation_failed",message:"Please complete the required registration fields and accept the required terms."},400,cors(e));
 
-    if(!await rateLimit(e,`register:${ip(req)}`,5,3600000))
+  if(await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first())
 
-      return out({
+    return out({ok:false,error:"email_exists",message:"An account with this email already exists."},409,cors(e));
 
-        ok:false,
+  let referredBy=null;
 
-        error:"rate_limited",
+  if(ref){
 
-        message:"Too many registration attempts. Please try again later."
+    const r=await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(ref).first();
 
-      },429,cors(e));
+    if(!r)return out({ok:false,error:"invalid_referral",message:"The referral code is not valid."},400,cors(e));
 
-    const d=await req.json().catch(()=>({}));
-
-    const first=clean(d.firstName,80)||"";
-
-    const last=clean(d.lastName,80)||"";
-
-    const email=normalizeEmail(d.email);
-
-    const country=clean(d.country,80)||"";
-
-    const phone=clean(d.phone,40)||null;
-
-    const password=String(d.password||"");
-
-    const ref=clean(d.referralCode,32).toUpperCase()||null;
-
-    if(
-
-      !emailRe.test(email)||
-
-      !validPassword(password)||
-
-      !d.ageConfirmed||
-
-      !d.termsAccepted||
-
-      !d.privacyAccepted
-
-    )
-
-      return out({
-
-        ok:false,
-
-        error:"validation_failed",
-
-        message:"Please complete the required registration fields and accept the required terms."
-
-      },400,cors(e));
-
-    const existing=await e.DB.prepare(
-
-      "SELECT id FROM users WHERE email=?"
-
-    ).bind(email).first();
-
-    if(existing)
-
-      return out({
-
-        ok:false,
-
-        error:"email_exists",
-
-        message:"An account with this email already exists."
-
-      },409,cors(e));
-
-    let referredBy=null;
-
-    if(ref){
-
-      const r=await e.DB.prepare(
-
-        "SELECT referral_code FROM users WHERE referral_code=?"
-
-      ).bind(ref).first();
-
-      if(!r)
-
-        return out({
-
-          ok:false,
-
-          error:"invalid_referral",
-
-          message:"The referral code is not valid."
-
-        },400,cors(e));
-
-      referredBy=r.referral_code;
-
-    }
-
-    const code=await makeReferralCode(e);
-
-    const salt=crypto.getRandomValues(new Uint8Array(16));
-
-    const passwordHash=await hashPassword(password,salt);
-
-    const uid=id();
-
-    const now=nowIso();
-
-    const rawVerificationToken=token();
-
-    const verificationTokenHash=await sha256Text(rawVerificationToken);
-
-    const verificationExpiresAt=new Date(Date.now()+86400000).toISOString();
-
-    /*
-
-      User creation and verification-token creation are one D1 batch.
-
-      D1 batches are transactional: if either statement fails, the batch
-
-      is rolled back. This prevents half-created accounts when the token
-
-      table/schema is unavailable.
-
-    */
-
-    await e.DB.batch([
-
-      e.DB.prepare(`
-
-        INSERT INTO users(
-
-          id,email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
-
-          email_verified,terms_version,privacy_version,age_confirmed,marketing_consent,
-
-          created_at,updated_at
-
-        )
-
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-
-      `).bind(
-
-        uid,
-
-        email,
-
-        passwordHash,
-
-        first,
-
-        last,
-
-        country,
-
-        phone,
-
-        code,
-
-        referredBy,
-
-        0,
-
-        TERMS_VERSION,
-
-        PRIVACY_VERSION,
-
-        1,
-
-        d.marketingConsent?1:0,
-
-        now,
-
-        now
-
-      ),
-
-      e.DB.prepare(`
-
-        INSERT INTO email_verification_tokens(
-
-          token_hash,user_id,expires_at,created_at
-
-        )
-
-        VALUES(?,?,?,?)
-
-      `).bind(
-
-        verificationTokenHash,
-
-        uid,
-
-        verificationExpiresAt,
-
-        now
-
-      )
-
-    ]);
-
-    let emailSent=false;
-
-    if(e.RESEND_API_KEY&&e.FROM_EMAIL){
-
-      const link=
-
-        `${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}`+
-
-        `/verify-email.html?token=${encodeURIComponent(rawVerificationToken)}`;
-
-      const r=await fetch("https://api.resend.com/emails",{
-
-        method:"POST",
-
-        headers:{
-
-          authorization:`Bearer ${e.RESEND_API_KEY}`,
-
-          "content-type":"application/json"
-
-        },
-
-        body:JSON.stringify({
-
-          from:e.FROM_EMAIL,
-
-          to:[email],
-
-          subject:"Verify your GOLDITY account",
-
-          html:
-
-            `<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px">`+
-
-            `<h2>Welcome to GOLDITY</h2>`+
-
-            `<p>Hello${first?` ${htmlEscape(first)}`:""},</p>`+
-
-            `<p>Verify your email to activate your account.</p>`+
-
-            `<p><a href="${htmlEscape(link)}">Verify Email</a></p>`+
-
-            `</div>`
-
-        })
-
-      }).catch(err=>{
-
-        console.error("GOLDITY verification email failed",{
-
-          message:err instanceof Error?err.message:String(err)
-
-        });
-
-        return null;
-
-      });
-
-      emailSent=!!r?.ok;
-
-    }
-
-    return out({
-
-      ok:true,
-
-      status:"pending_email_verification",
-
-      emailSent,
-
-      user:{
-
-        id:uid,
-
-        email,
-
-        firstName:first,
-
-        lastName:last,
-
-        country,
-
-        referralCode:code,
-
-        referredBy,
-
-        createdAt:now
-
-      }
-
-    },201,cors(e));
-
-  }catch(err){
-
-    console.error("GOLDITY registration failed",{
-
-      name:err instanceof Error?err.name:undefined,
-
-      message:err instanceof Error?err.message:String(err)
-
-    });
-
-    return out({
-
-      ok:false,
-
-      error:"registration_failed",
-
-      message:"Account creation failed. Please try again."
-
-    },500,cors(e));
+    referredBy=r.referral_code;
 
   }
 
+  let code=await makeReferralCode(e);
+
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+
+  const hash=await hashPassword(password,salt);
+
+  const uid=id(), now=nowIso();
+
+  try{
+
+    await e.DB.prepare(`
+
+      INSERT INTO users(id,email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
+
+      email_verified,terms_version,privacy_version,age_confirmed,marketing_consent,created_at,updated_at)
+
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+
+    `).bind(uid,email,hash,first,last,country,phone,code,referredBy,0,TERMS_VERSION,PRIVACY_VERSION,1,d.marketingConsent?1:0,now,now).run();
+
+  }catch{
+
+    return out({ok:false,error:"registration_failed",message:"Account creation failed. Please try again."},500,cors(e));
+
+  }
+
+  const raw=token(), tokenHash=await sha256Text(raw), exp=new Date(Date.now()+86400000).toISOString();
+
+  await e.DB.prepare("INSERT INTO email_verification_tokens(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)")
+
+    .bind(tokenHash,uid,exp,now).run();
+
+  let emailSent=false;
+
+  if(e.RESEND_API_KEY&&e.FROM_EMAIL){
+
+    const link=`${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}/verify-email.html?token=${encodeURIComponent(raw)}`;
+
+    const r=await fetch("https://api.resend.com/emails",{
+
+      method:"POST",
+
+      headers:{authorization:`Bearer ${e.RESEND_API_KEY}`,"content-type":"application/json"},
+
+      body:JSON.stringify({
+
+        from:e.FROM_EMAIL,to:[email],subject:"Verify your GOLDITY account",
+
+        html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Welcome to GOLDITY</h2><p>Hello ${htmlEscape(first)},</p><p>Verify your email to activate your account.</p><p><a href="${htmlEscape(link)}">Verify Email</a></p></div>`
+
+      })
+
+    }).catch(()=>null);
+
+    emailSent=!!r?.ok;
+
+  }
+
+  return out({ok:true,status:"pending_email_verification",emailSent,user:{id:uid,email,firstName:first,lastName:last,country,referralCode:code,referredBy,createdAt:now}},201,cors(e));
+
 }
+
 
 async function makeReferralCode(e) {
 
@@ -846,11 +678,7 @@ async function makeReferralCode(e) {
 
     const c="GDTY-"+crypto.randomUUID().replace(/-/g,"").slice(0,8).toUpperCase();
 
-    if(!await e.DB.prepare(
-
-      "SELECT id FROM users WHERE referral_code=?"
-
-    ).bind(c).first())return c;
+    if(!await e.DB.prepare("SELECT id FROM users WHERE referral_code=?").bind(c).first())return c;
 
   }
 
@@ -858,115 +686,63 @@ async function makeReferralCode(e) {
 
 }
 
+
 async function verifyEmail(e,req) {
 
   if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
 
   const raw=new URL(req.url).searchParams.get("token")||"";
 
-  if(!raw)
-
-    return out({ok:false,error:"invalid_token"},400,cors(e));
+  if(!raw)return out({ok:false,error:"invalid_token"},400,cors(e));
 
   const h=await sha256Text(raw);
 
-  const row=await e.DB.prepare(`
+  const row=await e.DB.prepare("SELECT * FROM email_verification_tokens WHERE token_hash=? AND used_at IS NULL").bind(h).first();
 
-    SELECT *
-
-    FROM email_verification_tokens
-
-    WHERE token_hash=?
-
-      AND used_at IS NULL
-
-  `).bind(h).first();
-
-  if(!row||new Date(row.expires_at)<=new Date())
-
-    return out({
-
-      ok:false,
-
-      error:"expired_or_invalid_token",
-
-      message:"This verification link is invalid or expired."
-
-    },400,cors(e));
+  if(!row||new Date(row.expires_at)<=new Date())return out({ok:false,error:"expired_or_invalid_token",message:"This verification link is invalid or expired."},400,cors(e));
 
   const now=nowIso();
 
   await e.DB.batch([
 
-    e.DB.prepare(`
+    e.DB.prepare("UPDATE users SET email_verified=1,updated_at=? WHERE id=?").bind(now,row.user_id),
 
-      UPDATE users
-
-      SET email_verified=1,updated_at=?
-
-      WHERE id=?
-
-    `).bind(now,row.user_id),
-
-    e.DB.prepare(`
-
-      UPDATE email_verification_tokens
-
-      SET used_at=?
-
-      WHERE token_hash=?
-
-    `).bind(now,h)
+    e.DB.prepare("UPDATE email_verification_tokens SET used_at=? WHERE token_hash=?").bind(now,h)
 
   ]);
 
-  return out({
-
-    ok:true,
-
-    message:"Email verified. Your GOLDITY account is now active."
-
-  },200,0,cors(e));
+  return out({ok:true,message:"Email verified. Your GOLDITY account is now active."},200,0,cors(e));
 
 }
 
+
 function bytes(hexString) {
 
-  const h=hexString.replace(/^0x/i,"");
+  const h=hexString.replace(/^0x/,"");
 
   const a=new Uint8Array(h.length/2);
 
-  for(let i=0;i<a.length;i++)
-
-    a[i]=parseInt(h.slice(i*2,i*2+2),16);
+  for(let i=0;i<a.length;i++)a[i]=parseInt(h.slice(i*2,i*2+2),16);
 
   return a;
 
 }
 
+
 function eip191Digest(message) {
 
   const m=enc.encode(message);
 
-  return keccak_256(
-
-    enc.encode(
-
-      `\x19Ethereum Signed Message:\n${m.length}${message}`
-
-    )
-
-  );
+  return keccak_256(enc.encode(`\x19Ethereum Signed Message:\n${m.length}${message}`));
 
 }
+
 
 function recoveredAddress(signatureHex,message) {
 
   const raw=bytes(signatureHex);
 
-  if(raw.length!==65)
-
-    throw new Error("invalid_signature");
+  if(raw.length!==65)throw new Error("invalid_signature");
 
   let v=raw[64];
 
@@ -976,1691 +752,36 @@ function recoveredAddress(signatureHex,message) {
 
   const sig=new Uint8Array(65);
 
-  sig.set(raw.slice(0,64));
+  sig.set(raw.slice(0,64));sig[64]=v;
 
-  sig[64]=v;
-
-  const pub=secp.recoverPublicKey(
-
-    sig,
-
-    eip191Digest(message),
-
-    {prehash:false}
-
-  );
+  const pub=secp.recoverPublicKey(sig,eip191Digest(message),{prehash:false});
 
   const uncompressed=pub.length===65?pub.slice(1):pub;
 
   const h=keccak_256(uncompressed);
 
-  return "0x"+
-
-    [...h.slice(-20)]
-
-      .map(x=>x.toString(16).padStart(2,"0"))
-
-      .join("");
+  return "0x"+[...h.slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("");
 
 }
 
-function bytesToHex(a) {
-
-  return "0x"+[...new Uint8Array(a)]
-
-    .map(x=>x.toString(16).padStart(2,"0"))
-
-    .join("");
-
-}
-
-function concatBytes(...parts) {
-
-  const total=parts.reduce((n,p)=>n+p.length,0);
-
-  const out=new Uint8Array(total);
-
-  let offset=0;
-
-  for(const part of parts){
-
-    out.set(part,offset);
-
-    offset+=part.length;
-
-  }
-
-  return out;
-
-}
-
-function bigIntBytes(v) {
-
-  const n=BigInt(v);
-
-  if(n<0n)throw new Error("negative_integer");
-
-  if(n===0n)return new Uint8Array();
-
-  let h=n.toString(16);
-
-  if(h.length%2)h="0"+h;
-
-  return bytes("0x"+h);
-
-}
-
-function rlpLengthPrefix(length,offset) {
-
-  if(length<=55)
-
-    return new Uint8Array([offset+length]);
-
-  const lenBytes=bigIntBytes(BigInt(length));
-
-  return concatBytes(
-
-    new Uint8Array([offset+55+lenBytes.length]),
-
-    lenBytes
-
-  );
-
-}
-
-function rlpEncode(value) {
-
-  if(value instanceof Uint8Array){
-
-    if(value.length===1&&value[0]<0x80)
-
-      return value;
-
-    return concatBytes(
-
-      rlpLengthPrefix(value.length,0x80),
-
-      value
-
-    );
-
-  }
-
-  if(Array.isArray(value)){
-
-    const payload=concatBytes(...value.map(rlpEncode));
-
-    return concatBytes(
-
-      rlpLengthPrefix(payload.length,0xc0),
-
-      payload
-
-    );
-
-  }
-
-  throw new Error("invalid_rlp_value");
-
-}
-
-function referralTransferData(recipient,amountWei) {
-
-  if(!walletRe.test(recipient))
-
-    throw new Error("invalid_wallet");
-
-  const amount=BigInt(amountWei);
-
-  if(amount<=0n)
-
-    throw new Error("invalid_payout_amount");
-
-  return "0xa9059cbb"+
-
-    pad(recipient)+
-
-    amount.toString(16).padStart(64,"0");
-
-}
-
-function getReferralPayoutPrivateKey(e) {
-
-  const raw=String(e.REFERRAL_PAYOUT_PRIVATE_KEY||"")
-
-    .trim()
-
-    .replace(/^0x/i,"");
-
-  if(!/^[0-9a-fA-F]{64}$/.test(raw))
-
-    throw new Error("payout_key_not_configured");
-
-  const priv=bytes("0x"+raw);
-
-  const pub=secp.getPublicKey(priv,false);
-
-  const derived="0x"+[...keccak_256(pub.slice(1)).slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("").toLowerCase();
-
-  if(derived!==REFERRAL_PAYOUT_WALLET)
-
-    throw new Error("payout_key_wallet_mismatch");
-
-  return priv;
-
-}
-
-async function buildReferralPayoutTx(payout,privateKey) {
-
-  const nonce=BigInt(payout.nonce);
-
-  const gasPrice=BigInt(payout.gas_price_wei);
-
-  const gasLimit=BigInt(payout.gas_limit);
-
-  const amount=BigInt(payout.amount_wei);
-
-  const data=bytes(referralTransferData(payout.wallet_address,amount));
-
-  const signing=rlpEncode([
-
-    bigIntBytes(nonce),
-
-    bigIntBytes(gasPrice),
-
-    bigIntBytes(gasLimit),
-
-    bytes(A.G),
-
-    bigIntBytes(0n),
-
-    data,
-
-    bigIntBytes(56n),
-
-    new Uint8Array(),
-
-    new Uint8Array()
-
-  ]);
-
-  const digest=keccak_256(signing);
-
-  const sigBytes=await secp.signAsync(
-
-    digest,
-
-    privateKey,
-
-    {prehash:false,format:"recovered"}
-
-  );
-
-  const recovery=Number(sigBytes[0]);
-
-  if(recovery!==0&&recovery!==1)
-
-    throw new Error("invalid_signature_recovery");
-
-  const sigR=BigInt("0x"+Array.from(sigBytes.slice(1,33))
-
-    .map(x=>x.toString(16).padStart(2,"0")).join(""));
-
-  const sigS=BigInt("0x"+Array.from(sigBytes.slice(33,65))
-
-    .map(x=>x.toString(16).padStart(2,"0")).join(""));
-
-  const v=35n+(56n*2n)+BigInt(recovery);
-
-  const raw=bytesToHex(
-
-    rlpEncode([
-
-      bigIntBytes(nonce),
-
-      bigIntBytes(gasPrice),
-
-      bigIntBytes(gasLimit),
-
-      bytes(A.G),
-
-      bigIntBytes(0n),
-
-      data,
-
-      bigIntBytes(v),
-
-      bigIntBytes(sigR),
-
-      bigIntBytes(sigS)
-
-    ])
-
-  );
-
-  return {
-
-    raw,
-
-    hash:bytesToHex(keccak_256(bytes(raw))),
-
-    nonce,
-
-    gasPrice,
-
-    gasLimit
-
-  };
-
-}
-
-async function referralGasPlan(e,wallet,amountWei) {
-
-  const data=referralTransferData(wallet,amountWei);
-
-  const gasPrice=BigInt(await rpc(e,"eth_gasPrice"));
-
-  let gasEstimate;
-
-  try{
-
-    gasEstimate=BigInt(
-
-      await rpc(e,"eth_estimateGas",[{
-
-        from:REFERRAL_PAYOUT_WALLET,
-
-        to:A.G,
-
-        value:"0x0",
-
-        data
-
-      },"latest"])
-
-    );
-
-  }catch{
-
-    gasEstimate=65000n;
-
-  }
-
-  const gasLimit=
-
-    gasEstimate>0n
-
-      ?(gasEstimate*120n+99n)/100n
-
-      :65000n;
-
-  return {
-
-    gasPrice,
-
-    gasLimit
-
-  };
-
-}
-
-async function nextReferralPayoutNonce(e) {
-
-  const [chainHex,maxRow]=await Promise.all([
-
-    rpc(e,"eth_getTransactionCount",[REFERRAL_PAYOUT_WALLET,"pending"]),
-
-    e.DB.prepare(
-
-      "SELECT MAX(nonce) AS max_nonce FROM referral_payouts WHERE nonce IS NOT NULL"
-
-    ).first()
-
-  ]);
-
-  const chainNonce=BigInt(chainHex);
-
-  const maxDbNonce=
-
-    maxRow?.max_nonce===null||
-
-    maxRow?.max_nonce===undefined
-
-      ?-1n
-
-      :BigInt(maxRow.max_nonce);
-
-  return chainNonce>maxDbNonce
-
-    ?chainNonce
-
-    :maxDbNonce+1n;
-
-}
-
-async function reserveReferralPayout(e,u,wallet,amountWei,gasPrice,gasLimit) {
-
-  for(let attempt=0;attempt<6;attempt++){
-
-    const nonce=await nextReferralPayoutNonce(e);
-
-    const payoutId=id();
-
-    const now=nowIso();
-
-    try{
-
-      const results=await e.DB.batch([
-
-        e.DB.prepare(`
-
-          INSERT INTO referral_payouts(
-
-            id,user_id,wallet_address,amount_wei,status,tx_hash,
-
-            created_at,broadcast_at,paid_at,error_message,
-
-            nonce,gas_price_wei,gas_limit
-
-          )
-
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-
-        `).bind(
-
-          payoutId,
-
-          u.id,
-
-          wallet,
-
-          amountWei.toString(),
-
-          "processing",
-
-          null,
-
-          now,
-
-          null,
-
-          null,
-
-          null,
-
-          nonce.toString(),
-
-          gasPrice.toString(),
-
-          gasLimit.toString()
-
-        ),
-
-        e.DB.prepare(`
-
-          UPDATE referral_rewards
-
-          SET status='processing',payout_id=?
-
-          WHERE referrer_user_id=?
-
-            AND status='available'
-
-            AND payout_id IS NULL
-
-        `).bind(payoutId,u.id)
-
-      ]);
-
-      const changes=Number(results?.[1]?.meta?.changes||0);
-
-      if(changes>0){
-
-        const payout=await e.DB.prepare(
-
-          "SELECT * FROM referral_payouts WHERE id=?"
-
-        ).bind(payoutId).first();
-
-        if(!payout)
-
-          throw new Error("payout_reservation_missing");
-
-        return payout;
-
-      }
-
-      await e.DB.prepare(`
-
-        UPDATE referral_payouts
-
-        SET status='failed',
-
-            error_message='No available referral rewards remained during reservation.'
-
-        WHERE id=? AND status='processing'
-
-      `).bind(payoutId).run();
-
-      throw new Error("no_rewards_available");
-
-    }catch(err){
-
-      const active=await e.DB.prepare(`
-
-        SELECT *
-
-        FROM referral_payouts
-
-        WHERE user_id=?
-
-          AND status IN ('processing','broadcast')
-
-        ORDER BY created_at DESC
-
-        LIMIT 1
-
-      `).bind(u.id).first();
-
-      if(active)
-
-        return {existing:true,payout:active};
-
-      const message=err instanceof Error?err.message:String(err);
-
-      if(
-
-        message.includes("UNIQUE")||
-
-        message.includes("unique constraint")||
-
-        message.includes("idx_referral_payouts_nonce")||
-
-        message.includes("idx_referral_payouts_active_user")
-
-      )
-
-        continue;
-
-      throw err;
-
-    }
-
-  }
-
-  throw new Error("payout_nonce_reservation_failed");
-
-}
-
-async function failReferralPayoutBeforeBroadcast(e,payout,errorMessage) {
-
-  await e.DB.batch([
-
-    e.DB.prepare(`
-
-      UPDATE referral_rewards
-
-      SET status='available',
-
-          payout_id=NULL,
-
-          paid_at=NULL,
-
-          payout_tx_hash=NULL
-
-      WHERE payout_id=? AND status='processing'
-
-    `).bind(payout.id),
-
-    e.DB.prepare(`
-
-      UPDATE referral_payouts
-
-      SET status='failed',
-
-          nonce=NULL,
-
-          gas_price_wei=NULL,
-
-          gas_limit=NULL,
-
-          tx_hash=NULL,
-
-          error_message=?
-
-      WHERE id=? AND status='processing'
-
-    `).bind(
-
-      clean(errorMessage,500),
-
-      payout.id
-
-    )
-
-  ]);
-
-}
-
-async function finalizeReferralPayout(e,payout,receipt) {
-
-  const now=nowIso();
-
-  const success=String(receipt?.status||"").toLowerCase()==="0x1";
-
-  if(success){
-
-    await e.DB.batch([
-
-      e.DB.prepare(`
-
-        UPDATE referral_rewards
-
-        SET status='paid',
-
-            paid_at=?,
-
-            payout_tx_hash=?
-
-        WHERE payout_id=? AND status='processing'
-
-      `).bind(now,payout.tx_hash,payout.id),
-
-      e.DB.prepare(`
-
-        UPDATE referral_payouts
-
-        SET status='paid',
-
-            paid_at=?,
-
-            error_message=NULL
-
-        WHERE id=? AND status IN ('processing','broadcast')
-
-      `).bind(now,payout.id)
-
-    ]);
-
-    return {
-
-      ok:true,
-
-      status:"paid",
-
-      payoutId:payout.id,
-
-      amountWei:payout.amount_wei,
-
-      txHash:payout.tx_hash
-
-    };
-
-  }
-
-  await e.DB.batch([
-
-    e.DB.prepare(`
-
-      UPDATE referral_rewards
-
-      SET status='available',
-
-          payout_id=NULL,
-
-          paid_at=NULL,
-
-          payout_tx_hash=NULL
-
-      WHERE payout_id=? AND status='processing'
-
-    `).bind(payout.id),
-
-    e.DB.prepare(`
-
-      UPDATE referral_payouts
-
-      SET status='failed',
-
-          paid_at=NULL,
-
-          error_message=?
-
-      WHERE id=? AND status IN ('processing','broadcast')
-
-    `).bind(
-
-      "The BSC payout transaction failed on-chain.",
-
-      payout.id
-
-    )
-
-  ]);
-
-  return {
-
-    ok:false,
-
-    status:"failed",
-
-    payoutId:payout.id,
-
-    amountWei:payout.amount_wei,
-
-    txHash:payout.tx_hash,
-
-    error:"payout_transaction_failed"
-
-  };
-
-}
-
-async function processReferralPayout(e,payout,privateKey) {
-
-  let txHash=String(payout.tx_hash||"").toLowerCase();
-
-  let receipt=null;
-
-  let tx=null;
-
-  try{
-
-    if(txHash){
-
-      tx=await rpc(
-
-        e,
-
-        "eth_getTransactionByHash",
-
-        [txHash]
-
-      );
-
-      receipt=await rpc(
-
-        e,
-
-        "eth_getTransactionReceipt",
-
-        [txHash]
-
-      );
-
-      if(receipt)
-
-        return await finalizeReferralPayout(e,payout,receipt);
-
-      if(tx){
-
-        if(payout.status!=="broadcast"){
-
-          await e.DB.prepare(`
-
-            UPDATE referral_payouts
-
-            SET status='broadcast',broadcast_at=COALESCE(broadcast_at,?)
-
-            WHERE id=? AND status='processing'
-
-          `).bind(nowIso(),payout.id).run();
-
-        }
-
-        return {
-
-          ok:true,
-
-          status:"broadcast",
-
-          payoutId:payout.id,
-
-          amountWei:payout.amount_wei,
-
-          txHash
-
-        };
-
-      }
-
-    }
-
-    if(
-
-      payout.nonce===null||
-
-      payout.nonce===undefined||
-
-      payout.gas_price_wei===null||
-
-      payout.gas_price_wei===undefined||
-
-      payout.gas_limit===null||
-
-      payout.gas_limit===undefined
-
-    ){
-
-      return {
-
-        ok:false,
-
-        status:payout.status,
-
-        payoutId:payout.id,
-
-        amountWei:payout.amount_wei,
-
-        txHash:txHash||null,
-
-        error:"payout_recovery_data_missing"
-
-      };
-
-    }
-
-    const built=await buildReferralPayoutTx(payout,privateKey);
-
-    if(txHash&&txHash!==built.hash.toLowerCase())
-
-      return {
-
-        ok:false,
-
-        status:"processing",
-
-        payoutId:payout.id,
-
-        amountWei:payout.amount_wei,
-
-        txHash,
-
-        error:"payout_transaction_integrity_mismatch"
-
-      };
-
-    txHash=built.hash.toLowerCase();
-
-    if(!payout.tx_hash){
-
-      await e.DB.prepare(`
-
-        UPDATE referral_payouts
-
-        SET tx_hash=?
-
-        WHERE id=? AND status='processing' AND tx_hash IS NULL
-
-      `).bind(txHash,payout.id).run();
-
-    }
-
-    const [gdty,bnb]=await Promise.all([
-
-      tokenBalance(e,A.G,REFERRAL_PAYOUT_WALLET),
-
-      rpc(e,"eth_getBalance",[REFERRAL_PAYOUT_WALLET,"latest"]).then(BigInt)
-
-    ]);
-
-    const amount=BigInt(payout.amount_wei);
-
-    const gasCost=built.gasPrice*built.gasLimit;
-
-    if(gdty<amount){
-
-      await failReferralPayoutBeforeBroadcast(
-
-        e,
-
-        payout,
-
-        "Referral payout wallet has insufficient GDTY balance."
-
-      );
-
-      return {
-
-        ok:false,
-
-        status:"failed",
-
-        payoutId:payout.id,
-
-        amountWei:payout.amount_wei,
-
-        txHash:null,
-
-        error:"insufficient_payout_gdty"
-
-      };
-
-    }
-
-    if(bnb<gasCost){
-
-      await failReferralPayoutBeforeBroadcast(
-
-        e,
-
-        payout,
-
-        "Referral payout wallet has insufficient BNB for network fees."
-
-      );
-
-      return {
-
-        ok:false,
-
-        status:"failed",
-
-        payoutId:payout.id,
-
-        amountWei:payout.amount_wei,
-
-        txHash:null,
-
-        error:"insufficient_payout_bnb"
-
-      };
-
-    }
-
-    try{
-
-      const sent=String(
-
-        await rpc(e,"eth_sendRawTransaction",[built.raw])
-
-      ).toLowerCase();
-
-      if(sent!==txHash){
-
-        const seen=await rpc(
-
-          e,
-
-          "eth_getTransactionByHash",
-
-          [txHash]
-
-        );
-
-        if(!seen)
-
-          return {
-
-            ok:false,
-
-            status:"processing",
-
-            payoutId:payout.id,
-
-            amountWei:payout.amount_wei,
-
-            txHash,
-
-            error:"payout_hash_mismatch"
-
-          };
-
-      }
-
-    }catch(err){
-
-      const seen=await rpc(
-
-        e,
-
-        "eth_getTransactionByHash",
-
-        [txHash]
-
-      ).catch(()=>null);
-
-      if(!seen){
-
-        return {
-
-          ok:false,
-
-          status:"processing",
-
-          payoutId:payout.id,
-
-          amountWei:payout.amount_wei,
-
-          txHash,
-
-          error:"payout_broadcast_pending_retry"
-
-        };
-
-      }
-
-    }
-
-    await e.DB.prepare(`
-
-      UPDATE referral_payouts
-
-      SET status='broadcast',
-
-          broadcast_at=COALESCE(broadcast_at,?),
-
-          error_message=NULL
-
-      WHERE id=? AND status='processing'
-
-    `).bind(nowIso(),payout.id).run();
-
-    const immediateReceipt=await rpc(
-
-      e,
-
-      "eth_getTransactionReceipt",
-
-      [txHash]
-
-    );
-
-    if(immediateReceipt)
-
-      return await finalizeReferralPayout(
-
-        e,
-
-        {...payout,tx_hash:txHash},
-
-        immediateReceipt
-
-      );
-
-    return {
-
-      ok:true,
-
-      status:"broadcast",
-
-      payoutId:payout.id,
-
-      amountWei:payout.amount_wei,
-
-      txHash
-
-    };
-
-  }catch(err){
-
-    console.error(
-
-      "GOLDITY referral payout processing error",
-
-      err instanceof Error?err.message:String(err)
-
-    );
-
-    const current=await e.DB.prepare(
-
-      "SELECT status FROM referral_payouts WHERE id=?"
-
-    ).bind(payout.id).first().catch(()=>null);
-
-    const status=String(
-
-      current?.status||payout.status||"processing"
-
-    );
-
-    return {
-
-      ok:status==="broadcast",
-
-      status,
-
-      payoutId:payout.id,
-
-      amountWei:payout.amount_wei,
-
-      txHash:txHash||null,
-
-      error:"payout_processing_error"
-
-    };
-
-  }
-
-}
-
-async function referralActiveGasCommitment(e) {
-
-  const rows=await e.DB.prepare(`
-
-    SELECT gas_price_wei,gas_limit
-
-    FROM referral_payouts
-
-    WHERE status IN ('processing','broadcast')
-
-      AND gas_price_wei IS NOT NULL
-
-      AND gas_limit IS NOT NULL
-
-  `).all();
-
-  let total=0n;
-
-  for(const row of (rows.results||[])){
-
-    try{
-
-      const gasPrice=BigInt(row.gas_price_wei);
-
-      const gasLimit=BigInt(row.gas_limit);
-
-      if(gasPrice>0n&&gasLimit>0n)
-
-        total+=gasPrice*gasLimit;
-
-    }catch{
-
-      // Ignore malformed historical commitment rows; processing will fail safely.
-
-    }
-
-  }
-
-  return total;
-
-}
-
-async function referralWithdraw(e,req) {
-
-  const u=await currentUser(e,req);
-
-  if(!u)
-
-    return out(
-
-      {ok:false,error:"unauthorized"},
-
-      401,
-
-      0,
-
-      cors(e)
-
-    );
-
-  if(!await requireOrigin(e,req))
-
-    return out(
-
-      {ok:false,error:"forbidden"},
-
-      403,
-
-      0,
-
-      cors(e)
-
-    );
-
-  if(!await rateLimit(
-
-    e,
-
-    `referral_withdraw:${u.id}`,
-
-    3,
-
-    60000
-
-  ))
-
-    return out(
-
-      {ok:false,error:"rate_limited"},
-
-      429,
-
-      0,
-
-      cors(e)
-
-    );
-
-  if(!e.DB)
-
-    return out(
-
-      {ok:false,error:"database_not_configured"},
-
-      503,
-
-      0,
-
-      cors(e)
-
-    );
-
-  if(!u.wallet_address||!walletRe.test(u.wallet_address))
-
-    return out(
-
-      {ok:false,error:"wallet_not_connected",message:"Please connect and verify your BNB Smart Chain wallet before withdrawing."},
-
-      400,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const wallet=String(u.wallet_address).toLowerCase();
-
-  const verified=await e.DB.prepare(`
-
-    SELECT address
-
-    FROM wallets
-
-    WHERE user_id=?
-
-      AND address=?
-
-      AND chain_id=56
-
-      AND verified=1
-
-    LIMIT 1
-
-  `).bind(u.id,wallet).first();
-
-  if(!verified)
-
-    return out(
-
-      {ok:false,error:"wallet_not_verified",message:"Your wallet must be verified before withdrawing referral rewards."},
-
-      403,
-
-      0,
-
-      cors(e)
-
-    );
-
-  let privateKey;
-
-  try{
-
-    privateKey=getReferralPayoutPrivateKey(e);
-
-  }catch(err){
-
-    const code=err instanceof Error?err.message:"payout_key_not_configured";
-
-    console.error("GOLDITY referral payout key error",code);
-
-    return out(
-
-      {ok:false,error:code==="payout_key_wallet_mismatch"?"payout_wallet_mismatch":"payout_not_configured"},
-
-      503,
-
-      0,
-
-      cors(e)
-
-    );
-
-  }
-
-  const active=await e.DB.prepare(`
-
-    SELECT *
-
-    FROM referral_payouts
-
-    WHERE user_id=?
-
-      AND status IN ('processing','broadcast')
-
-    ORDER BY created_at DESC
-
-    LIMIT 1
-
-  `).bind(u.id).first();
-
-  if(active){
-
-    const result=await processReferralPayout(
-
-      e,
-
-      active,
-
-      privateKey
-
-    );
-
-    return out(
-
-      result,
-
-      result.status==="failed"?502:200,
-
-      0,
-
-      cors(e)
-
-    );
-
-  }
-
-  const rewardRows=await e.DB.prepare(`
-
-    SELECT id,reward_amount_wei
-
-    FROM referral_rewards
-
-    WHERE referrer_user_id=?
-
-      AND status='available'
-
-      AND payout_id IS NULL
-
-    ORDER BY created_at ASC
-
-  `).bind(u.id).all();
-
-  const rewards=rewardRows.results||[];
-
-  let amount=0n;
-
-  for(const r of rewards)
-
-    amount+=BigInt(r.reward_amount_wei||"0");
-
-  if(amount<=0n)
-
-    return out(
-
-      {ok:false,error:"no_rewards_available",message:"There are no referral rewards available for withdrawal."},
-
-      400,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const [gdty,bnb,gas]=await Promise.all([
-
-    tokenBalance(e,A.G,REFERRAL_PAYOUT_WALLET),
-
-    rpc(e,"eth_getBalance",[REFERRAL_PAYOUT_WALLET,"latest"]).then(BigInt),
-
-    referralGasPlan(e,wallet,amount)
-
-  ]);
-
-  if(gdty<amount)
-
-    return out(
-
-      {ok:false,error:"insufficient_payout_gdty",message:"The referral payout wallet does not currently have enough GDTY to complete this withdrawal."},
-
-      400,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const gasCost=gas.gasPrice*gas.gasLimit;
-
-  const activeGasCommitment=await referralActiveGasCommitment(e);
-
-  if(bnb<activeGasCommitment+gasCost)
-
-    return out(
-
-      {ok:false,error:"insufficient_payout_bnb",message:"The referral payout wallet does not currently have enough BNB to cover this withdrawal and the network fees already reserved for other payouts."},
-
-      400,
-
-      0,
-
-      cors(e)
-
-    );
-
-  let reserved;
-
-  try{
-
-    reserved=await reserveReferralPayout(
-
-      e,
-
-      u,
-
-      wallet,
-
-      amount,
-
-      gas.gasPrice,
-
-      gas.gasLimit
-
-    );
-
-  }catch(err){
-
-    const code=err instanceof Error?err.message:"payout_reservation_failed";
-
-    console.error(
-
-      "GOLDITY referral payout reservation error",
-
-      code
-
-    );
-
-    if(code==="no_rewards_available")
-
-      return out(
-
-        {ok:false,error:"no_rewards_available"},
-
-        400,
-
-        0,
-
-        cors(e)
-
-      );
-
-    return out(
-
-      {ok:false,error:"payout_reservation_failed"},
-
-      503,
-
-      0,
-
-      cors(e)
-
-    );
-
-  }
-
-  if(!reserved?.existing){
-
-    const postReserveBnb=BigInt(await rpc(
-
-      e,
-
-      "eth_getBalance",
-
-      [REFERRAL_PAYOUT_WALLET,"latest"]
-
-    ));
-
-    const postReserveCommitment=await referralActiveGasCommitment(e);
-
-    if(postReserveBnb<postReserveCommitment){
-
-      await failReferralPayoutBeforeBroadcast(
-
-        e,
-
-        reserved,
-
-        "insufficient_payout_bnb_after_reservation"
-
-      );
-
-      return out(
-
-        {ok:false,error:"insufficient_payout_bnb",message:"The referral payout wallet does not currently have enough BNB to cover all reserved payout network fees."},
-
-        400,
-
-        0,
-
-        cors(e)
-
-      );
-
-    }
-
-  }
-
-  if(reserved?.existing){
-
-    const result=await processReferralPayout(
-
-      e,
-
-      reserved.payout,
-
-      privateKey
-
-    );
-
-    return out(
-
-      result,
-
-      result.status==="failed"?502:200,
-
-      0,
-
-      cors(e)
-
-    );
-
-  }
-
-  const result=await processReferralPayout(
-
-    e,
-
-    reserved,
-
-    privateKey
-
-  );
-
-  return out(
-
-    result,
-
-    result.status==="failed"?502:200,
-
-    0,
-
-    cors(e)
-
-  );
-
-}
-
-async function referralWithdrawStatus(e,req) {
-
-  const u=await currentUser(e,req);
-
-  if(!u)
-
-    return out(
-
-      {ok:false,error:"unauthorized"},
-
-      401,
-
-      0,
-
-      cors(e)
-
-    );
-
-  if(!await requireOrigin(e,req))
-
-    return out(
-
-      {ok:false,error:"forbidden"},
-
-      403,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const latest=await e.DB.prepare(`
-
-    SELECT *
-
-    FROM referral_payouts
-
-    WHERE user_id=?
-
-    ORDER BY created_at DESC
-
-    LIMIT 1
-
-  `).bind(u.id).first();
-
-  let payout=latest;
-
-  if(
-
-    payout &&
-
-    (payout.status==='processing'||payout.status==='broadcast')
-
-  ){
-
-    try{
-
-      const privateKey=getReferralPayoutPrivateKey(e);
-
-      await processReferralPayout(e,payout,privateKey);
-
-      payout=await e.DB.prepare(`
-
-        SELECT *
-
-        FROM referral_payouts
-
-        WHERE id=?
-
-        LIMIT 1
-
-      `).bind(payout.id).first();
-
-    }catch(err){
-
-      console.error(
-
-        "GOLDITY referral payout status recovery error",
-
-        err instanceof Error?err.message:String(err)
-
-      );
-
-    }
-
-  }
-
-  const responsePayout=payout
-
-    ?{
-
-      id:payout.id,
-
-      amountWei:payout.amount_wei,
-
-      status:payout.status,
-
-      txHash:payout.tx_hash,
-
-      createdAt:payout.created_at,
-
-      broadcastAt:payout.broadcast_at,
-
-      paidAt:payout.paid_at,
-
-      errorMessage:payout.error_message
-
-    }
-
-    :null;
-
-  return out(
-
-    {
-
-      ok:true,
-
-      payout:responsePayout
-
-    },
-
-    200,
-
-    0,
-
-    cors(e)
-
-  );
-
-}
 
 async function walletChallenge(e,req) {
 
   const u=await currentUser(e,req);
 
-  if(!u)
+  if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
 
-    return out({ok:false,error:"unauthorized"},401,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
 
-  if(!await requireOrigin(e,req))
+  const d=await req.json().catch(()=>({})), address=String(d.address||"").toLowerCase();
 
-    return out({ok:false,error:"forbidden"},403,cors(e));
+  if(!walletRe.test(address))return out({ok:false,error:"invalid_wallet"},400,cors(e));
 
-  const d=await req.json().catch(()=>({}));
+  const existing=await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(address).first();
 
-  const address=String(d.address||"").toLowerCase();
+  if(existing&&existing.user_id!==u.id)return out({ok:false,error:"wallet_already_bound"},409,cors(e));
 
-  if(!walletRe.test(address))
-
-    return out({ok:false,error:"invalid_wallet"},400,cors(e));
-
-  const existing=await e.DB.prepare(
-
-    "SELECT user_id FROM wallets WHERE address=?"
-
-  ).bind(address).first();
-
-  if(existing&&existing.user_id!==u.id)
-
-    return out({ok:false,error:"wallet_already_bound"},409,cors(e));
-
-  const challengeId=id();
-
-  const nonce=token();
-
-  const message=[
+  const challengeId=id(), nonce=token(), message=[
 
     "GOLDITY Wallet Verification",
 
@@ -2676,117 +797,44 @@ async function walletChallenge(e,req) {
 
   ].join("\n");
 
-  const exp=new Date(
+  const exp=new Date(Date.now()+10*60*1000).toISOString();
 
-    Date.now()+10*60*1000
-
-  ).toISOString();
+  await e.DB.prepare("DELETE FROM wallet_challenges WHERE user_id=? AND used_at IS NULL").bind(u.id).run();
 
   await e.DB.prepare(`
 
-    DELETE FROM wallet_challenges
-
-    WHERE user_id=?
-
-      AND used_at IS NULL
-
-  `).bind(u.id).run();
-
-  await e.DB.prepare(`
-
-    INSERT INTO wallet_challenges(
-
-      id,user_id,wallet_address,nonce,message,expires_at,created_at
-
-    )
+    INSERT INTO wallet_challenges(id,user_id,wallet_address,nonce,message,expires_at,created_at)
 
     VALUES(?,?,?,?,?,?,?)
 
-  `).bind(
+  `).bind(challengeId,u.id,address,nonce,message,exp,nowIso()).run();
 
-    challengeId,
-
-    u.id,
-
-    address,
-
-    nonce,
-
-    message,
-
-    exp,
-
-    nowIso()
-
-  ).run();
-
-  return out({
-
-    ok:true,
-
-    challengeId,
-
-    message,
-
-    expiresAt:exp
-
-  },200,0,cors(e));
+  return out({ok:true,challengeId,message,expiresAt:exp},200,0,cors(e));
 
 }
+
 
 async function walletVerify(e,req) {
 
   const u=await currentUser(e,req);
 
-  if(!u)
+  if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
 
-    return out({ok:false,error:"unauthorized"},401,cors(e));
-
-  if(!await requireOrigin(e,req))
-
-    return out({ok:false,error:"forbidden"},403,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
 
   const d=await req.json().catch(()=>({}));
 
-  const ch=await e.DB.prepare(`
+  const ch=await e.DB.prepare("SELECT * FROM wallet_challenges WHERE id=? AND user_id=? AND used_at IS NULL").bind(d.challengeId,u.id).first();
 
-    SELECT *
+  if(!ch||new Date(ch.expires_at)<=new Date())return out({ok:false,error:"challenge_expired"},400,cors(e));
 
-    FROM wallet_challenges
+  const recovered=recoveredAddress(String(d.signature||""),ch.message);
 
-    WHERE id=?
+  if(recovered!==String(ch.wallet_address).toLowerCase())return out({ok:false,error:"signature_mismatch"},401,cors(e));
 
-      AND user_id=?
+  const bound=await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(recovered).first();
 
-      AND used_at IS NULL
-
-  `).bind(d.challengeId,u.id).first();
-
-  if(!ch||new Date(ch.expires_at)<=new Date())
-
-    return out({ok:false,error:"challenge_expired"},400,cors(e));
-
-  const recovered=recoveredAddress(
-
-    String(d.signature||""),
-
-    ch.message
-
-  );
-
-  if(recovered!==String(ch.wallet_address).toLowerCase())
-
-    return out({ok:false,error:"signature_mismatch"},401,cors(e));
-
-  const bound=await e.DB.prepare(
-
-    "SELECT user_id FROM wallets WHERE address=?"
-
-  ).bind(recovered).first();
-
-  if(bound&&bound.user_id!==u.id)
-
-    return out({ok:false,error:"wallet_already_bound"},409,cors(e));
+  if(bound&&bound.user_id!==u.id)return out({ok:false,error:"wallet_already_bound"},409,cors(e));
 
   const now=nowIso();
 
@@ -2794,87 +842,41 @@ async function walletVerify(e,req) {
 
     e.DB.prepare(`
 
-      INSERT INTO wallets(
-
-        id,user_id,address,chain_id,verified,verified_at,created_at,updated_at
-
-      )
+      INSERT INTO wallets(id,user_id,address,chain_id,verified,verified_at,created_at,updated_at)
 
       VALUES(?,?,?,?,?,?,?,?)
 
-      ON CONFLICT(address) DO UPDATE SET
+      ON CONFLICT(address) DO UPDATE SET user_id=excluded.user_id,verified=1,verified_at=excluded.verified_at,updated_at=excluded.updated_at
 
-        user_id=excluded.user_id,
+    `).bind(id(),u.id,recovered,56,1,now,now,now),
 
-        verified=1,
+    e.DB.prepare("UPDATE users SET wallet_address=?,updated_at=? WHERE id=?").bind(recovered,now,u.id),
 
-        verified_at=excluded.verified_at,
-
-        updated_at=excluded.updated_at
-
-    `).bind(
-
-      id(),u.id,recovered,56,1,now,now,now
-
-    ),
-
-    e.DB.prepare(`
-
-      UPDATE users
-
-      SET wallet_address=?,updated_at=?
-
-      WHERE id=?
-
-    `).bind(recovered,now,u.id),
-
-    e.DB.prepare(`
-
-      UPDATE wallet_challenges
-
-      SET used_at=?
-
-      WHERE id=?
-
-    `).bind(now,ch.id)
+    e.DB.prepare("UPDATE wallet_challenges SET used_at=? WHERE id=?").bind(now,ch.id)
 
   ]);
 
-  return out({
-
-    ok:true,
-
-    address:recovered
-
-  },200,0,cors(e));
+  return out({ok:true,address:recovered},200,0,cors(e));
 
 }
 
+
 async function tokenBalance(e,tokenAddress,account) {
 
-  const raw=await call(
-
-    e,
-
-    tokenAddress,
-
-    S.balanceOf+pad(account)
-
-  );
+  const raw=await call(e,tokenAddress,S.balanceOf+pad(account));
 
   return raw ? BigInt(raw) : 0n;
 
 }
 
+
 async function walletData(e,u) {
 
   const address=u.wallet_address;
 
-  if(!address||!walletRe.test(address))
+  if(!address||!walletRe.test(address))return {connected:false};
 
-    return {connected:false};
-
-  const [gdty,usdt,bnb]=await Promise.all([
+  const [gdty,usdt,bnb] = await Promise.all([
 
     tokenBalance(e,A.G,address),
 
@@ -2886,37 +888,20 @@ async function walletData(e,u) {
 
   return {
 
-    connected:true,
+    connected:true,address,
 
-    address,
-
-    gdtyWei:gdty.toString(),
-
-    usdtWei:usdt.toString(),
-
-    bnbWei:bnb.toString()
+    gdtyWei:gdty.toString(),usdtWei:usdt.toString(),bnbWei:bnb.toString()
 
   };
 
 }
 
+
 function parseTransfer(log) {
 
-  if(
+  if(String(log.topics?.[0]).toLowerCase()!==TOPIC_TRANSFER)return null;
 
-    String(log.topics?.[0]).toLowerCase()!==TOPIC_TRANSFER
-
-  )return null;
-
-  if(
-
-    !log.topics?.[1]||
-
-    !log.topics?.[2]||
-
-    !log.data
-
-  )return null;
+  if(!log.topics?.[1]||!log.topics?.[2]||!log.data)return null;
 
   return {
 
@@ -2932,199 +917,53 @@ function parseTransfer(log) {
 
 }
 
+
 async function verifyTrade(e,u,txHash) {
 
-  if(!u.wallet_address)
+  if(!u.wallet_address)return {ok:false,error:"wallet_not_connected"};
 
-    return {
+  const tx=await rpc(e,"eth_getTransactionByHash",[txHash]);
 
-      ok:false,
+  const receipt=await rpc(e,"eth_getTransactionReceipt",[txHash]);
 
-      error:"wallet_not_connected"
+  if(!tx||!receipt)return {ok:false,error:"transaction_not_found"};
 
-    };
+  if(String(tx.from).toLowerCase()!==u.wallet_address.toLowerCase())return {ok:false,error:"transaction_wallet_mismatch"};
 
-  const tx=await rpc(
-
-    e,
-
-    "eth_getTransactionByHash",
-
-    [txHash]
-
-  );
-
-  const receipt=await rpc(
-
-    e,
-
-    "eth_getTransactionReceipt",
-
-    [txHash]
-
-  );
-
-  if(!tx||!receipt)
-
-    return {
-
-      ok:false,
-
-      error:"transaction_not_found"
-
-    };
-
-  if(
-
-    String(tx.from).toLowerCase()!==
-
-    u.wallet_address.toLowerCase()
-
-  )
-
-    return {
-
-      ok:false,
-
-      error:"transaction_wallet_mismatch"
-
-    };
-
-  if(receipt.status!=="0x1")
-
-    return {
-
-      ok:false,
-
-      error:"transaction_failed"
-
-    };
+  if(receipt.status!=="0x1")return {ok:false,error:"transaction_failed"};
 
   const pp=await pair(e);
 
-  const pools=new Map([
+  const pools=new Map([[A.UNI,"Uniswap V2"],[pp,"PancakeSwap V2"]]);
 
-    [A.UNI,"Uniswap V2"],
+  const pairAddress=String(tx.to||"").toLowerCase();
 
-    [pp,"PancakeSwap V2"]
+  let dex=pools.get(pairAddress);
 
-  ]);
+  const logs=(receipt.logs||[]).map(parseTransfer).filter(Boolean);
 
-  const logs=(receipt.logs||[])
+  const relevantPools=[...pools.entries()].filter(([p])=>logs.some(l=>l.token===A.G||l.token===A.U)&&String(p).length===42);
 
-    .map(parseTransfer)
+  for(const [p,name] of relevantPools){
 
-    .filter(Boolean);
+    const gBuy=logs.find(l=>l.token===A.G&&l.from===p&&l.to===u.wallet_address.toLowerCase());
 
-  for(const [p,name] of pools){
+    const uBuy=logs.find(l=>l.token===A.U&&l.from===u.wallet_address.toLowerCase()&&l.to===p);
 
-    const gBuy=logs.find(l=>
+    if(gBuy&&uBuy){dex=name;return {ok:true,side:"buy",pair:p,dex,gdty:gBuy.amount,usdt:uBuy.amount,block:parseInt(receipt.blockNumber,16)};}
 
-      l.token===A.G &&
+    const gSell=logs.find(l=>l.token===A.G&&l.from===u.wallet_address.toLowerCase()&&l.to===p);
 
-      l.from===p &&
+    const uSell=logs.find(l=>l.token===A.U&&l.from===p&&l.to===u.wallet_address.toLowerCase());
 
-      l.to===u.wallet_address.toLowerCase()
-
-    );
-
-    const uBuy=logs.find(l=>
-
-      l.token===A.U &&
-
-      l.from===u.wallet_address.toLowerCase() &&
-
-      l.to===p
-
-    );
-
-    if(gBuy&&uBuy){
-
-      return {
-
-        ok:true,
-
-        side:"buy",
-
-        pair:p,
-
-        dex:name,
-
-        gdty:gBuy.amount,
-
-        usdt:uBuy.amount,
-
-        block:parseInt(
-
-          receipt.blockNumber,
-
-          16
-
-        )
-
-      };
-
-    }
-
-    const gSell=logs.find(l=>
-
-      l.token===A.G &&
-
-      l.from===u.wallet_address.toLowerCase() &&
-
-      l.to===p
-
-    );
-
-    const uSell=logs.find(l=>
-
-      l.token===A.U &&
-
-      l.from===p &&
-
-      l.to===u.wallet_address.toLowerCase()
-
-    );
-
-    if(gSell&&uSell){
-
-      return {
-
-        ok:true,
-
-        side:"sell",
-
-        pair:p,
-
-        dex:name,
-
-        gdty:gSell.amount,
-
-        usdt:uSell.amount,
-
-        block:parseInt(
-
-          receipt.blockNumber,
-
-          16
-
-        )
-
-      };
-
-    }
+    if(gSell&&uSell){dex=name;return {ok:true,side:"sell",pair:p,dex,gdty:gSell.amount,usdt:uSell.amount,block:parseInt(receipt.blockNumber,16)};}
 
   }
 
-  return {
-
-    ok:false,
-
-    error:"unsupported_trade"
-
-  };
+  return {ok:false,error:"unsupported_trade"};
 
 }
+
 
 async function recordTrade(e,u,trade) {
 
@@ -3142,235 +981,72 @@ async function recordTrade(e,u,trade) {
 
   await e.DB.prepare(`
 
-    INSERT INTO trades(
+    INSERT INTO trades(id,user_id,wallet_address,tx_hash,block_number,block_timestamp,dex,pair_address,side,
 
-      id,user_id,wallet_address,tx_hash,block_number,block_timestamp,dex,pair_address,side,
-
-      gdty_amount_wei,usdt_amount_wei,price_usdt_per_gdty,confirmations,status,created_at,verified_at
-
-    )
+    gdty_amount_wei,usdt_amount_wei,price_usdt_per_gdty,confirmations,status,created_at,verified_at)
 
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 
   `).bind(
 
-    tradeId,
+    tradeId,u.id,u.wallet_address,trade.txHash,trade.block,now,trade.dex,trade.pair,trade.side,
 
-    u.id,
-
-    u.wallet_address,
-
-    trade.txHash,
-
-    trade.block,
-
-    now,
-
-    trade.dex,
-
-    trade.pair,
-
-    trade.side,
-
-    trade.gdty,
-
-    trade.usdt,
-
-    "",
-
-    confirmations,
-
-    status,
-
-    now,
-
-    status==="confirmed"?now:null
+    trade.gdty,trade.usdt,"",confirmations,status,now,status==="confirmed"?now:null
 
   ).run();
 
-  const p=await e.DB.prepare(
 
-    "SELECT * FROM portfolio_accounts WHERE user_id=?"
+  const p=await e.DB.prepare("SELECT * FROM portfolio_accounts WHERE user_id=?").bind(u.id).first();
 
-  ).bind(u.id).first();
+  const bought=BigInt(p?.gdty_bought_wei||"0"),sold=BigInt(p?.gdty_sold_wei||"0");
 
-  const bought=BigInt(p?.gdty_bought_wei||"0");
+  const spent=BigInt(p?.usdt_spent_wei||"0"),received=BigInt(p?.usdt_received_wei||"0");
 
-  const sold=BigInt(p?.gdty_sold_wei||"0");
+  let cost=BigInt(p?.cost_basis_wei||"0"),realized=BigInt(p?.realized_pnl_wei||"0");
 
-  const spent=BigInt(p?.usdt_spent_wei||"0");
-
-  const received=BigInt(p?.usdt_received_wei||"0");
-
-  let cost=BigInt(p?.cost_basis_wei||"0");
-
-  let realized=BigInt(p?.realized_pnl_wei||"0");
-
-  const g=BigInt(trade.gdty);
-
-  const uAmt=BigInt(trade.usdt);
+  const g=BigInt(trade.gdty),uAmt=BigInt(trade.usdt);
 
   if(trade.side==="buy"){
 
     await e.DB.prepare(`
 
-      INSERT INTO portfolio_accounts(
-
-        user_id,
-
-        gdty_bought_wei,
-
-        gdty_sold_wei,
-
-        usdt_spent_wei,
-
-        usdt_received_wei,
-
-        cost_basis_wei,
-
-        realized_pnl_wei,
-
-        updated_at
-
-      )
+      INSERT INTO portfolio_accounts(user_id,gdty_bought_wei,gdty_sold_wei,usdt_spent_wei,usdt_received_wei,cost_basis_wei,realized_pnl_wei,updated_at)
 
       VALUES(?,?,?,?,?,?,?,?)
 
       ON CONFLICT(user_id) DO UPDATE SET
 
-        gdty_bought_wei=excluded.gdty_bought_wei,
+      gdty_bought_wei=excluded.gdty_bought_wei,
 
-        usdt_spent_wei=excluded.usdt_spent_wei,
+      usdt_spent_wei=excluded.usdt_spent_wei,
 
-        cost_basis_wei=excluded.cost_basis_wei,
+      cost_basis_wei=excluded.cost_basis_wei,
 
-        updated_at=excluded.updated_at
+      updated_at=excluded.updated_at
 
-    `).bind(
-
-      u.id,
-
-      (bought+g).toString(),
-
-      sold.toString(),
-
-      (spent+uAmt).toString(),
-
-      received.toString(),
-
-      (cost+uAmt).toString(),
-
-      realized.toString(),
-
-      now
-
-    ).run();
+    `).bind(u.id,(bought+g).toString(),sold,(spent+uAmt).toString(),received,(cost+uAmt).toString(),realized,now).run();
 
     const reward=g/20n;
 
-    const refUser=u.referred_by
-
-      ?await e.DB.prepare(
-
-        "SELECT id FROM users WHERE referral_code=?"
-
-      ).bind(u.referred_by).first()
-
-      :null;
+    const refUser=u.referred_by?await e.DB.prepare("SELECT id FROM users WHERE referral_code=?").bind(u.referred_by).first():null;
 
     if(refUser&&reward>0n){
 
       await e.DB.prepare(`
 
-        INSERT OR IGNORE INTO referral_rewards(
-
-          id,
-
-          referrer_user_id,
-
-          referred_user_id,
-
-          trade_id,
-
-          source_tx_hash,
-
-          gdty_amount_wei,
-
-          reward_amount_wei,
-
-          reward_rate_bps,
-
-          status,
-
-          created_at,
-
-          available_at
-
-        )
+        INSERT OR IGNORE INTO referral_rewards(id,referrer_user_id,referred_user_id,trade_id,source_tx_hash,gdty_amount_wei,reward_amount_wei,reward_rate_bps,status,created_at,available_at)
 
         VALUES(?,?,?,?,?,?,?,?,?,?,?)
 
-      `).bind(
-
-        id(),
-
-        refUser.id,
-
-        u.id,
-
-        tradeId,
-
-        trade.txHash,
-
-        g.toString(),
-
-        reward.toString(),
-
-        500,
-
-        status==="confirmed"?"available":"pending",
-
-        now,
-
-        status==="confirmed"?now:null
-
-      ).run();
+      `).bind(id(),refUser.id,u.id,tradeId,trade.txHash,g.toString(),reward.toString(),500,status==="confirmed"?"available":"pending",now,status==="confirmed"?now:null).run();
 
       await e.DB.prepare(`
 
-        INSERT INTO notifications(
-
-          id,
-
-          user_id,
-
-          type,
-
-          title,
-
-          message,
-
-          created_at
-
-        )
+        INSERT INTO notifications(id,user_id,type,title,message,created_at)
 
         VALUES(?,?,?,?,?,?)
 
-      `).bind(
-
-        id(),
-
-        refUser.id,
-
-        "referral_reward",
-
-        "Referral reward",
-
-        "A verified GOLDITY purchase generated a 5% referral reward.",
-
-        now
-
-      ).run();
+      `).bind(id(),refUser.id,"referral_reward","Referral reward","A verified GOLDITY purchase generated a 5% referral reward.",now).run();
 
     }
 
@@ -3378,11 +1054,7 @@ async function recordTrade(e,u,trade) {
 
     const qty=bought-sold;
 
-    const costReduction=qty>0n
-
-      ?(g*cost/qty)
-
-      :0n;
+    const costReduction=qty>0n?(g*cost/qty):0n;
 
     realized+=uAmt-costReduction;
 
@@ -3390,113 +1062,48 @@ async function recordTrade(e,u,trade) {
 
     await e.DB.prepare(`
 
-      INSERT INTO portfolio_accounts(
-
-        user_id,
-
-        gdty_bought_wei,
-
-        gdty_sold_wei,
-
-        usdt_spent_wei,
-
-        usdt_received_wei,
-
-        cost_basis_wei,
-
-        realized_pnl_wei,
-
-        updated_at
-
-      )
+      INSERT INTO portfolio_accounts(user_id,gdty_bought_wei,gdty_sold_wei,usdt_spent_wei,usdt_received_wei,cost_basis_wei,realized_pnl_wei,updated_at)
 
       VALUES(?,?,?,?,?,?,?,?)
 
       ON CONFLICT(user_id) DO UPDATE SET
 
-        gdty_sold_wei=excluded.gdty_sold_wei,
+      gdty_sold_wei=excluded.gdty_sold_wei,
 
-        usdt_received_wei=excluded.usdt_received_wei,
+      usdt_received_wei=excluded.usdt_received_wei,
 
-        cost_basis_wei=excluded.cost_basis_wei,
+      cost_basis_wei=excluded.cost_basis_wei,
 
-        realized_pnl_wei=excluded.realized_pnl_wei,
+      realized_pnl_wei=excluded.realized_pnl_wei,
 
-        updated_at=excluded.updated_at
+      updated_at=excluded.updated_at
 
-    `).bind(
-
-      u.id,
-
-      bought.toString(),
-
-      (sold+g).toString(),
-
-      spent.toString(),
-
-      (received+uAmt).toString(),
-
-      cost.toString(),
-
-      realized.toString(),
-
-      now
-
-    ).run();
+    `).bind(u.id,bought,(sold+g).toString(),spent,(received+uAmt).toString(),cost.toString(),realized.toString(),now).run();
 
   }
 
-  return {
-
-    ok:true,
-
-    tradeId,
-
-    status,
-
-    confirmations
-
-  };
+  return {ok:true,tradeId,status,confirmations};
 
 }
+
 
 async function dashboard(e,req) {
 
   const u=await currentUser(e,req);
 
-  if(!u)
+  if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
 
-    return out(
-
-      {ok:false,error:"unauthorized"},
-
-      401,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const refs=await e.DB.prepare(
-
-    "SELECT COUNT(*) AS count FROM users WHERE referred_by=?"
-
-  ).bind(u.referral_code).first();
+  const refs=await e.DB.prepare("SELECT COUNT(*) AS count FROM users WHERE referred_by=?").bind(u.referral_code).first();
 
   const rewardRows=await e.DB.prepare(`
 
-    SELECT reward_amount_wei,status
-
-    FROM referral_rewards
+    SELECT reward_amount_wei,status FROM referral_rewards
 
     WHERE referrer_user_id=?
 
   `).bind(u.id).all();
 
-  let rewardAvailable=0n;
-
-  let rewardTotal=0n;
+  let rewardAvailable=0n,rewardTotal=0n;
 
   for(const r of (rewardRows.results||[])){
 
@@ -3504,83 +1111,33 @@ async function dashboard(e,req) {
 
     rewardTotal+=amount;
 
-    if(r.status==="available"){
-
-      rewardAvailable+=amount;
-
-    }
+    if(r.status==="available"||r.status==="paid")rewardAvailable+=amount;
 
   }
 
-  const p=await e.DB.prepare(
-
-    "SELECT * FROM portfolio_accounts WHERE user_id=?"
-
-  ).bind(u.id).first();
+  const p=await e.DB.prepare("SELECT * FROM portfolio_accounts WHERE user_id=?").bind(u.id).first();
 
   const trades=await e.DB.prepare(`
 
-    SELECT
+    SELECT tx_hash AS txHash,dex,side,gdty_amount_wei AS gdtyAmountWei,usdt_amount_wei AS usdtAmountWei,
 
-      tx_hash AS txHash,
+           status,confirmations,created_at AS createdAt
 
-      dex,
-
-      side,
-
-      gdty_amount_wei AS gdtyAmountWei,
-
-      usdt_amount_wei AS usdtAmountWei,
-
-      status,
-
-      confirmations,
-
-      created_at AS createdAt
-
-    FROM trades
-
-    WHERE user_id=?
-
-    ORDER BY created_at DESC
-
-    LIMIT 50
+    FROM trades WHERE user_id=? ORDER BY created_at DESC LIMIT 50
 
   `).bind(u.id).all();
 
   const notifications=await e.DB.prepare(`
 
-    SELECT
+    SELECT id,type,title,message,read_at AS readAt,created_at AS createdAt
 
-      id,
-
-      type,
-
-      title,
-
-      message,
-
-      read_at AS readAt,
-
-      created_at AS createdAt
-
-    FROM notifications
-
-    WHERE user_id=?
-
-    ORDER BY created_at DESC
-
-    LIMIT 30
+    FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30
 
   `).bind(u.id).all();
 
   let wallet={connected:false};
 
-  try{
-
-    wallet=await walletData(e,u);
-
-  }catch{}
+  try{wallet=await walletData(e,u)}catch{}
 
   return out({
 
@@ -3588,29 +1145,11 @@ async function dashboard(e,req) {
 
     user:{
 
-      id:u.id,
+      id:u.id,email:u.email,firstName:u.first_name,lastName:u.last_name,country:u.country,
 
-      email:u.email,
+      phone:u.phone,walletAddress:u.wallet_address,referralCode:u.referral_code,referredBy:u.referred_by,
 
-      firstName:u.first_name,
-
-      lastName:u.last_name,
-
-      country:u.country,
-
-      phone:u.phone,
-
-      walletAddress:u.wallet_address,
-
-      referralCode:u.referral_code,
-
-      referredBy:u.referred_by,
-
-      role:u.role,
-
-      createdAt:u.created_at,
-
-      referrals:Number(refs?.count||0)
+      role:u.role,createdAt:u.created_at,referrals:Number(refs?.count||0)
 
     },
 
@@ -3618,27 +1157,15 @@ async function dashboard(e,req) {
 
     portfolio:{
 
-      gdtyBoughtWei:p?.gdty_bought_wei||"0",
+      gdtyBoughtWei:p?.gdty_bought_wei||"0",gdtySoldWei:p?.gdty_sold_wei||"0",
 
-      gdtySoldWei:p?.gdty_sold_wei||"0",
+      usdtSpentWei:p?.usdt_spent_wei||"0",usdtReceivedWei:p?.usdt_received_wei||"0",
 
-      usdtSpentWei:p?.usdt_spent_wei||"0",
-
-      usdtReceivedWei:p?.usdt_received_wei||"0",
-
-      costBasisWei:p?.cost_basis_wei||"0",
-
-      realizedPnlWei:p?.realized_pnl_wei||"0"
+      costBasisWei:p?.cost_basis_wei||"0",realizedPnlWei:p?.realized_pnl_wei||"0"
 
     },
 
-    referralRewards:{
-
-      availableWei:rewardAvailable.toString(),
-
-      totalWei:rewardTotal.toString()
-
-    },
+    referralRewards:{availableWei:rewardAvailable.toString(),totalWei:rewardTotal.toString()},
 
     trades:trades.results||[],
 
@@ -3648,411 +1175,82 @@ async function dashboard(e,req) {
 
 }
 
+
 async function logout(e,req) {
 
-  if(!await requireOrigin(e,req))
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
 
-    return out(
-
-      {ok:false,error:"forbidden"},
-
-      403,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const m=req.headers.get("Cookie")||"";
-
-  const hit=m.match(
-
-    /(?:^|;\s*)GDTY_SESSION=([^;]+)/
-
-  );
+  const m=req.headers.get("Cookie")||"", hit=m.match(/(?:^|;\s*)GDTY_SESSION=([^;]+)/);
 
   if(hit&&e.DB){
 
     const h=await sha256Text(hit[1]);
 
-    await e.DB.prepare(
-
-      "DELETE FROM sessions WHERE token_hash=?"
-
-    ).bind(h).run();
+    await e.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(h).run();
 
   }
 
-  return out(
-
-    {ok:true},
-
-    200,
-
-    0,
-
-    {
-
-      ...cors(e),
-
-      "set-cookie":cookie(
-
-        "GDTY_SESSION",
-
-        "",
-
-        0
-
-      )
-
-    }
-
-  );
+  return out({ok:true},200,0,{...cors(e),"set-cookie":cookie("GDTY_SESSION","",0)});
 
 }
+
 
 async function createTicket(e,req) {
 
-  const u=await currentUser(e,req);
+  const u=await currentUser(e,req);if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
 
-  if(!u)
-
-    return out(
-
-      {ok:false,error:"unauthorized"},
-
-      401,
-
-      0,
-
-      cors(e)
-
-    );
-
-  if(!await requireOrigin(e,req))
-
-    return out(
-
-      {ok:false,error:"forbidden"},
-
-      403,
-
-      0,
-
-      cors(e)
-
-    );
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
 
   const d=await req.json().catch(()=>({}));
 
-  const category=clean(d.category,40);
+  const category=clean(d.category,40),subject=clean(d.subject,160),message=clean(d.message,4000);
 
-  const subject=clean(d.subject,160);
+  const allowed=["Account","Wallet","Referral","Purchase","Technical","Security","Other"];
 
-  const message=clean(d.message,4000);
+  if(!allowed.includes(category)||!subject||!message)return out({ok:false,error:"validation_failed"},400,cors(e));
 
-  const allowed=[
-
-    "Account",
-
-    "Wallet",
-
-    "Referral",
-
-    "Purchase",
-
-    "Technical",
-
-    "Security",
-
-    "Other"
-
-  ];
-
-  if(
-
-    !allowed.includes(category)||
-
-    !subject||
-
-    !message
-
-  ){
-
-    return out(
-
-      {ok:false,error:"validation_failed"},
-
-      400,
-
-      0,
-
-      cors(e)
-
-    );
-
-  }
-
-  const tid=id();
-
-  const number=
-
-    `GDTY-${Date.now().toString(36).toUpperCase()}-`+
-
-    `${crypto.randomUUID().slice(0,6).toUpperCase()}`;
-
-  const now=nowIso();
+  const tid=id(), number=`GDTY-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,6).toUpperCase()}`,now=nowIso();
 
   await e.DB.batch([
 
-    e.DB.prepare(`
+    e.DB.prepare("INSERT INTO support_tickets(id,ticket_number,user_id,category,subject,status,priority,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)").bind(tid,number,u.id,category,subject,"open","normal",now,now),
 
-      INSERT INTO support_tickets(
-
-        id,
-
-        ticket_number,
-
-        user_id,
-
-        category,
-
-        subject,
-
-        status,
-
-        priority,
-
-        created_at,
-
-        updated_at
-
-      )
-
-      VALUES(?,?,?,?,?,?,?,?,?)
-
-    `).bind(
-
-      tid,
-
-      number,
-
-      u.id,
-
-      category,
-
-      subject,
-
-      "open",
-
-      "normal",
-
-      now,
-
-      now
-
-    ),
-
-    e.DB.prepare(`
-
-      INSERT INTO support_messages(
-
-        id,
-
-        ticket_id,
-
-        sender_user_id,
-
-        sender_role,
-
-        message,
-
-        created_at
-
-      )
-
-      VALUES(?,?,?,?,?,?)
-
-    `).bind(
-
-      id(),
-
-      tid,
-
-      u.id,
-
-      "user",
-
-      message,
-
-      now
-
-    )
+    e.DB.prepare("INSERT INTO support_messages(id,ticket_id,sender_user_id,sender_role,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(),tid,u.id,"user",message,now)
 
   ]);
 
-  return out({
-
-    ok:true,
-
-    ticket:{
-
-      id:tid,
-
-      ticketNumber:number,
-
-      status:"open"
-
-    }
-
-  },201,cors(e));
+  return out({ok:true,ticket:{id:tid,ticketNumber:number,status:"open"}},201,cors(e));
 
 }
+
 
 async function ticketList(e,req) {
 
-  const u=await currentUser(e,req);
+  const u=await currentUser(e,req);if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
 
-  if(!u)
+  const rows=await e.DB.prepare("SELECT id,ticket_number AS ticketNumber,category,subject,status,priority,created_at AS createdAt,updated_at AS updatedAt FROM support_tickets WHERE user_id=? ORDER BY created_at DESC").bind(u.id).all();
 
-    return out(
-
-      {ok:false,error:"unauthorized"},
-
-      401,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const rows=await e.DB.prepare(`
-
-    SELECT
-
-      id,
-
-      ticket_number AS ticketNumber,
-
-      category,
-
-      subject,
-
-      status,
-
-      priority,
-
-      created_at AS createdAt,
-
-      updated_at AS updatedAt
-
-    FROM support_tickets
-
-    WHERE user_id=?
-
-    ORDER BY created_at DESC
-
-  `).bind(u.id).all();
-
-  return out({
-
-    ok:true,
-
-    tickets:rows.results||[]
-
-  },200,0,cors(e));
+  return out({ok:true,tickets:rows.results||[]},200,0,cors(e));
 
 }
+
 
 async function ticketMessages(e,req) {
 
-  const u=await currentUser(e,req);
+  const u=await currentUser(e,req);if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
 
-  if(!u)
+  const ticketId=clean(new URL(req.url).searchParams.get("ticket"),80);
 
-    return out(
+  const t=await e.DB.prepare("SELECT id FROM support_tickets WHERE id=? AND user_id=?").bind(ticketId,u.id).first();
 
-      {ok:false,error:"unauthorized"},
+  if(!t)return out({ok:false,error:"not_found"},404,cors(e));
 
-      401,
+  const rows=await e.DB.prepare("SELECT id,sender_role AS senderRole,message,created_at AS createdAt,read_at AS readAt FROM support_messages WHERE ticket_id=? ORDER BY created_at ASC").bind(ticketId).all();
 
-      0,
-
-      cors(e)
-
-    );
-
-  const ticketId=clean(
-
-    new URL(req.url).searchParams.get("ticket"),
-
-    80
-
-  );
-
-  const t=await e.DB.prepare(`
-
-    SELECT id
-
-    FROM support_tickets
-
-    WHERE id=? AND user_id=?
-
-  `).bind(
-
-    ticketId,
-
-    u.id
-
-  ).first();
-
-  if(!t)
-
-    return out(
-
-      {ok:false,error:"not_found"},
-
-      404,
-
-      0,
-
-      cors(e)
-
-    );
-
-  const rows=await e.DB.prepare(`
-
-    SELECT
-
-      id,
-
-      sender_role AS senderRole,
-
-      message,
-
-      created_at AS createdAt,
-
-      read_at AS readAt
-
-    FROM support_messages
-
-    WHERE ticket_id=?
-
-    ORDER BY created_at ASC
-
-  `).bind(ticketId).all();
-
-  return out({
-
-    ok:true,
-
-    messages:rows.results||[]
-
-  },200,0,cors(e));
+  return out({ok:true,messages:rows.results||[]},200,0,cors(e));
 
 }
+
 
 export default {
 
@@ -4062,377 +1260,89 @@ export default {
 
     const baseHeaders=cors(e);
 
-    if(req.method==="OPTIONS"){
+    if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{
 
-      return new Response(null,{
+      ...baseHeaders,"access-control-allow-methods":"GET,POST,OPTIONS",
 
-        status:204,
+      "access-control-allow-headers":"content-type","access-control-max-age":"86400"
 
-        headers:{
-
-          ...baseHeaders,
-
-          "access-control-allow-methods":
-
-            "GET,POST,OPTIONS",
-
-          "access-control-allow-headers":
-
-            "content-type",
-
-          "access-control-max-age":
-
-            "86400"
-
-        }
-
-      });
-
-    }
+    }});
 
     try{
 
-      if(
+      if(u.pathname==="/api/register"&&req.method==="POST")return await registerUser(e,req);
 
-        u.pathname==="/api/register"&&
+      if(u.pathname==="/api/login"&&req.method==="POST")return await loginUser(e,req);
 
-        req.method==="POST"
+      if(u.pathname==="/api/verify-email"&&req.method==="GET")return await verifyEmail(e,req);
 
-      )
+      if(u.pathname==="/api/logout"&&req.method==="POST")return await logout(e,req);
 
-        return await registerUser(e,req);
+      if(u.pathname==="/api/me"&&req.method==="GET")return await dashboard(e,req);
 
-      if(
+      if(u.pathname==="/api/wallet/challenge"&&req.method==="POST")return await walletChallenge(e,req);
 
-        u.pathname==="/api/login"&&
+      if(u.pathname==="/api/wallet/verify"&&req.method==="POST")return await walletVerify(e,req);
 
-        req.method==="POST"
+      if(u.pathname==="/api/trade/verify"&&req.method==="POST"){
 
-      )
+        const user=await currentUser(e,req);if(!user)return out({ok:false,error:"unauthorized"},401,baseHeaders);
 
-        return await loginUser(e,req);
+        if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,baseHeaders);
 
-      if(
+        if(!await rateLimit(e,`trade:${user.id}`,20,60000))return out({ok:false,error:"rate_limited"},429,baseHeaders);
 
-        u.pathname==="/api/verify-email"&&
+        const d=await req.json().catch(()=>({})),txHash=String(d.txHash||"").toLowerCase();
 
-        req.method==="GET"
+        if(!txRe.test(txHash))return out({ok:false,error:"invalid_tx_hash"},400,baseHeaders);
 
-      )
+        const trade=await verifyTrade(e,user,txHash);
 
-        return await verifyEmail(e,req);
-
-      if(
-
-        u.pathname==="/api/logout"&&
-
-        req.method==="POST"
-
-      )
-
-        return await logout(e,req);
-
-      if(
-
-        u.pathname==="/api/me"&&
-
-        req.method==="GET"
-
-      )
-
-        return await dashboard(e,req);
-
-      if(
-
-        u.pathname==="/api/wallet/challenge"&&
-
-        req.method==="POST"
-
-      )
-
-        return await walletChallenge(e,req);
-
-      if(
-
-        u.pathname==="/api/wallet/verify"&&
-
-        req.method==="POST"
-
-      )
-
-        return await walletVerify(e,req);
-
-      if(
-
-        u.pathname==="/api/trade/verify"&&
-
-        req.method==="POST"
-
-      ){
-
-        const user=await currentUser(e,req);
-
-        if(!user)
-
-          return out(
-
-            {ok:false,error:"unauthorized"},
-
-            401,
-
-            0,
-
-            baseHeaders
-
-          );
-
-        if(!await requireOrigin(e,req))
-
-          return out(
-
-            {ok:false,error:"forbidden"},
-
-            403,
-
-            0,
-
-            baseHeaders
-
-          );
-
-        if(!await rateLimit(
-
-          e,
-
-          `trade:${user.id}`,
-
-          20,
-
-          60000
-
-        ))
-
-          return out(
-
-            {ok:false,error:"rate_limited"},
-
-            429,
-
-            0,
-
-            baseHeaders
-
-          );
-
-        const d=await req.json().catch(()=>({}));
-
-        const txHash=String(
-
-          d.txHash||""
-
-        ).toLowerCase();
-
-        if(!txRe.test(txHash))
-
-          return out(
-
-            {ok:false,error:"invalid_tx_hash"},
-
-            400,
-
-            0,
-
-            baseHeaders
-
-          );
-
-        const trade=await verifyTrade(
-
-          e,
-
-          user,
-
-          txHash
-
-        );
-
-        if(!trade.ok)
-
-          return out(
-
-            trade,
-
-            400,
-
-            0,
-
-            baseHeaders
-
-          );
+        if(!trade.ok)return out(trade,400,baseHeaders);
 
         trade.txHash=txHash;
 
-        return out(
-
-          await recordTrade(
-
-            e,
-
-            user,
-
-            trade
-
-          ),
-
-          200,
-
-          0,
-
-          baseHeaders
-
-        );
+        return out(await recordTrade(e,user,trade),200,0,baseHeaders);
 
       }
 
-      if(
+      if(u.pathname==="/api/referral/check"&&req.method==="GET"){
 
-        u.pathname==="/api/referral/withdraw"&&
+        const code=clean(u.searchParams.get("code"),32).toUpperCase();
 
-        req.method==="POST"
+        const row=code&&e.DB?await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(code).first():null;
 
-      )
-
-        return await referralWithdraw(e,req);
-
-      if(
-
-        u.pathname==="/api/referral/withdraw/status"&&
-
-        req.method==="GET"
-
-      )
-
-        return await referralWithdrawStatus(e,req);
-
-      if(
-
-        u.pathname==="/api/referral/check"&&
-
-        req.method==="GET"
-
-      ){
-
-        const code=clean(
-
-          u.searchParams.get("code"),
-
-          32
-
-        ).toUpperCase();
-
-        const row=
-
-          code&&e.DB
-
-            ?await e.DB.prepare(
-
-              "SELECT referral_code FROM users WHERE referral_code=?"
-
-            ).bind(code).first()
-
-            :null;
-
-        return out({
-
-          ok:true,
-
-          valid:!!row,
-
-          referralCode:
-
-            row?.referral_code||null
-
-        },200,30,baseHeaders);
+        return out({ok:true,valid:!!row,referralCode:row?.referral_code||null},200,30,baseHeaders);
 
       }
 
-      if(
+      if(u.pathname==="/api/support/tickets"&&req.method==="POST")return await createTicket(e,req);
 
-        u.pathname==="/api/support/tickets"&&
+      if(u.pathname==="/api/support/tickets"&&req.method==="GET")return await ticketList(e,req);
 
-        req.method==="POST"
-
-      )
-
-        return await createTicket(e,req);
-
-      if(
-
-        u.pathname==="/api/support/tickets"&&
-
-        req.method==="GET"
-
-      )
-
-        return await ticketList(e,req);
-
-      if(
-
-        u.pathname==="/api/support/messages"&&
-
-        req.method==="GET"
-
-      )
-
-        return await ticketMessages(e,req);
+      if(u.pathname==="/api/support/messages"&&req.method==="GET")return await ticketMessages(e,req);
 
       if(u.pathname==="/api/market"){
 
-        const pp=await pair(e);
+        const pairResult=await safePair(e);
+
+        const pp=pairResult.address;
 
         const [uni,pcs]=await Promise.all([
 
-          inspect(
+          safeInspect(e,A.UNI,"Uniswap V2"),
 
-            e,
+          pp
 
-            A.UNI,
+            ?safeInspect(e,pp,"PancakeSwap V2")
 
-            "Uniswap V2"
-
-          ),
-
-          inspect(
-
-            e,
-
-            pp,
-
-            "PancakeSwap V2"
-
-          )
+            :Promise.resolve({dex:"PancakeSwap V2",status:"unavailable",reason:pairResult.reason||"pair_not_found",pair:null})
 
         ]);
 
-        const ref=mean(
+        const ref=mean(uni.price,pcs.price);
 
-          uni.price,
-
-          pcs.price
-
-        );
-
-        const live=[
-
-          uni,
-
-          pcs
-
-        ].filter(
-
-          x=>x.status==="live"
-
-        );
+        const live=[uni,pcs].filter(x=>x.status==="live");
 
         return out({
 
@@ -4442,63 +1352,21 @@ export default {
 
           chainId:56,
 
-          token:{
+          token:{name:"GOLDITY",symbol:"GDTY",address:A.G,decimals:18},
 
-            name:"GOLDITY",
-
-            symbol:"GDTY",
-
-            address:A.G,
-
-            decimals:18
-
-          },
-
-          quoteToken:{
-
-            symbol:"USDT",
-
-            address:A.U,
-
-            decimals:18
-
-          },
+          quoteToken:{symbol:"USDT",address:A.U,decimals:18},
 
           referencePrice:ref,
 
-          priceMethod:
+          priceMethod:"Arithmetic mean of valid GDTY/USDT V2 pool prices",
 
-            "Arithmetic mean of valid GDTY/USDT V2 pool prices",
+          liquidityUsd:live.reduce((s,x)=>s+(x.liquidityUsd||0),0)||null,
 
-          liquidityUsd:
-
-            live.reduce(
-
-              (s,x)=>
-
-                s+(x.liquidityUsd||0),
-
-              0
-
-            )||null,
-
-          markets:{
-
-            uniswap:uni,
-
-            pancakeswap:pcs
-
-          },
+          markets:{uniswap:uni,pancakeswap:pcs},
 
           lastUpdated:nowIso(),
 
-          dataStatus:
-
-            ref===null
-
-              ?"unavailable"
-
-              :"live"
+          dataStatus:ref===null?"unavailable":"live"
 
         },200,10,baseHeaders);
 
@@ -4506,333 +1374,59 @@ export default {
 
       if(u.pathname==="/api/chart"){
 
-        const pp=await pair(e);
+        const pairResult=await safePair(e),pp=pairResult.address,range=(u.searchParams.get("range")||"1D").toUpperCase(),cfg=ranges[range];
 
-        const range=
+        if(!cfg)return out({ok:false,error:"invalid_range",allowed:Object.keys(ranges)},400,0,baseHeaders);
 
-          (
+        const [uni,pcs]=await Promise.allSettled([geckoOHLCV(e,A.UNI,cfg),geckoOHLCV(e,pp,cfg)]);
 
-            u.searchParams.get("range")||
+        const a=uni.status==="fulfilled"?normalize(uni.value,"Uniswap V2"):[],b=pcs.status==="fulfilled"?normalize(pcs.value,"PancakeSwap V2"):[];
 
-            "1D"
+        const candles=mergeReference(a,b);
 
-          ).toUpperCase();
+        return out({ok:true,range,method:"Arithmetic mean of valid pool OHLC values by timestamp",candles,
 
-        const cfg=ranges[range];
+          sources:{uniswap:{status:a.length?"live":"unavailable",pool:A.UNI,count:a.length},
 
-        if(!cfg)
+          pancakeswap:{status:b.length?"live":"unavailable",pool:pp,count:b.length,reason:b.length?null:(pairResult.reason||"chart_provider_error")}},
 
-          return out({
+          historyStatus:candles.length?"live":"unavailable",
 
-            ok:false,
-
-            error:"invalid_range",
-
-            allowed:Object.keys(ranges)
-
-          },400,0,baseHeaders);
-
-        const [uni,pcs]=await Promise.allSettled([
-
-          geckoOHLCV(
-
-            e,
-
-            A.UNI,
-
-            cfg
-
-          ),
-
-          geckoOHLCV(
-
-            e,
-
-            pp,
-
-            cfg
-
-          )
-
-        ]);
-
-        const a=
-
-          uni.status==="fulfilled"
-
-            ?normalize(
-
-              uni.value,
-
-              "Uniswap V2"
-
-            )
-
-            :[];
-
-        const b=
-
-          pcs.status==="fulfilled"
-
-            ?normalize(
-
-              pcs.value,
-
-              "PancakeSwap V2"
-
-            )
-
-            :[];
-
-        const candles=
-
-          mergeReference(a,b);
-
-        return out({
-
-          ok:true,
-
-          range,
-
-          method:
-
-            "Arithmetic mean of valid pool OHLC values by timestamp",
-
-          candles,
-
-          sources:{
-
-            uniswap:{
-
-              status:
-
-                a.length
-
-                  ?"live"
-
-                  :"unavailable",
-
-              pool:A.UNI,
-
-              count:a.length
-
-            },
-
-            pancakeswap:{
-
-              status:
-
-                b.length
-
-                  ?"live"
-
-                  :"unavailable",
-
-              pool:pp,
-
-              count:b.length
-
-            }
-
-          },
-
-          historyStatus:
-
-            candles.length
-
-              ?"live"
-
-              :"unavailable",
-
-          note:
-
-            "Candles use indexed market data. No synthetic history is generated."
+          note:"Candles use indexed market data. No synthetic history is generated."
 
         },200,30,baseHeaders);
 
       }
 
-      if(
+      if(u.pathname==="/api/news"&&req.method==="GET"){
 
-        u.pathname==="/api/news"&&
+        if(!e.DB)return out({ok:true,items:[]},200,60,baseHeaders);
 
-        req.method==="GET"
+        const rows=await e.DB.prepare("SELECT slug,title,excerpt,category,published_at AS publishedAt FROM news WHERE status='published' ORDER BY published_at DESC LIMIT 50").all();
 
-      ){
-
-        if(!e.DB)
-
-          return out(
-
-            {ok:true,items:[]},
-
-            200,
-
-            60,
-
-            baseHeaders
-
-          );
-
-        const rows=await e.DB.prepare(`
-
-          SELECT
-
-            slug,
-
-            title,
-
-            excerpt,
-
-            category,
-
-            published_at AS publishedAt
-
-          FROM news
-
-          WHERE status='published'
-
-          ORDER BY published_at DESC
-
-          LIMIT 50
-
-        `).all();
-
-        return out({
-
-          ok:true,
-
-          items:rows.results||[]
-
-        },200,60,baseHeaders);
+        return out({ok:true,items:rows.results||[]},200,60,baseHeaders);
 
       }
 
-      if(
+      if(u.pathname==="/api/resources"&&req.method==="GET"){
 
-        u.pathname==="/api/resources"&&
+        if(!e.DB)return out({ok:true,items:[]},200,60,baseHeaders);
 
-        req.method==="GET"
+        const rows=await e.DB.prepare("SELECT slug,title,description,category,published_at AS publishedAt FROM resources WHERE status='published' ORDER BY published_at DESC LIMIT 100").all();
 
-      ){
-
-        if(!e.DB)
-
-          return out(
-
-            {ok:true,items:[]},
-
-            200,
-
-            60,
-
-            baseHeaders
-
-          );
-
-        const rows=await e.DB.prepare(`
-
-          SELECT
-
-            slug,
-
-            title,
-
-            description,
-
-            category,
-
-            published_at AS publishedAt
-
-          FROM resources
-
-          WHERE status='published'
-
-          ORDER BY published_at DESC
-
-          LIMIT 100
-
-        `).all();
-
-        return out({
-
-          ok:true,
-
-          items:rows.results||[]
-
-        },200,60,baseHeaders);
+        return out({ok:true,items:rows.results||[]},200,60,baseHeaders);
 
       }
 
-      /* -------------------------------------------------------
+      if(e.ASSETS)return e.ASSETS.fetch(req);
 
-         STATIC ASSETS
-
-         Keep the Worker/API layer separate from the site files.
-
-         The root URL must explicitly resolve to index.html;
-
-         otherwise an asset resolver can expose the wrong file
-
-         at /.
-
-         ------------------------------------------------------- */
-
-      if(e.ASSETS){
-
-        if((req.method==="GET"||req.method==="HEAD")&&u.pathname==="/"){
-
-          const assetUrl=new URL(req.url);
-
-          assetUrl.pathname="/index.html";
-
-          return e.ASSETS.fetch(new Request(assetUrl.toString(),req));
-
-        }
-
-        return e.ASSETS.fetch(req);
-
-      }
-
-      return out(
-
-        {ok:false,error:"not_found"},
-
-        404,
-
-        0,
-
-        baseHeaders
-
-      );
+      return out({ok:false,error:"not_found"},404,0,baseHeaders);
 
     }catch(err){
 
-      console.error(
+      console.error("GOLDITY worker error",err);
 
-        "GOLDITY worker error",
-
-        err
-
-      );
-
-      return out(
-
-        {
-
-          ok:false,
-
-          error:"internal_error"
-
-        },
-
-        500,
-
-        0,
-
-        baseHeaders
-
-      );
+      return out({ok:false,error:"internal_error"},500,0,baseHeaders);
 
     }
 
