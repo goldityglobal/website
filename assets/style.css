@@ -619,3 +619,367 @@ img{max-width:100%}
 @media(max-width:420px){
   .auth-modal-card h2{font-size:25px}
 }
+/* =========================================================
+   GOLDITY MARKET — XALGO / PROFESSIONAL CHART ENHANCEMENT
+   Additive only — existing GOLDITY design remains unchanged
+   ========================================================= */
+
+#market,
+.market,
+.market-section,
+.market-card,
+.market-panel {
+  position: relative;
+}
+
+/* Market chart container */
+
+.market-chart,
+.chart-wrap,
+.chart-container {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(217,180,91,.045),
+      transparent 42%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.018),
+      rgba(255,255,255,.006)
+    );
+  border: 1px solid rgba(217,180,91,.13);
+  border-radius: 14px;
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+/* Canvas */
+
+#chart {
+  display: block;
+  width: 100%;
+  min-height: 390px;
+  height: 390px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.008),
+      rgba(0,0,0,.04)
+    );
+}
+
+/* Chart loading / empty state */
+
+#chartState {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  pointer-events: none;
+  color: #77736c;
+  font-size: 11px;
+  letter-spacing: .03em;
+  text-align: center;
+}
+
+#chartState:empty {
+  display: none;
+}
+
+/* Range selector */
+
+.ranges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ranges button {
+  min-width: 42px;
+  height: 31px;
+  padding: 0 10px;
+  border: 1px solid rgba(217,180,91,.13);
+  border-radius: 7px;
+  background: rgba(255,255,255,.012);
+  color: #8f897f;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition:
+    background .2s ease,
+    border-color .2s ease,
+    color .2s ease,
+    transform .2s ease;
+}
+
+.ranges button:hover {
+  color: #e6d39c;
+  border-color: rgba(217,180,91,.35);
+  background: rgba(217,180,91,.045);
+  transform: translateY(-1px);
+}
+
+.ranges button.active {
+  color: #090806;
+  border-color: #d9b45b;
+  background: linear-gradient(
+    180deg,
+    #f5d16e,
+    #ba7802
+  );
+  box-shadow:
+    0 5px 18px rgba(217,180,91,.12);
+}
+
+/* Market statistics */
+
+.market-stats,
+.market-metrics,
+.market-info-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0,1fr));
+  gap: 10px;
+}
+
+.market-stat,
+.market-metric,
+.market-info-card {
+  position: relative;
+  min-width: 0;
+  padding: 16px;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.025),
+      rgba(255,255,255,.006)
+    );
+  border: 1px solid rgba(217,180,91,.10);
+  border-radius: 11px;
+}
+
+.market-stat::after,
+.market-metric::after,
+.market-info-card::after {
+  content: "";
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  right: -35px;
+  bottom: -45px;
+  border-radius: 50%;
+  background: rgba(217,180,91,.035);
+  pointer-events: none;
+}
+
+.market-stat span,
+.market-metric span,
+.market-info-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #777168;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.market-stat strong,
+.market-metric strong,
+.market-info-card strong {
+  display: block;
+  color: #f4eee3;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .015em;
+}
+
+.market-stat strong.price,
+.market-metric strong.price {
+  color: #e7c56f;
+  font-size: 20px;
+}
+
+/* DEX source cards */
+
+.dex-source-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+
+.dex-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid rgba(217,180,91,.09);
+  border-radius: 10px;
+  background: rgba(255,255,255,.009);
+}
+
+.dex-source-label {
+  color: #827b70;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .11em;
+}
+
+.dex-source-value {
+  color: #e7d49f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Live status */
+
+#status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #a8cf9c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
+#status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #9dcc9b;
+  box-shadow:
+    0 0 10px rgba(156,204,155,.55);
+}
+
+/* Reference price */
+
+#price,
+#sidePrice {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.025em;
+}
+
+/* Market action row */
+
+.market-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+/* CoinGecko / external source button */
+
+#coinGecko {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid rgba(217,180,91,.16);
+  border-radius: 8px;
+  background: rgba(255,255,255,.01);
+  color: #cdb77d;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+#coinGecko:hover {
+  color: #f5d16e;
+  border-color: rgba(217,180,91,.4);
+  background: rgba(217,180,91,.055);
+}
+
+/* Updated timestamp */
+
+#updated {
+  color: #6e685e;
+  font-size: 9px;
+}
+
+/* Network badge */
+
+#network {
+  color: #c8b98f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* =========================================================
+   MARKET RESPONSIVE
+========================================================= */
+
+@media (max-width: 760px) {
+
+  #chart {
+    min-height: 310px;
+    height: 310px;
+  }
+
+  .market-stats,
+  .market-metrics,
+  .market-info-grid {
+    grid-template-columns:
+      repeat(2, minmax(0,1fr));
+  }
+
+  .dex-source-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ranges {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+  }
+
+  .ranges::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ranges button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 420px) {
+
+  #chart {
+    min-height: 260px;
+    height: 260px;
+  }
+
+  .market-stats,
+  .market-metrics,
+  .market-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .market-actions .cta,
+  .market-actions button,
+  #coinGecko {
+    width: 100%;
+  }
+}
