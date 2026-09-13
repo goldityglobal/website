@@ -321,7 +321,15 @@ async function loadMarket() {
         compact(data.liquidityUsd);
 
     }
+     if ($("totalUsdtReserve")) {
+  $("totalUsdtReserve").textContent =
+    numberFormat(data.totalUsdtReserve);
+}
 
+if ($("totalGdtyReserve")) {
+  $("totalGdtyReserve").textContent =
+    numberFormat(data.totalGdtyReserve);
+}
 
     if ($("network")) {
 
