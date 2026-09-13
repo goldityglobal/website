@@ -983,105 +983,291 @@ img{max-width:100%}
     width: 100%;
   }
 }
-
-
 /* =========================================================
-   GOLDITY — HERO / BANNER METALLIC GOLD TYPOGRAPHY
-   Premium reflective-gold text, matched to the site palette
+   GOLDITY HERO — SIGNATURE METALLIC GOLD
+   Single authoritative Hero typography layer
    ========================================================= */
 
 :root{
-  --brand-gold-gradient:linear-gradient(
-    180deg,
-    #FFF1A8 0%,
-    #F5D16E 16%,
-    #D9A83F 38%,
-    #A96A06 54%,
-    #F0C85D 72%,
-    #FFF0A0 88%,
-    #B87808 100%
-  );
+  --goldity-hero-gold:
+    linear-gradient(
+      180deg,
+      #FFF4B0 0%,
+      #FFE68A 13%,
+      #F5C95C 28%,
+      #D99A27 44%,
+      #A96808 56%,
+      #D99A27 68%,
+      #F7D56F 82%,
+      #FFF1A5 92%,
+      #C17B0B 100%
+    );
 
-  --banner-gold-metal:linear-gradient(
-    180deg,
-    #FFF5B8 0%,
-    #F7D873 14%,
-    #D6A33B 31%,
-    #9A5D04 48%,
-    #E2B84F 63%,
-    #FFF0A0 78%,
-    #C18112 90%,
-    #F2CD66 100%
-  );
+  --goldity-hero-champagne:
+    linear-gradient(
+      180deg,
+      #FFF3B0 0%,
+      #F4D77C 35%,
+      #D5A743 65%,
+      #FFE99A 100%
+    );
 }
 
-.hero .eyebrow{
-  color:#E7C15A;
-  text-shadow:0 0 12px rgba(245,209,110,.16);
+/* Eyebrow */
+.hero-copy > .eyebrow{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:max-content;
+  max-width:100%;
+  margin:0 0 18px;
+  color:#F5D77B;
+  font-family:Inter,system-ui,sans-serif;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.28em;
+  line-height:1.2;
+  text-transform:uppercase;
+  text-shadow:0 1px 3px rgba(0,0,0,.85);
 }
 
-.hero h1{
-  background:var(--banner-gold-metal);
+.hero-copy > .eyebrow::before,
+.hero-copy > .eyebrow::after{
+  content:"";
+  width:44px;
+  height:1px;
+  flex:0 0 44px;
+  background:linear-gradient(90deg,transparent,#D8A43C);
+  opacity:.9;
+}
+
+.hero-copy > .eyebrow::after{
+  background:linear-gradient(90deg,#D8A43C,transparent);
+}
+
+/* Main GOLDITY title */
+.hero h1.hero-title{
+  margin:0;
+  font-family:
+    "Bodoni 72",
+    "Didot",
+    "Bodoni MT",
+    "Times New Roman",
+    Georgia,
+    serif;
+  font-size:clamp(64px,7.8vw,108px);
+  font-weight:600;
+  line-height:.84;
+  letter-spacing:-.035em;
+  font-variant-ligatures:common-ligatures;
+  background:var(--goldity-hero-gold);
+  background-size:100% 220%;
+  background-position:50% 0%;
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
   color:transparent;
-  text-shadow:
-    0 2px 2px rgba(0,0,0,.72),
-    0 0 10px rgba(245,209,110,.14),
-    0 0 24px rgba(186,120,2,.10);
+  -webkit-text-stroke:0.2px rgba(255,225,135,.18);
+  filter:drop-shadow(0 3px 2px rgba(0,0,0,.72));
+  text-shadow:none;
 }
 
-.hero h1 span{
-  background:linear-gradient(
-    180deg,
-    #FFF3AC 0%,
-    #F0CA61 32%,
-    #B9790B 55%,
-    #F4D474 76%,
-    #FFEBA0 100%
-  );
+/* GDTY subtitle inside title */
+.hero h1.hero-title span{
+  display:block;
+  margin-top:13px;
+  font-family:Inter,system-ui,sans-serif;
+  font-size:.285em;
+  font-weight:700;
+  line-height:1;
+  letter-spacing:.34em;
+  color:#F4D477;
+  background:var(--goldity-hero-champagne);
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
-  color:transparent;
-  text-shadow:0 0 14px rgba(245,209,110,.12);
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
 }
 
+/* Tagline */
 .hero-tagline{
-  background:linear-gradient(
-    180deg,
-    #FFF2AA 0%,
-    #F2CE68 30%,
-    #C58A20 55%,
-    #F3D67D 78%,
-    #FFEAA0 100%
-  );
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  color:transparent;
-  text-shadow:0 1px 3px rgba(0,0,0,.7);
+  margin:24px 0 11px;
+  max-width:650px;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size:clamp(17px,1.55vw,22px);
+  font-weight:600;
+  line-height:1.35;
+  letter-spacing:.075em;
+  text-transform:none;
+  color:#F3D57B;
+  text-shadow:
+    0 1px 3px rgba(0,0,0,.85),
+    0 0 14px rgba(217,154,39,.12);
 }
 
+/* Description */
 .hero-lead{
-  color:#D8C99E;
+  max-width:530px;
+  margin:0;
+  color:#D7C9A5;
+  font-family:Inter,system-ui,sans-serif;
+  font-size:14px;
+  font-weight:400;
+  line-height:1.8;
+  text-shadow:0 1px 3px rgba(0,0,0,.82);
+}
+
+/* Hero action buttons */
+.hero-actions .cta.primary{
+  color:#171109;
+  background:linear-gradient(
+    180deg,
+    #FFE79A 0%,
+    #F4CA60 30%,
+    #D99A27 62%,
+    #B87309 100%
+  );
+  border-color:#F0C85E;
+  box-shadow:
+    0 8px 24px rgba(190,125,10,.18),
+    inset 0 1px 0 rgba(255,255,255,.5);
+}
+
+.hero-actions .cta.primary:hover{
+  background:linear-gradient(
+    180deg,
+    #FFF0B0 0%,
+    #F8D477 35%,
+    #E0A43A 70%,
+    #C17B0B 100%
+  );
+  border-color:#FFE18A;
+  box-shadow:
+    0 10px 30px rgba(207,143,23,.25),
+    inset 0 1px 0 rgba(255,255,255,.62);
+}
+
+.hero-actions .cta.secondary{
+  color:#EFD17A;
+  border-color:rgba(226,177,69,.48);
+  background:rgba(5,5,4,.30);
+}
+
+.hero-actions .cta.secondary:hover{
+  color:#FFF0AE;
+  border-color:#E4B84F;
+  background:rgba(217,154,39,.09);
+}
+
+/* Hero trust values */
+.hero-trust-row strong{
+  display:block;
+  color:#F3D57B;
+  font-family:Inter,system-ui,sans-serif;
+  font-size:15px;
+  font-weight:750;
   text-shadow:0 1px 3px rgba(0,0,0,.75);
 }
 
-.hero-trust-row{
-  border-top-color:rgba(245,209,110,.18);
-}
-
-.hero-trust-row strong{
-  background:linear-gradient(180deg,#FFF0A0,#D6A13B 55%,#F2D47B);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  color:transparent;
-  text-shadow:0 0 10px rgba(245,209,110,.10);
-}
-
 .hero-trust-row span{
-  color:#A99568;
+  display:block;
+  margin-top:3px;
+  color:#AFA078;
+  font-family:Inter,system-ui,sans-serif;
+  font-size:10px;
+  font-weight:500;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+}
+
+/* Keep the artwork/background dark enough for the metallic type */
+.hero-backdrop{
+  z-index:1;
+}
+
+.hero-copy{
+  position:relative;
+  z-index:3;
+}
+
+/* Tablet */
+@media(max-width:1050px){
+  .hero h1.hero-title{
+    font-size:clamp(60px,8vw,92px);
+  }
+
+  .hero-tagline{
+    font-size:19px;
+  }
+}
+
+/* Mobile */
+@media(max-width:760px){
+  .hero-copy > .eyebrow{
+    gap:8px;
+    margin-bottom:15px;
+    font-size:8px;
+    letter-spacing:.20em;
+  }
+
+  .hero-copy > .eyebrow::before,
+  .hero-copy > .eyebrow::after{
+    width:24px;
+    flex-basis:24px;
+  }
+
+  .hero h1.hero-title{
+    font-size:clamp(52px,17vw,78px);
+    letter-spacing:-.03em;
+  }
+
+  .hero h1.hero-title span{
+    margin-top:11px;
+    font-size:.29em;
+    letter-spacing:.28em;
+  }
+
+  .hero-tagline{
+    margin-top:19px;
+    font-size:18px;
+    letter-spacing:.045em;
+  }
+
+  .hero-lead{
+    font-size:13px;
+    line-height:1.7;
+  }
+}
+
+@media(max-width:420px){
+  .hero-copy > .eyebrow{
+    font-size:7px;
+    letter-spacing:.16em;
+  }
+
+  .hero-copy > .eyebrow::before,
+  .hero-copy > .eyebrow::after{
+    width:18px;
+    flex-basis:18px;
+  }
+
+  .hero h1.hero-title{
+    font-size:49px;
+  }
+
+  .hero h1.hero-title span{
+    margin-top:9px;
+    letter-spacing:.24em;
+  }
+
+  .hero-tagline{
+    font-size:16px;
+  }
 }
