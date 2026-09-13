@@ -260,10 +260,11 @@ img{max-width:100%}
   line-height:.86;
   letter-spacing:-.035em;
   font-weight:700;
-  background:var(--brand-gold-gradient);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
+  background:none;
+  -webkit-background-clip:initial;
+  background-clip:initial;
+  color:#F5D16E;
+  -webkit-text-fill-color:#F5D16E;
   text-shadow:0 3px 5px rgba(0,0,0,.75),0 0 22px rgba(217,180,91,.22);
 }
 .hero h1 span{display:block;margin-top:10px;font-family:Inter,system-ui,sans-serif;font-size:.31em;letter-spacing:.3em;line-height:1;color:var(--gold-light);-webkit-text-fill-color:var(--gold-light)}
