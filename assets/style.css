@@ -1,3 +1,11 @@
+@font-face{
+  font-family:"Bailon";
+  src:url("/Bailon-Regular.ttf") format("truetype");
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+}
+
 /* =========================================================
    GOLDITY — Unified Luxury Black / Gold System
    Home + Dashboard + Internal Pages
@@ -16,6 +24,7 @@
   --gold-light:#F5D16E;
   --gold-bright:#F5D16E;
   --gold-deep:#BA7802;
+  --hero-gold-metal:linear-gradient(180deg,#F5D16E 0%,#E0B34B 18%,#BA7802 48%,#7A4D01 76%,#C58B22 100%);
   --line:#29251e;
   --line-soft:#1b1915;
   --text:#f6f1e7;
@@ -255,17 +264,17 @@ img{max-width:100%}
 .eyebrow{margin:0 0 12px;color:var(--gold);font-size:10px;font-weight:900;letter-spacing:.23em;text-transform:uppercase}
 .hero h1{
   margin:0;
-  font-family:Georgia,"Times New Roman",serif;
+  font-family:"Bailon",Georgia,"Times New Roman",serif;
   font-size:clamp(60px,7.5vw,106px);
   line-height:.86;
-  letter-spacing:-.035em;
-  font-weight:700;
-  background:none;
-  -webkit-background-clip:initial;
-  background-clip:initial;
-  color:#F5D16E !important;
-  -webkit-text-fill-color:#F5D16E !important;
-  text-shadow:0 3px 5px rgba(0,0,0,.75),0 0 22px rgba(217,180,91,.22);
+  letter-spacing:-.018em;
+  font-weight:400;
+  background:var(--hero-gold-metal);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:transparent;
+  text-shadow:0 3px 5px rgba(0,0,0,.78),0 0 20px rgba(186,120,2,.18);
 }
 .hero h1 span{display:block;margin-top:10px;font-family:Inter,system-ui,sans-serif;font-size:.31em;letter-spacing:.3em;line-height:1;color:var(--gold-light);-webkit-text-fill-color:var(--gold-light)}
 .hero-tagline{margin:22px 0 10px;color:#f5eee0;font-family:Georgia,"Times New Roman",serif;font-size:21px;font-weight:600}
