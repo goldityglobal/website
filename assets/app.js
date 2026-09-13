@@ -1,108 +1,152 @@
-/* GOLDITY AUTH MODAL FAILSAFE — runs before the rest of app.js */
+/* GOLDITY AUTH MODAL — HARD CLOSE CONTROLLER */
 
 (() => {
 
-  const hideLoginModal = () => {
+  const close = () => {
 
     const modal = document.getElementById("loginModal");
 
-    if (!modal) return;
+    if (!modal) return false;
+
 
     modal.hidden = true;
 
     modal.setAttribute("aria-hidden", "true");
 
+    modal.classList.remove("open", "active", "is-open");
+
+    document.documentElement.classList.remove("modal-open");
+
+    document.body.classList.remove("modal-open", "no-scroll");
+
+    document.body.style.removeProperty("overflow");
+
+    return true;
+
   };
 
- 
 
-  document.addEventListener("click", (event) => {
+  const isCloseTarget = target => {
 
-    const target = event.target instanceof Element ? event.target : null;
+    if (!(target instanceof Element)) return false;
 
-    if (!target) return;
+    return Boolean(
 
- 
+      target.closest("#closeLogin") ||
 
-    if (target.closest("#closeLogin") || target.closest("[data-close-login=\"true\"]")) {
+      target.closest("[data-close-login=\"true\"]")
+
+    );
+
+  };
+
+
+  // Capture phase: this remains independent of the rest of app.js.
+
+  ["pointerdown", "mousedown", "click"].forEach(type => {
+
+    document.addEventListener(type, event => {
+
+      if (!isCloseTarget(event.target)) return;
 
       event.preventDefault();
 
-      event.stopPropagation();
+      event.stopImmediatePropagation();
 
-      hideLoginModal();
+      close();
 
-    }
+    }, true);
 
-  }, true);
+  });
 
- 
 
-  document.addEventListener("keydown", (event) => {
+  document.addEventListener("keydown", event => {
 
-    if (event.key === "Escape") {
+    if (event.key !== "Escape") return;
 
-      const modal = document.getElementById("loginModal");
+    const modal = document.getElementById("loginModal");
 
-      if (modal && !modal.hidden) {
+    if (!modal || modal.hidden) return;
 
-        event.preventDefault();
+    event.preventDefault();
 
-        hideLoginModal();
+    event.stopImmediatePropagation();
 
-      }
-
-    }
+    close();
 
   }, true);
+
+
+  // Handles dynamically inserted/re-rendered close buttons too.
+
+  const bindDirect = () => {
+
+    const button = document.getElementById("closeLogin");
+
+    if (!button || button.dataset.goldityCloseBound === "1") return;
+
+    button.dataset.goldityCloseBound = "1";
+
+    button.addEventListener("click", event => {
+
+      event.preventDefault();
+
+      event.stopImmediatePropagation();
+
+      close();
+
+    }, true);
+
+  };
+
+
+  if (document.readyState === "loading") {
+
+    document.addEventListener("DOMContentLoaded", bindDirect, { once: true });
+
+  } else {
+
+    bindDirect();
+
+  }
 
 })();
 
- 
 
 const API_BASE = "";
 
- 
 
 const GDTY =
 
   "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801";
 
- 
 
 const USDT =
 
   "0x55d398326f99059fF775485246999027B3197955";
 
- 
 
 const BSC_CHAIN_ID = "0x38";
 
- 
 
 const PANCAKESWAP_URL =
 
   `https://pancakeswap.finance/swap?chain=bsc&inputCurrency=${USDT}&outputCurrency=${GDTY}`;
 
- 
 
 const UNISWAP_URL =
 
   `https://app.uniswap.org/swap?chain=bnb&inputCurrency=${USDT}&outputCurrency=${GDTY}`;
 
- 
 
 const COINGECKO_SEARCH =
 
   "https://www.coingecko.com/en/search?query=GDTY";
 
- 
 
 const $ = id => document.getElementById(id);
 
- 
 
- 
 
 /* =========================================================
 
@@ -110,7 +154,6 @@ const $ = id => document.getElementById(id);
 
 ========================================================= */
 
- 
 
 const money = value => {
 
@@ -120,11 +163,9 @@ const money = value => {
 
   }
 
- 
 
   const number = Number(value);
 
- 
 
   return `$${number.toLocaleString(undefined, {
 
@@ -136,9 +177,7 @@ const money = value => {
 
 };
 
- 
 
- 
 
 const compact = value => {
 
@@ -148,7 +187,6 @@ const compact = value => {
 
   }
 
- 
 
   return `$${Number(value).toLocaleString(undefined, {
 
@@ -158,9 +196,7 @@ const compact = value => {
 
 };
 
- 
 
- 
 
 const numberFormat = value => {
 
@@ -170,7 +206,6 @@ const numberFormat = value => {
 
   }
 
- 
 
   return Number(value).toLocaleString(undefined, {
 
@@ -180,9 +215,7 @@ const numberFormat = value => {
 
 };
 
- 
 
- 
 
 /* =========================================================
 
@@ -190,15 +223,12 @@ const numberFormat = value => {
 
 ========================================================= */
 
- 
 
 let currentRange = "4H";
 
 let candles = [];
 
- 
 
- 
 
 async function loadMarket() {
 
@@ -216,11 +246,9 @@ async function loadMarket() {
 
     );
 
- 
 
     const data = await response.json();
 
- 
 
     if (!data.ok) {
 
@@ -232,13 +260,11 @@ async function loadMarket() {
 
     }
 
- 
 
     const referencePriceText =
 
       money(data.referencePrice);
 
- 
 
     if ($("price")) {
 
@@ -248,7 +274,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("sidePrice")) {
 
@@ -258,7 +283,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("status")) {
 
@@ -272,7 +296,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("updated")) {
 
@@ -290,7 +313,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("liq")) {
 
@@ -300,7 +322,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("network")) {
 
@@ -312,7 +333,6 @@ async function loadMarket() {
 
     }
 
- 
 
     /*
 
@@ -324,7 +344,6 @@ async function loadMarket() {
 
     */
 
- 
 
     if ($("uniswapLiquidity")) {
 
@@ -334,7 +353,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("pancakeLiquidity")) {
 
@@ -344,7 +362,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("referenceSource")) {
 
@@ -358,13 +375,11 @@ async function loadMarket() {
 
     }
 
- 
 
   } catch (error) {
 
     console.error("Market:", error);
 
- 
 
     if ($("price")) {
 
@@ -372,7 +387,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("sidePrice")) {
 
@@ -380,7 +394,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("status")) {
 
@@ -390,7 +403,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("updated")) {
 
@@ -400,7 +412,6 @@ async function loadMarket() {
 
     }
 
- 
 
     if ($("referenceSource")) {
 
@@ -414,9 +425,7 @@ async function loadMarket() {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -426,13 +435,11 @@ async function loadMarket() {
 
 ========================================================= */
 
- 
 
 function draw() {
 
   const canvas = $("chart");
 
- 
 
   if (!canvas) {
 
@@ -440,13 +447,11 @@ function draw() {
 
   }
 
- 
 
   const context =
 
     canvas.getContext("2d");
 
- 
 
   if (!context) {
 
@@ -454,25 +459,21 @@ function draw() {
 
   }
 
- 
 
   const ratio =
 
     window.devicePixelRatio || 1;
 
- 
 
   const width =
 
     canvas.clientWidth;
 
- 
 
   const height =
 
     canvas.clientHeight;
 
- 
 
   if (!width || !height) {
 
@@ -480,19 +481,16 @@ function draw() {
 
   }
 
- 
 
   canvas.width =
 
     width * ratio;
 
- 
 
   canvas.height =
 
     height * ratio;
 
- 
 
   context.setTransform(
 
@@ -510,7 +508,6 @@ function draw() {
 
   );
 
- 
 
   context.clearRect(
 
@@ -524,9 +521,7 @@ function draw() {
 
   );
 
- 
 
- 
 
   if (!candles.length) {
 
@@ -538,15 +533,12 @@ function draw() {
 
     }
 
- 
 
     return;
 
   }
 
- 
 
- 
 
   if ($("chartState")) {
 
@@ -554,9 +546,7 @@ function draw() {
 
   }
 
- 
 
- 
 
   const padding = {
 
@@ -570,9 +560,7 @@ function draw() {
 
   };
 
- 
 
- 
 
   const chartWidth =
 
@@ -582,9 +570,7 @@ function draw() {
 
     padding.right;
 
- 
 
- 
 
   const chartHeight =
 
@@ -594,9 +580,7 @@ function draw() {
 
     padding.bottom;
 
- 
 
- 
 
   if (chartWidth <= 0 || chartHeight <= 0) {
 
@@ -604,9 +588,7 @@ function draw() {
 
   }
 
- 
 
- 
 
   const values =
 
@@ -618,9 +600,7 @@ function draw() {
 
     ]).filter(Number.isFinite);
 
- 
 
- 
 
   if (!values.length) {
 
@@ -628,23 +608,18 @@ function draw() {
 
   }
 
- 
 
- 
 
   let minimum =
 
     Math.min(...values);
 
- 
 
   let maximum =
 
     Math.max(...values);
 
- 
 
- 
 
   if (minimum === maximum) {
 
@@ -652,7 +627,6 @@ function draw() {
 
       Math.abs(minimum || 1) * 0.01;
 
- 
 
     minimum -= delta;
 
@@ -660,17 +634,13 @@ function draw() {
 
   }
 
- 
 
- 
 
   const range =
 
     maximum - minimum;
 
- 
 
- 
 
   const x = index =>
 
@@ -686,9 +656,7 @@ function draw() {
 
     chartWidth;
 
- 
 
- 
 
   const y = value =>
 
@@ -704,9 +672,7 @@ function draw() {
 
     chartHeight;
 
- 
 
- 
 
   /*
 
@@ -714,19 +680,15 @@ function draw() {
 
   */
 
- 
 
   context.strokeStyle =
 
     "rgba(217,180,91,0.10)";
 
- 
 
   context.lineWidth = 1;
 
- 
 
- 
 
   for (let i = 0; i < 5; i++) {
 
@@ -736,11 +698,9 @@ function draw() {
 
       i * chartHeight / 4;
 
- 
 
     context.beginPath();
 
- 
 
     context.moveTo(
 
@@ -750,7 +710,6 @@ function draw() {
 
     );
 
- 
 
     context.lineTo(
 
@@ -760,13 +719,10 @@ function draw() {
 
     );
 
- 
 
     context.stroke();
 
- 
 
- 
 
     /*
 
@@ -774,25 +730,21 @@ function draw() {
 
     */
 
- 
 
     context.fillStyle =
 
       "#77736c";
 
- 
 
     context.font =
 
       "10px system-ui, sans-serif";
 
- 
 
     context.textAlign =
 
       "left";
 
- 
 
     context.fillText(
 
@@ -816,9 +768,7 @@ function draw() {
 
   }
 
- 
 
- 
 
   /*
 
@@ -826,13 +776,11 @@ function draw() {
 
   */
 
- 
 
   const verticalSteps =
 
     Math.min(6, candles.length);
 
- 
 
   if (verticalSteps > 1) {
 
@@ -850,23 +798,19 @@ function draw() {
 
         );
 
- 
 
       const xx =
 
         x(index);
 
- 
 
       context.strokeStyle =
 
         "rgba(217,180,91,0.055)";
 
- 
 
       context.beginPath();
 
- 
 
       context.moveTo(
 
@@ -876,7 +820,6 @@ function draw() {
 
       );
 
- 
 
       context.lineTo(
 
@@ -886,7 +829,6 @@ function draw() {
 
       );
 
- 
 
       context.stroke();
 
@@ -894,9 +836,7 @@ function draw() {
 
   }
 
- 
 
- 
 
   /*
 
@@ -904,11 +844,9 @@ function draw() {
 
   */
 
- 
 
   context.beginPath();
 
- 
 
   candles.forEach(
 
@@ -918,7 +856,6 @@ function draw() {
 
         Number(item.close);
 
- 
 
       if (!Number.isFinite(close)) {
 
@@ -926,19 +863,16 @@ function draw() {
 
       }
 
- 
 
       const xx =
 
         x(index);
 
- 
 
       const yy =
 
         y(close);
 
- 
 
       if (index === 0) {
 
@@ -966,37 +900,29 @@ function draw() {
 
   );
 
- 
 
- 
 
   context.strokeStyle =
 
     "#d9b45b";
 
- 
 
   context.lineWidth = 1.8;
 
- 
 
   context.lineJoin =
 
     "round";
 
- 
 
   context.lineCap =
 
     "round";
 
- 
 
   context.stroke();
 
- 
 
- 
 
   /*
 
@@ -1004,17 +930,14 @@ function draw() {
 
   */
 
- 
 
   const lastIndex =
 
     candles.length - 1;
 
- 
 
   context.beginPath();
 
- 
 
   candles.forEach(
 
@@ -1024,7 +947,6 @@ function draw() {
 
         Number(item.close);
 
- 
 
       if (!Number.isFinite(close)) {
 
@@ -1032,19 +954,16 @@ function draw() {
 
       }
 
- 
 
       const xx =
 
         x(index);
 
- 
 
       const yy =
 
         y(close);
 
- 
 
       if (index === 0) {
 
@@ -1072,7 +991,6 @@ function draw() {
 
   );
 
- 
 
   context.lineTo(
 
@@ -1082,7 +1000,6 @@ function draw() {
 
   );
 
- 
 
   context.lineTo(
 
@@ -1092,11 +1009,9 @@ function draw() {
 
   );
 
- 
 
   context.closePath();
 
- 
 
   const gradient =
 
@@ -1112,7 +1027,6 @@ function draw() {
 
     );
 
- 
 
   gradient.addColorStop(
 
@@ -1122,7 +1036,6 @@ function draw() {
 
   );
 
- 
 
   gradient.addColorStop(
 
@@ -1132,19 +1045,15 @@ function draw() {
 
   );
 
- 
 
   context.fillStyle =
 
     gradient;
 
- 
 
   context.fill();
 
- 
 
- 
 
   /*
 
@@ -1152,19 +1061,16 @@ function draw() {
 
   */
 
- 
 
   const last =
 
     candles[candles.length - 1];
 
- 
 
   const lastClose =
 
     Number(last.close);
 
- 
 
   if (Number.isFinite(lastClose)) {
 
@@ -1172,25 +1078,20 @@ function draw() {
 
       x(lastIndex);
 
- 
 
     const lastY =
 
       y(lastClose);
 
- 
 
- 
 
     context.fillStyle =
 
       "#d9b45b";
 
- 
 
     context.beginPath();
 
- 
 
     context.arc(
 
@@ -1206,13 +1107,10 @@ function draw() {
 
     );
 
- 
 
     context.fill();
 
- 
 
- 
 
     /*
 
@@ -1220,13 +1118,11 @@ function draw() {
 
     */
 
- 
 
     context.strokeStyle =
 
       "rgba(217,180,91,0.35)";
 
- 
 
     context.setLineDash([
 
@@ -1236,11 +1132,9 @@ function draw() {
 
     ]);
 
- 
 
     context.beginPath();
 
- 
 
     context.moveTo(
 
@@ -1250,7 +1144,6 @@ function draw() {
 
     );
 
- 
 
     context.lineTo(
 
@@ -1260,17 +1153,13 @@ function draw() {
 
     );
 
- 
 
     context.stroke();
 
- 
 
     context.setLineDash([]);
 
- 
 
- 
 
     /*
 
@@ -1278,25 +1167,21 @@ function draw() {
 
     */
 
- 
 
     context.fillStyle =
 
       "#d9b45b";
 
- 
 
     context.font =
 
       "600 10px system-ui, sans-serif";
 
- 
 
     context.textAlign =
 
       "left";
 
- 
 
     context.fillText(
 
@@ -1310,9 +1195,7 @@ function draw() {
 
   }
 
- 
 
- 
 
   /*
 
@@ -1320,31 +1203,26 @@ function draw() {
 
   */
 
- 
 
   context.fillStyle =
 
     "#6f6b64";
 
- 
 
   context.font =
 
     "10px system-ui, sans-serif";
 
- 
 
   context.textAlign =
 
     "center";
 
- 
 
   const labelCount =
 
     Math.min(5, candles.length);
 
- 
 
   for (let i = 0; i < labelCount; i++) {
 
@@ -1360,13 +1238,11 @@ function draw() {
 
       );
 
- 
 
     const item =
 
       candles[index];
 
- 
 
     const timestamp =
 
@@ -1380,11 +1256,9 @@ function draw() {
 
       );
 
- 
 
     let label = "";
 
- 
 
     if (Number.isFinite(timestamp)) {
 
@@ -1400,7 +1274,6 @@ function draw() {
 
         );
 
- 
 
       label =
 
@@ -1420,7 +1293,6 @@ function draw() {
 
     }
 
- 
 
     if (!label && item.timeLabel) {
 
@@ -1430,7 +1302,6 @@ function draw() {
 
     }
 
- 
 
     if (label) {
 
@@ -1450,9 +1321,7 @@ function draw() {
 
 }
 
- 
 
- 
 
 async function loadChart(
 
@@ -1464,7 +1333,6 @@ async function loadChart(
 
     range;
 
- 
 
   if ($("chartState")) {
 
@@ -1474,7 +1342,6 @@ async function loadChart(
 
   }
 
- 
 
   try {
 
@@ -1492,13 +1359,11 @@ async function loadChart(
 
       );
 
- 
 
     const data =
 
       await response.json();
 
- 
 
     if (!data.ok) {
 
@@ -1512,7 +1377,6 @@ async function loadChart(
 
     }
 
- 
 
     candles =
 
@@ -1522,11 +1386,9 @@ async function loadChart(
 
         : [];
 
- 
 
     draw();
 
- 
 
     if (
 
@@ -1542,7 +1404,6 @@ async function loadChart(
 
     }
 
- 
 
   } catch (error) {
 
@@ -1554,15 +1415,12 @@ async function loadChart(
 
     );
 
- 
 
     candles = [];
 
- 
 
     draw();
 
- 
 
     if ($("chartState")) {
 
@@ -1576,9 +1434,7 @@ async function loadChart(
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -1586,7 +1442,6 @@ async function loadChart(
 
 ========================================================= */
 
- 
 
 function short(address) {
 
@@ -1598,9 +1453,7 @@ function short(address) {
 
 }
 
- 
 
- 
 
 function hexAddress(address) {
 
@@ -1614,9 +1467,7 @@ function hexAddress(address) {
 
 }
 
- 
 
- 
 
 async function ethCall(
 
@@ -1648,9 +1499,7 @@ async function ethCall(
 
 }
 
- 
 
- 
 
 async function tokenBalance(
 
@@ -1666,7 +1515,6 @@ async function tokenBalance(
 
     hexAddress(account);
 
- 
 
   const raw =
 
@@ -1678,7 +1526,6 @@ async function tokenBalance(
 
     );
 
- 
 
   return Number(
 
@@ -1688,9 +1535,7 @@ async function tokenBalance(
 
 }
 
- 
 
- 
 
 async function nativeBalance(account) {
 
@@ -1710,7 +1555,6 @@ async function nativeBalance(account) {
 
     });
 
- 
 
   return Number(
 
@@ -1720,9 +1564,7 @@ async function nativeBalance(account) {
 
 }
 
- 
 
- 
 
 async function ensureBsc() {
 
@@ -1734,7 +1576,6 @@ async function ensureBsc() {
 
     });
 
- 
 
   if (
 
@@ -1750,7 +1591,6 @@ async function ensureBsc() {
 
   }
 
- 
 
   try {
 
@@ -1774,19 +1614,15 @@ async function ensureBsc() {
 
     });
 
- 
 
     return true;
 
- 
 
   } catch (error) {
 
- 
 
     if (error.code === 4902) {
 
- 
 
       await window.ethereum.request({
 
@@ -1802,13 +1638,11 @@ async function ensureBsc() {
 
               BSC_CHAIN_ID,
 
- 
 
             chainName:
 
               "BNB Smart Chain",
 
- 
 
             nativeCurrency: {
 
@@ -1820,7 +1654,6 @@ async function ensureBsc() {
 
             },
 
- 
 
             rpcUrls: [
 
@@ -1828,7 +1661,6 @@ async function ensureBsc() {
 
             ],
 
- 
 
             blockExplorerUrls: [
 
@@ -1842,13 +1674,11 @@ async function ensureBsc() {
 
       });
 
- 
 
       return true;
 
     }
 
- 
 
     throw error;
 
@@ -1856,9 +1686,7 @@ async function ensureBsc() {
 
 }
 
- 
 
- 
 
 async function refreshWallet(account) {
 
@@ -1868,7 +1696,6 @@ async function refreshWallet(account) {
 
   }
 
- 
 
   if ($("walletAddress")) {
 
@@ -1878,7 +1705,6 @@ async function refreshWallet(account) {
 
   }
 
- 
 
   try {
 
@@ -1892,7 +1718,6 @@ async function refreshWallet(account) {
 
       );
 
- 
 
     const usdt =
 
@@ -1904,7 +1729,6 @@ async function refreshWallet(account) {
 
       );
 
- 
 
     const bnb =
 
@@ -1914,7 +1738,6 @@ async function refreshWallet(account) {
 
       );
 
- 
 
     if ($("walletGdty")) {
 
@@ -1934,7 +1757,6 @@ async function refreshWallet(account) {
 
     }
 
- 
 
     if ($("walletUsdt")) {
 
@@ -1954,7 +1776,6 @@ async function refreshWallet(account) {
 
     }
 
- 
 
     if ($("walletBnb")) {
 
@@ -1974,7 +1795,6 @@ async function refreshWallet(account) {
 
     }
 
- 
 
   } catch (error) {
 
@@ -1986,7 +1806,6 @@ async function refreshWallet(account) {
 
     );
 
- 
 
     if ($("walletGdty")) {
 
@@ -1996,7 +1815,6 @@ async function refreshWallet(account) {
 
     }
 
- 
 
     if ($("walletUsdt")) {
 
@@ -2006,7 +1824,6 @@ async function refreshWallet(account) {
 
     }
 
- 
 
     if ($("walletBnb")) {
 
@@ -2020,9 +1837,7 @@ async function refreshWallet(account) {
 
 }
 
- 
 
- 
 
 async function connectWallet() {
 
@@ -2034,19 +1849,16 @@ async function connectWallet() {
 
     );
 
- 
 
     return null;
 
   }
 
- 
 
   const button =
 
     $("walletBtn");
 
- 
 
   if (button) {
 
@@ -2054,13 +1866,11 @@ async function connectWallet() {
 
   }
 
- 
 
   try {
 
     await ensureBsc();
 
- 
 
     const accounts =
 
@@ -2072,13 +1882,11 @@ async function connectWallet() {
 
       });
 
- 
 
     const account =
 
       accounts?.[0];
 
- 
 
     if (!account) {
 
@@ -2086,7 +1894,6 @@ async function connectWallet() {
 
     }
 
- 
 
     localStorage.setItem(
 
@@ -2096,7 +1903,6 @@ async function connectWallet() {
 
     );
 
- 
 
     if ($("walletBtn")) {
 
@@ -2104,7 +1910,6 @@ async function connectWallet() {
 
         short(account);
 
- 
 
       $("walletBtn").classList.add(
 
@@ -2114,7 +1919,6 @@ async function connectWallet() {
 
     }
 
- 
 
     if ($("walletMenu")) {
 
@@ -2124,7 +1928,6 @@ async function connectWallet() {
 
     }
 
- 
 
     await refreshWallet(
 
@@ -2132,11 +1935,9 @@ async function connectWallet() {
 
     );
 
- 
 
     return account;
 
- 
 
   } catch (error) {
 
@@ -2148,7 +1949,6 @@ async function connectWallet() {
 
     );
 
- 
 
     alert(
 
@@ -2158,11 +1958,9 @@ async function connectWallet() {
 
     );
 
- 
 
     return null;
 
- 
 
   } finally {
 
@@ -2176,9 +1974,7 @@ async function connectWallet() {
 
 }
 
- 
 
- 
 
 async function restoreWallet() {
 
@@ -2188,7 +1984,6 @@ async function restoreWallet() {
 
   }
 
- 
 
   try {
 
@@ -2202,13 +1997,11 @@ async function restoreWallet() {
 
       });
 
- 
 
     const account =
 
       accounts?.[0];
 
- 
 
     if (!account) {
 
@@ -2216,7 +2009,6 @@ async function restoreWallet() {
 
     }
 
- 
 
     localStorage.setItem(
 
@@ -2226,7 +2018,6 @@ async function restoreWallet() {
 
     );
 
- 
 
     if ($("walletBtn")) {
 
@@ -2234,7 +2025,6 @@ async function restoreWallet() {
 
         short(account);
 
- 
 
       $("walletBtn").classList.add(
 
@@ -2244,7 +2034,6 @@ async function restoreWallet() {
 
     }
 
- 
 
     if ($("walletMenu")) {
 
@@ -2254,7 +2043,6 @@ async function restoreWallet() {
 
     }
 
- 
 
     await refreshWallet(
 
@@ -2262,7 +2050,6 @@ async function restoreWallet() {
 
     );
 
- 
 
   } catch (error) {
 
@@ -2278,9 +2065,7 @@ async function restoreWallet() {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2288,7 +2073,6 @@ async function restoreWallet() {
 
 ========================================================= */
 
- 
 
 async function openDex(url) {
 
@@ -2298,7 +2082,6 @@ async function openDex(url) {
 
   }
 
- 
 
   window.location.href =
 
@@ -2306,9 +2089,7 @@ async function openDex(url) {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2316,7 +2097,6 @@ async function openDex(url) {
 
 ========================================================= */
 
- 
 
 async function copyContract() {
 
@@ -2324,7 +2104,6 @@ async function copyContract() {
 
     GDTY;
 
- 
 
   try {
 
@@ -2334,13 +2113,11 @@ async function copyContract() {
 
     );
 
- 
 
     const button =
 
       $("copyContract");
 
- 
 
     if (button) {
 
@@ -2348,13 +2125,11 @@ async function copyContract() {
 
         button.textContent;
 
- 
 
       button.textContent =
 
         "Copied";
 
- 
 
       setTimeout(
 
@@ -2372,7 +2147,6 @@ async function copyContract() {
 
     }
 
- 
 
   } catch {
 
@@ -2386,9 +2160,7 @@ async function copyContract() {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2396,13 +2168,11 @@ async function copyContract() {
 
 ========================================================= */
 
- 
 
 const ranges =
 
   $("ranges");
 
- 
 
 if (ranges) {
 
@@ -2412,7 +2182,6 @@ if (ranges) {
 
     event => {
 
- 
 
       const button =
 
@@ -2422,7 +2191,6 @@ if (ranges) {
 
         );
 
- 
 
       if (!button) {
 
@@ -2430,7 +2198,6 @@ if (ranges) {
 
       }
 
- 
 
       document
 
@@ -2450,7 +2217,6 @@ if (ranges) {
 
         );
 
- 
 
       button.classList.add(
 
@@ -2458,7 +2224,6 @@ if (ranges) {
 
       );
 
- 
 
       loadChart(
 
@@ -2472,9 +2237,7 @@ if (ranges) {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2482,7 +2245,6 @@ if (ranges) {
 
 ========================================================= */
 
- 
 
 if ($("walletBtn")) {
 
@@ -2492,7 +2254,6 @@ if ($("walletBtn")) {
 
     async () => {
 
- 
 
       const connected =
 
@@ -2502,7 +2263,6 @@ if ($("walletBtn")) {
 
         );
 
- 
 
       if (!connected) {
 
@@ -2512,7 +2272,6 @@ if ($("walletBtn")) {
 
       }
 
- 
 
       if ($("walletMenu")) {
 
@@ -2528,9 +2287,7 @@ if ($("walletBtn")) {
 
 }
 
- 
 
- 
 
 if ($("heroWallet")) {
 
@@ -2544,9 +2301,7 @@ if ($("heroWallet")) {
 
 }
 
- 
 
- 
 
 if ($("disconnectBtn")) {
 
@@ -2556,7 +2311,6 @@ if ($("disconnectBtn")) {
 
     () => {
 
- 
 
       localStorage.removeItem(
 
@@ -2564,7 +2318,6 @@ if ($("disconnectBtn")) {
 
       );
 
- 
 
       if ($("walletMenu")) {
 
@@ -2574,7 +2327,6 @@ if ($("disconnectBtn")) {
 
       }
 
- 
 
       if ($("walletBtn")) {
 
@@ -2582,7 +2334,6 @@ if ($("disconnectBtn")) {
 
           "Connect Wallet";
 
- 
 
         $("walletBtn").classList.remove(
 
@@ -2598,9 +2349,7 @@ if ($("disconnectBtn")) {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2608,7 +2357,6 @@ if ($("disconnectBtn")) {
 
 ========================================================= */
 
- 
 
 if ($("copyContract")) {
 
@@ -2622,9 +2370,7 @@ if ($("copyContract")) {
 
 }
 
- 
 
- 
 
 if ($("buyUniswap")) {
 
@@ -2644,9 +2390,7 @@ if ($("buyUniswap")) {
 
 }
 
- 
 
- 
 
 if ($("buyPancake")) {
 
@@ -2666,9 +2410,7 @@ if ($("buyPancake")) {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2676,7 +2418,6 @@ if ($("buyPancake")) {
 
 ========================================================= */
 
- 
 
 if ($("coinGecko")) {
 
@@ -2702,9 +2443,7 @@ if ($("coinGecko")) {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2712,11 +2451,9 @@ if ($("coinGecko")) {
 
 ========================================================= */
 
- 
 
 if (window.ethereum) {
 
- 
 
   window.ethereum.on?.(
 
@@ -2724,11 +2461,9 @@ if (window.ethereum) {
 
     accounts => {
 
- 
 
       if (accounts?.[0]) {
 
- 
 
         localStorage.setItem(
 
@@ -2738,7 +2473,6 @@ if (window.ethereum) {
 
         );
 
- 
 
         refreshWallet(
 
@@ -2746,11 +2480,9 @@ if (window.ethereum) {
 
         );
 
- 
 
       } else {
 
- 
 
         if ($("disconnectBtn")) {
 
@@ -2764,9 +2496,7 @@ if (window.ethereum) {
 
   );
 
- 
 
- 
 
   window.ethereum.on?.(
 
@@ -2778,9 +2508,7 @@ if (window.ethereum) {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -2788,7 +2516,6 @@ if (window.ethereum) {
 
 ========================================================= */
 
- 
 
 function setAccountState(user) {
 
@@ -2796,43 +2523,36 @@ function setAccountState(user) {
 
     $("accountMenu");
 
- 
 
   const label =
 
     $("accountLabel");
 
- 
 
   const guest =
 
     $("accountGuest");
 
- 
 
   const signedIn =
 
     $("accountSignedIn");
 
- 
 
   const userName =
 
     $("accountUserName");
 
- 
 
   const userEmail =
 
     $("accountUserEmail");
 
- 
 
   const mobileLogin =
 
     $("mobileLogin");
 
- 
 
   const mobileRegister =
 
@@ -2842,13 +2562,10 @@ function setAccountState(user) {
 
     );
 
- 
 
- 
 
   if (user) {
 
- 
 
     const name =
 
@@ -2858,9 +2575,7 @@ function setAccountState(user) {
 
       "Account";
 
- 
 
- 
 
     if (menu) {
 
@@ -2872,7 +2587,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (label) {
 
@@ -2882,7 +2596,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (guest) {
 
@@ -2890,7 +2603,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (signedIn) {
 
@@ -2898,7 +2610,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (userName) {
 
@@ -2908,7 +2619,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (userEmail) {
 
@@ -2920,7 +2630,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (mobileLogin) {
 
@@ -2928,7 +2637,6 @@ function setAccountState(user) {
 
         "Sign Out";
 
- 
 
       mobileLogin.classList.add(
 
@@ -2938,7 +2646,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (mobileRegister) {
 
@@ -2948,11 +2655,9 @@ function setAccountState(user) {
 
     }
 
- 
 
   } else {
 
- 
 
     if (menu) {
 
@@ -2964,7 +2669,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (label) {
 
@@ -2974,7 +2678,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (guest) {
 
@@ -2982,7 +2685,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (signedIn) {
 
@@ -2990,7 +2692,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (userName) {
 
@@ -3000,7 +2701,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (userEmail) {
 
@@ -3010,7 +2710,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (mobileLogin) {
 
@@ -3018,7 +2717,6 @@ function setAccountState(user) {
 
         "Sign In";
 
- 
 
       mobileLogin.classList.remove(
 
@@ -3028,7 +2726,6 @@ function setAccountState(user) {
 
     }
 
- 
 
     if (mobileRegister) {
 
@@ -3042,9 +2739,7 @@ function setAccountState(user) {
 
 }
 
- 
 
- 
 
 function closeLoginModal() {
 
@@ -3052,7 +2747,6 @@ function closeLoginModal() {
 
     $("loginModal");
 
- 
 
   if (!modal) {
 
@@ -3060,11 +2754,9 @@ function closeLoginModal() {
 
   }
 
- 
 
   modal.hidden = true;
 
- 
 
   modal.setAttribute(
 
@@ -3076,9 +2768,7 @@ function closeLoginModal() {
 
 }
 
- 
 
- 
 
 function openLoginModal() {
 
@@ -3086,7 +2776,6 @@ function openLoginModal() {
 
     $("loginModal");
 
- 
 
   if (!modal) {
 
@@ -3094,13 +2783,11 @@ function openLoginModal() {
 
   }
 
- 
 
   const menu =
 
     $("accountMenu");
 
- 
 
   if (menu) {
 
@@ -3108,11 +2795,9 @@ function openLoginModal() {
 
   }
 
- 
 
   modal.hidden = false;
 
- 
 
   modal.setAttribute(
 
@@ -3122,19 +2807,16 @@ function openLoginModal() {
 
   );
 
- 
 
   const state =
 
     $("loginState");
 
- 
 
   if (state) {
 
     state.textContent = "";
 
- 
 
     state.className =
 
@@ -3142,7 +2824,6 @@ function openLoginModal() {
 
   }
 
- 
 
   setTimeout(
 
@@ -3158,9 +2839,7 @@ function openLoginModal() {
 
 }
 
- 
 
- 
 
 async function loadAccountSession() {
 
@@ -3186,7 +2865,6 @@ async function loadAccountSession() {
 
       );
 
- 
 
     const data =
 
@@ -3196,7 +2874,6 @@ async function loadAccountSession() {
 
         .catch(() => ({}));
 
- 
 
     if (
 
@@ -3214,13 +2891,11 @@ async function loadAccountSession() {
 
       );
 
- 
 
       return data.user;
 
     }
 
- 
 
   } catch (error) {
 
@@ -3234,25 +2909,20 @@ async function loadAccountSession() {
 
   }
 
- 
 
   setAccountState(null);
 
- 
 
   return null;
 
 }
 
- 
 
- 
 
 async function signIn(event) {
 
   event.preventDefault();
 
- 
 
   const email =
 
@@ -3260,7 +2930,6 @@ async function signIn(event) {
 
     "";
 
- 
 
   const password =
 
@@ -3268,25 +2937,20 @@ async function signIn(event) {
 
     "";
 
- 
 
   const submit =
 
     $("loginSubmit");
 
- 
 
   const state =
 
     $("loginState");
 
- 
 
- 
 
   if (!email || !password) {
 
- 
 
     if (state) {
 
@@ -3294,7 +2958,6 @@ async function signIn(event) {
 
         "status-text error";
 
- 
 
       state.textContent =
 
@@ -3302,21 +2965,17 @@ async function signIn(event) {
 
     }
 
- 
 
     return;
 
   }
 
- 
 
- 
 
   if (submit) {
 
     submit.disabled = true;
 
- 
 
     submit.textContent =
 
@@ -3324,9 +2983,7 @@ async function signIn(event) {
 
   }
 
- 
 
- 
 
   if (state) {
 
@@ -3334,7 +2991,6 @@ async function signIn(event) {
 
       "status-text";
 
- 
 
     state.textContent =
 
@@ -3342,13 +2998,10 @@ async function signIn(event) {
 
   }
 
- 
 
- 
 
   try {
 
- 
 
     const response =
 
@@ -3386,9 +3039,7 @@ async function signIn(event) {
 
       );
 
- 
 
- 
 
     const data =
 
@@ -3398,9 +3049,7 @@ async function signIn(event) {
 
         .catch(() => ({}));
 
- 
 
- 
 
     if (
 
@@ -3410,29 +3059,24 @@ async function signIn(event) {
 
     ) {
 
- 
 
       const messages = {
 
- 
 
         invalid_credentials:
 
           "Email or password is incorrect.",
 
- 
 
         email_not_verified:
 
           "Please verify your email before signing in.",
 
- 
 
         rate_limited:
 
           "Too many attempts. Please try again shortly.",
 
- 
 
         registration_not_configured:
 
@@ -3440,9 +3084,7 @@ async function signIn(event) {
 
       };
 
- 
 
- 
 
       throw new Error(
 
@@ -3456,9 +3098,7 @@ async function signIn(event) {
 
     }
 
- 
 
- 
 
     setAccountState(
 
@@ -3468,13 +3108,10 @@ async function signIn(event) {
 
     );
 
- 
 
     closeLoginModal();
 
- 
 
- 
 
     if (data.user) {
 
@@ -3484,11 +3121,9 @@ async function signIn(event) {
 
     }
 
- 
 
   } catch (error) {
 
- 
 
     console.error(
 
@@ -3498,7 +3133,6 @@ async function signIn(event) {
 
     );
 
- 
 
     if (state) {
 
@@ -3506,7 +3140,6 @@ async function signIn(event) {
 
         "status-text error";
 
- 
 
       state.textContent =
 
@@ -3516,17 +3149,14 @@ async function signIn(event) {
 
     }
 
- 
 
   } finally {
 
- 
 
     if (submit) {
 
       submit.disabled = false;
 
- 
 
       submit.textContent =
 
@@ -3538,15 +3168,12 @@ async function signIn(event) {
 
 }
 
- 
 
- 
 
 async function signOut() {
 
   try {
 
- 
 
     await fetch(
 
@@ -3572,11 +3199,9 @@ async function signOut() {
 
     );
 
- 
 
   } catch (error) {
 
- 
 
     console.error(
 
@@ -3588,17 +3213,14 @@ async function signOut() {
 
   }
 
- 
 
   setAccountState(null);
 
- 
 
   const menu =
 
     $("accountMenu");
 
- 
 
   if (menu) {
 
@@ -3608,9 +3230,7 @@ async function signOut() {
 
 }
 
- 
 
- 
 
 /* =========================================================
 
@@ -3618,13 +3238,11 @@ async function signOut() {
 
 ========================================================= */
 
- 
 
 const openLogin =
 
   $("openLogin");
 
- 
 
 if (openLogin) {
 
@@ -3638,15 +3256,12 @@ if (openLogin) {
 
 }
 
- 
 
- 
 
 const mobileLogin =
 
   $("mobileLogin");
 
- 
 
 if (mobileLogin) {
 
@@ -3656,7 +3271,6 @@ if (mobileLogin) {
 
     async () => {
 
- 
 
       const signedIn =
 
@@ -3670,7 +3284,6 @@ if (mobileLogin) {
 
           );
 
- 
 
       const mobileNav =
 
@@ -3680,7 +3293,6 @@ if (mobileLogin) {
 
         );
 
- 
 
       if (mobileNav) {
 
@@ -3688,7 +3300,6 @@ if (mobileLogin) {
 
       }
 
- 
 
       if (signedIn) {
 
@@ -3706,15 +3317,12 @@ if (mobileLogin) {
 
 }
 
- 
 
- 
 
 const accountLogout =
 
   $("accountLogout");
 
- 
 
 if (accountLogout) {
 
@@ -3728,15 +3336,12 @@ if (accountLogout) {
 
 }
 
- 
 
- 
 
 const closeLogin =
 
   $("closeLogin");
 
- 
 
 if (closeLogin) {
 
@@ -3750,15 +3355,12 @@ if (closeLogin) {
 
 }
 
- 
 
- 
 
 const loginModal =
 
   $("loginModal");
 
- 
 
 if (loginModal) {
 
@@ -3768,7 +3370,6 @@ if (loginModal) {
 
     event => {
 
- 
 
       if (
 
@@ -3790,15 +3391,12 @@ if (loginModal) {
 
 }
 
- 
 
- 
 
 const loginForm =
 
   $("loginForm");
 
- 
 
 if (loginForm) {
 
@@ -3812,9 +3410,7 @@ if (loginForm) {
 
 }
 
- 
 
- 
 
 document.addEventListener(
 
@@ -3822,7 +3418,6 @@ document.addEventListener(
 
   event => {
 
- 
 
     if (
 
@@ -3840,9 +3435,7 @@ document.addEventListener(
 
 );
 
- 
 
- 
 
 /* =========================================================
 
@@ -3850,25 +3443,19 @@ document.addEventListener(
 
 ========================================================= */
 
- 
 
 loadMarket();
 
- 
 
 loadChart();
 
- 
 
 restoreWallet();
 
- 
 
 loadAccountSession();
 
- 
 
- 
 
 /*
 
@@ -3878,7 +3465,6 @@ loadAccountSession();
 
 */
 
- 
 
 setInterval(
 
@@ -3888,9 +3474,7 @@ setInterval(
 
 );
 
- 
 
- 
 
 window.addEventListener(
 
