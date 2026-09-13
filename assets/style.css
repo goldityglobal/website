@@ -328,121 +328,6 @@ img{max-width:100%}
 #disconnectBtn:hover{border-color:var(--g-gold);color:var(--g-gold-light)}
 
 /* =========================================================
-   HOME HERO — NEW SYSTEM
-   ========================================================= */
-.hero{
-  position:relative;
-  min-height:650px;
-  overflow:hidden;
-  isolation:isolate;
-  background:#030303;
-  border-bottom:1px solid var(--g-line);
-}
-.hero-art{position:absolute;inset:0;z-index:0;overflow:hidden}
-.hero-art img{width:100%;height:100%;display:block;object-fit:cover;object-position:center center}
-.hero-backdrop{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  pointer-events:none;
-  background:
-    linear-gradient(90deg,rgba(7,6,4,.74) 0%,rgba(5,5,4,.57) 27%,rgba(3,3,3,.23) 52%,rgba(3,3,3,.04) 80%),
-    radial-gradient(circle at 18% 38%,rgba(230,183,73,.12),transparent 36%),
-    linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.06) 54%,rgba(0,0,0,.52) 100%);
-}
-.hero-inner{
-  position:relative;
-  z-index:3;
-  width:min(var(--g-content),calc(100% - 48px));
-  min-height:650px;
-  margin:0 auto;
-  display:flex;
-  align-items:center;
-}
-.hero-copy{position:relative;z-index:4;width:min(600px,55%);padding:55px 0}
-.hero-copy>.eyebrow{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  width:max-content;
-  max-width:100%;
-  margin:0 0 18px;
-  color:#f4d477;
-  font-size:10px;
-  font-weight:900;
-  line-height:1.2;
-  letter-spacing:.28em;
-  text-transform:uppercase;
-  text-shadow:0 1px 3px rgba(0,0,0,.9);
-}
-.hero-copy>.eyebrow::before,.hero-copy>.eyebrow::after{
-  content:"";
-  display:block;
-  width:42px;
-  height:1px;
-  flex:0 0 42px;
-  background:linear-gradient(90deg,transparent,#e4b64f);
-}
-.hero-copy>.eyebrow::after{background:linear-gradient(90deg,#e4b64f,transparent)}
-
-/* GOLDITY wordmark: deliberately no dark stop */
-.hero h1.hero-title{
-  margin:0;
-  font-family:"Bailon","Bodoni 72","Didot","Bodoni MT","Times New Roman",Georgia,serif;
-  font-size:clamp(66px,7.8vw,112px);
-  font-weight:400;
-  line-height:.84;
-  letter-spacing:-.025em;
-  font-variant-ligatures:common-ligatures;
-  color:#f7d777;
-  background-image:var(--g-hero-gold);
-  background-repeat:no-repeat;
-  background-size:100% 100%;
-  background-position:center;
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  text-shadow:0 1px 0 rgba(255,246,199,.22),0 4px 7px rgba(75,45,5,.34);
-  text-rendering:geometricPrecision;
-}
-.hero h1.hero-title span{
-  display:block;
-  margin-top:13px;
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:.285em;
-  font-weight:750;
-  line-height:1;
-  letter-spacing:.34em;
-  color:#f4d98c;
-  background-image:var(--g-champagne);
-  background-repeat:no-repeat;
-  background-size:100% 100%;
-  background-position:center;
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  text-shadow:0 2px 4px rgba(65,40,5,.32);
-}
-.hero-tagline{
-  margin:24px 0 11px;
-  color:#f5e1a5;
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:clamp(17px,1.55vw,22px);
-  font-weight:650;
-  line-height:1.35;
-  letter-spacing:.045em;
-  text-shadow:0 1px 4px rgba(0,0,0,.9);
-}
-.hero-lead{max-width:530px;margin:0;color:#e4dac8;font-size:14px;line-height:1.8;text-shadow:0 1px 4px rgba(0,0,0,.92)}
-.hero-actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:27px}
-.hero-actions .cta.primary{min-width:130px}
-.hero-trust-row{display:flex;gap:0;margin-top:38px;max-width:540px;border-top:1px solid rgba(230,185,78,.22)}
-.hero-trust-row div{min-width:120px;padding:15px 20px 0 0;margin-right:20px;border-right:1px solid rgba(230,185,78,.15)}
-.hero-trust-row div:last-child{border-right:0}
-.hero-trust-row strong{display:block;color:#f5d77b;font-size:15px;text-shadow:0 1px 3px rgba(0,0,0,.85)}
-.hero-trust-row span{display:block;margin-top:3px;color:#bcae8c;font-size:10px;text-transform:uppercase;letter-spacing:.1em}
-
-/* =========================================================
    CONTRACT STRIP
    ========================================================= */
 .contract-strip{position:relative;z-index:4;margin-top:-1px;padding:0 0 10px;background:var(--g-bg)}
@@ -465,7 +350,6 @@ img{max-width:100%}
 .contract-logo::before{content:"G";display:grid;place-items:center;width:100%;height:100%;color:var(--g-gold-light);font-family:Georgia,serif;font-size:27px;font-weight:700}
 .contract-logo:has(img)::before{display:none}
 .contract-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.contract-heading .eyebrow{margin:0}
 .contract-badge{padding:5px 9px;border:1px solid #3c3427;border-radius:999px;color:#cdbb8d;background:rgba(217,180,91,.04);font-size:9px;letter-spacing:.08em;text-transform:uppercase}
 .contract-main code{display:block;margin-top:8px;color:#f2d47d;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(15px,1.6vw,22px);font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .contract-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
@@ -553,7 +437,6 @@ img{max-width:100%}
    WHY / TOKEN / BUY / SECURITY / COMMUNITY
    ========================================================= */
 .centered-heading{text-align:center;display:block}
-.centered-heading .eyebrow{margin-bottom:8px}
 .why-grid{display:grid;grid-template-columns:repeat(4,1fr);margin-top:38px;border-top:1px solid var(--g-line);border-bottom:1px solid var(--g-line)}
 .why-grid article{padding:30px 24px;text-align:center;border-right:1px solid var(--g-line)}
 .why-grid article:last-child{border-right:0}
@@ -581,7 +464,6 @@ img{max-width:100%}
 .community-art{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(217,180,91,.025)),radial-gradient(circle at 12% 120%,rgba(217,180,91,.13),transparent 25%),radial-gradient(circle at 88% 120%,rgba(217,180,91,.1),transparent 25%)}
 .community-content{position:relative;z-index:1}
 .community h2{font-size:38px}
-.community-content>p:not(.eyebrow){color:var(--g-muted);margin:12px 0 25px}
 .community-links{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:9px}
 .social-pill{width:42px;height:42px;display:grid;place-items:center;border:1px solid #4a3d28;border-radius:50%;color:var(--g-gold-light);font-weight:800}
 .social-pill:hover{background:rgba(217,180,91,.08);border-color:var(--g-gold)}
@@ -860,22 +742,14 @@ body>header:not(.site-header)>.wallet{flex:0 0 auto}
   .footer-inner{width:calc(100% - 28px);display:flex;flex-direction:column;text-align:center;gap:13px}
   .footer-links{margin-top:0}
   .footer-contact{justify-self:auto}
-}
+}@media(max-width:420px){
 
-@media(max-width:420px){
   .header-inner{width:calc(100% - 20px)}
   .brand-copy strong{font-size:12px}
   .brand-copy b{font-size:8px}
   .brand>span:last-child{font-size:12px}
   .wallet{padding:8px 10px}
   .mobile-nav summary{width:40px;height:40px}
-  .hero-art{height:360px}
-  .hero-copy{padding:23px 14px 31px}
-  .hero-copy>.eyebrow{font-size:7px;letter-spacing:.16em}
-  .hero-copy>.eyebrow::before,.hero-copy>.eyebrow::after{width:18px;flex-basis:18px}
-  .hero h1.hero-title{font-size:49px}
-  .hero-actions{grid-template-columns:1fr}
-  .hero-actions .cta:last-child{grid-column:auto}
   .contract-card{width:calc(100% - 20px);grid-template-columns:42px minmax(0,1fr);padding:13px}
   .contract-logo{width:42px;height:42px}
   .contract-main code{font-size:11px}
@@ -891,9 +765,234 @@ body>header:not(.site-header)>.wallet{flex:0 0 auto}
   .dashboard-page{width:calc(100% - 20px)}
   .dashboard-card{padding:18px}
   .referral-withdraw-card{padding:19px}
-}
 
-@media(prefers-reduced-motion:reduce){
+}@media(prefers-reduced-motion:reduce){
+
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+
+}
+
+/* =========================================================
+   GOLDITY HERO — SINGLE CANONICAL BLOCK
+   All previous Hero rules have been removed.
+   ========================================================= */
+
+.hero{
+  position:relative;
+  isolation:isolate;
+  min-height:clamp(600px,72vh,790px);
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  background:#0b0b0b;
+}
+
+.hero-backdrop{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  background:
+    radial-gradient(circle at 72% 42%,rgba(191,143,35,.16),transparent 34%),
+    linear-gradient(90deg,rgba(7,7,7,.97) 0%,rgba(8,8,8,.82) 44%,rgba(8,8,8,.35) 78%,rgba(8,8,8,.58) 100%);
+  pointer-events:none;
+}
+
+.hero-art{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  display:flex;
+  justify-content:flex-end;
+  align-items:stretch;
+  overflow:hidden;
+}
+
+.hero-art img{
+  width:min(67%,1050px);
+  height:100%;
+  object-fit:cover;
+  object-position:center right;
+  opacity:.82;
+  display:block;
+  -webkit-user-drag:none;
+}
+
+.hero-inner{
+  position:relative;
+  z-index:3;
+  width:min(1180px,calc(100% - 48px));
+  margin:0 auto;
+  padding:92px 0 76px;
+}
+
+.hero-copy{
+  position:relative;
+  z-index:4;
+  width:min(620px,58%);
+}
+
+.hero-copy .eyebrow{
+  margin:0 0 18px;
+  color:#e8c66b;
+  font-size:.76rem;
+  font-weight:700;
+  letter-spacing:.22em;
+  line-height:1.5;
+  text-transform:uppercase;
+  text-shadow:0 2px 8px rgba(0,0,0,.8);
+}
+
+.hero-title{
+  margin:0;
+  color:#f6d77b !important;
+  font-size:clamp(3.2rem,7vw,6.6rem);
+  font-weight:800;
+  line-height:.94;
+  letter-spacing:-.045em;
+  text-shadow:
+    0 1px 0 rgba(255,248,216,.72),
+    0 5px 18px rgba(0,0,0,.72);
+  background:none !important;
+  background-image:none !important;
+  -webkit-background-clip:border-box !important;
+  background-clip:border-box !important;
+  -webkit-text-fill-color:#f6d77b !important;
+  filter:none !important;
+  opacity:1 !important;
+  mix-blend-mode:normal !important;
+}
+
+.hero-title span{
+  color:#e9c56b !important;
+  font-size:.34em;
+  font-weight:700;
+  letter-spacing:.04em;
+  vertical-align:middle;
+  -webkit-text-fill-color:#e9c56b !important;
+  text-shadow:0 2px 8px rgba(0,0,0,.72);
+}
+
+.hero-tagline{
+  margin:24px 0 12px;
+  color:#f3dfaa;
+  font-size:clamp(1.2rem,2vw,1.65rem);
+  font-weight:600;
+  line-height:1.35;
+  text-shadow:0 2px 8px rgba(0,0,0,.78);
+}
+
+.hero-lead{
+  max-width:590px;
+  margin:0;
+  color:#eee7d8;
+  font-size:1rem;
+  line-height:1.75;
+  text-shadow:0 2px 8px rgba(0,0,0,.85);
+}
+
+.hero-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:28px;
+}
+
+.hero-trust-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:28px;
+  margin-top:34px;
+}
+
+.hero-trust-row>div{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.hero-trust-row strong{
+  color:#f4d275;
+  font-size:1.15rem;
+  line-height:1;
+}
+
+.hero-trust-row span{
+  color:#bdb5a5;
+  font-size:.72rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+@media(max-width:900px){
+  .hero{
+    min-height:680px;
+  }
+  .hero-art img{
+    width:100%;
+    opacity:.28;
+    object-position:center;
+  }
+  .hero-backdrop{
+    background:
+      linear-gradient(90deg,rgba(7,7,7,.94),rgba(7,7,7,.72)),
+      radial-gradient(circle at 70% 35%,rgba(191,143,35,.14),transparent 42%);
+  }
+  .hero-copy{
+    width:min(720px,100%);
+  }
+}
+
+@media(max-width:600px){
+  .hero{
+    min-height:auto;
+  }
+  .hero-inner{
+    width:min(100% - 32px,620px);
+    padding:76px 0 58px;
+  }
+  .hero-title{
+    font-size:clamp(2.8rem,15vw,4.6rem);
+    letter-spacing:-.05em;
+  }
+  .hero-tagline{
+    margin-top:20px;
+    font-size:1.1rem;
+  }
+  .hero-lead{
+    font-size:.94rem;
+    line-height:1.7;
+  }
+  .hero-actions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .hero-actions .cta{
+    width:100%;
+    justify-content:center;
+  }
+  .hero-trust-row{
+    gap:20px;
+    margin-top:28px;
+  }
+}
+
+/* GeckoTerminal external market link */
+.market-external-link{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+.market-external-link .cta{
+  min-height:42px;
+}
+@media(max-width:600px){
+  .market-external-link{
+    justify-content:stretch;
+  }
+  .market-external-link .cta{
+    width:100%;
+    justify-content:center;
+  }
 }
