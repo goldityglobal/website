@@ -711,6 +711,7 @@ body>header:not(.site-header)>.wallet{flex:0 0 auto}
    AUTH MODAL / AUTH PAGES
    ========================================================= */
 .auth-modal{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:20px}
+.auth-modal[hidden]{display:none!important}
 .auth-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.76);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .auth-modal-card{position:relative;z-index:1;width:min(460px,100%);padding:30px;border:1px solid #403625;border-radius:16px;background:linear-gradient(145deg,#14120e,#080807);box-shadow:0 30px 90px rgba(0,0,0,.58)}
 .auth-modal-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border:1px solid #40382b;border-radius:8px;background:transparent;color:#bfb6a8;cursor:pointer}
