@@ -14,9 +14,15 @@ const PANCAKESWAP_URL =
 const UNISWAP_URL =
   `https://app.uniswap.org/swap?chain=bnb&inputCurrency=${USDT}&outputCurrency=${GDTY}`;
 
+const COINGECKO_SEARCH =
+  "https://www.coingecko.com/en/search?query=GDTY";
 
 const $ = id => document.getElementById(id);
 
+
+/* =========================================================
+   FORMATTERS
+========================================================= */
 
 const money = value => {
   if (value == null || !Number.isFinite(Number(value))) {
@@ -43,16 +49,27 @@ const compact = value => {
 };
 
 
+const numberFormat = value => {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return "—";
+  }
+
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 6
+  });
+};
+
+
+/* =========================================================
+   MARKET
+========================================================= */
+
 let currentRange = "4H";
 let candles = [];
 
 
-/* MARKET */
-
 async function loadMarket() {
-
   try {
-
     const response = await fetch(
       `${API_BASE}/api/market`,
       {
@@ -63,20 +80,23 @@ async function loadMarket() {
     const data = await response.json();
 
     if (!data.ok) {
-      throw new Error(data.error || "Market data unavailable");
+      throw new Error(
+        data.error || "Market data unavailable"
+      );
     }
 
-
-    const referencePriceText = money(data.referencePrice);
+    const referencePriceText =
+      money(data.referencePrice);
 
     if ($("price")) {
-      $("price").textContent = referencePriceText;
+      $("price").textContent =
+        referencePriceText;
     }
 
     if ($("sidePrice")) {
-      $("sidePrice").textContent = referencePriceText;
+      $("sidePrice").textContent =
+        referencePriceText;
     }
-
 
     if ($("status")) {
       $("status").textContent =
@@ -85,32 +105,58 @@ async function loadMarket() {
           : "LIVE DATA UNAVAILABLE";
     }
 
-
     if ($("updated")) {
       $("updated").textContent =
         data.lastUpdated
-          ? `Updated ${new Date(data.lastUpdated).toLocaleTimeString()}`
+          ? `Updated ${new Date(
+              data.lastUpdated
+            ).toLocaleTimeString()}`
           : "—";
     }
-
 
     if ($("liq")) {
       $("liq").textContent =
         compact(data.liquidityUsd);
     }
 
-
     if ($("network")) {
       $("network").textContent =
-        data.network || "BNB Smart Chain";
+        data.network ||
+        "BNB Smart Chain";
+    }
+
+    /*
+      Optional market fields.
+      These only update when the HTML contains
+      the corresponding IDs.
+    */
+
+    if ($("uniswapLiquidity")) {
+      $("uniswapLiquidity").textContent =
+        compact(data.uniswapLiquidityUsd);
+    }
+
+    if ($("pancakeLiquidity")) {
+      $("pancakeLiquidity").textContent =
+        compact(data.pancakeLiquidityUsd);
+    }
+
+    if ($("referenceSource")) {
+      $("referenceSource").textContent =
+        data.referencePrice != null
+          ? "UNISWAP V2 + PANCAKESWAP V2"
+          : "PRICE UNAVAILABLE";
     }
 
   } catch (error) {
-
     console.error("Market:", error);
 
     if ($("price")) {
       $("price").textContent = "—";
+    }
+
+    if ($("sidePrice")) {
+      $("sidePrice").textContent = "—";
     }
 
     if ($("status")) {
@@ -123,30 +169,51 @@ async function loadMarket() {
         error.message || "Unavailable";
     }
 
+    if ($("referenceSource")) {
+      $("referenceSource").textContent =
+        "PRICE UNAVAILABLE";
+    }
   }
-
 }
 
 
-/* CHART */
+/* =========================================================
+   CHART
+   GOLDITY / XALGO-LIKE MINIMAL MARKET STYLE
+========================================================= */
 
 function draw() {
-
   const canvas = $("chart");
 
-  if (!canvas) return;
+  if (!canvas) {
+    return;
+  }
 
-  const context = canvas.getContext("2d");
+  const context =
+    canvas.getContext("2d");
 
-  const ratio = window.devicePixelRatio || 1;
+  if (!context) {
+    return;
+  }
 
-  const width = canvas.clientWidth;
+  const ratio =
+    window.devicePixelRatio || 1;
 
-  const height = canvas.clientHeight;
+  const width =
+    canvas.clientWidth;
 
-  canvas.width = width * ratio;
+  const height =
+    canvas.clientHeight;
 
-  canvas.height = height * ratio;
+  if (!width || !height) {
+    return;
+  }
+
+  canvas.width =
+    width * ratio;
+
+  canvas.height =
+    height * ratio;
 
   context.setTransform(
     ratio,
@@ -166,7 +233,6 @@ function draw() {
 
 
   if (!candles.length) {
-
     if ($("chartState")) {
       $("chartState").textContent =
         "Verified historical data unavailable";
@@ -182,10 +248,10 @@ function draw() {
 
 
   const padding = {
-    left: 58,
-    right: 22,
+    left: 64,
+    right: 70,
     top: 24,
-    bottom: 34
+    bottom: 42
   };
 
 
@@ -201,11 +267,21 @@ function draw() {
     padding.bottom;
 
 
+  if (chartWidth <= 0 || chartHeight <= 0) {
+    return;
+  }
+
+
   const values =
     candles.flatMap(item => [
-      item.high,
-      item.low
-    ]);
+      Number(item.high),
+      Number(item.low)
+    ]).filter(Number.isFinite);
+
+
+  if (!values.length) {
+    return;
+  }
 
 
   let minimum =
@@ -216,16 +292,23 @@ function draw() {
 
 
   if (minimum === maximum) {
-    minimum *= 0.99;
-    maximum *= 1.01;
+    const delta =
+      Math.abs(minimum || 1) * 0.01;
+
+    minimum -= delta;
+    maximum += delta;
   }
+
+
+  const range =
+    maximum - minimum;
 
 
   const x = index =>
     padding.left +
     (
       index /
-      (candles.length - 1 || 1)
+      Math.max(candles.length - 1, 1)
     ) *
     chartWidth;
 
@@ -234,18 +317,22 @@ function draw() {
     padding.top +
     (
       (maximum - value) /
-      (maximum - minimum)
+      range
     ) *
     chartHeight;
 
 
-  context.strokeStyle = "#27231c";
+  /*
+    Background grid
+  */
+
+  context.strokeStyle =
+    "rgba(217,180,91,0.10)";
 
   context.lineWidth = 1;
 
 
   for (let i = 0; i < 5; i++) {
-
     const yy =
       padding.top +
       i * chartHeight / 4;
@@ -265,97 +352,371 @@ function draw() {
     context.stroke();
 
 
-    context.fillStyle = "#716b61";
+    /*
+      Price labels
+    */
+
+    context.fillStyle =
+      "#77736c";
 
     context.font =
-      "10px system-ui";
+      "10px system-ui, sans-serif";
+
+    context.textAlign =
+      "left";
 
     context.fillText(
       money(
         maximum -
         (
-          maximum - minimum
-        ) *
-        i / 4
+          range * i / 4
+        )
       ),
-      6,
+      width - padding.right + 8,
       yy + 3
     );
-
   }
 
 
+  /*
+    Vertical guides
+  */
+
+  const verticalSteps =
+    Math.min(6, candles.length);
+
+  if (verticalSteps > 1) {
+    for (let i = 0; i < verticalSteps; i++) {
+      const index =
+        Math.round(
+          i *
+          (candles.length - 1) /
+          (verticalSteps - 1)
+        );
+
+      const xx =
+        x(index);
+
+      context.strokeStyle =
+        "rgba(217,180,91,0.055)";
+
+      context.beginPath();
+
+      context.moveTo(
+        xx,
+        padding.top
+      );
+
+      context.lineTo(
+        xx,
+        height - padding.bottom
+      );
+
+      context.stroke();
+    }
+  }
+
+
+  /*
+    Main price line
+  */
+
   context.beginPath();
 
+  candles.forEach(
+    (item, index) => {
+      const close =
+        Number(item.close);
 
-  candles.forEach((item, index) => {
+      if (!Number.isFinite(close)) {
+        return;
+      }
 
-    const xx = x(index);
+      const xx =
+        x(index);
 
-    const yy = y(item.close);
+      const yy =
+        y(close);
 
-    if (index === 0) {
-      context.moveTo(xx, yy);
-    } else {
-      context.lineTo(xx, yy);
+      if (index === 0) {
+        context.moveTo(
+          xx,
+          yy
+        );
+      } else {
+        context.lineTo(
+          xx,
+          yy
+        );
+      }
     }
+  );
 
-  });
 
+  context.strokeStyle =
+    "#d9b45b";
 
-  context.strokeStyle = "#d9b45b";
+  context.lineWidth = 1.8;
 
-  context.lineWidth = 1.6;
+  context.lineJoin =
+    "round";
+
+  context.lineCap =
+    "round";
 
   context.stroke();
 
 
-  const last =
-    candles[candles.length - 1];
+  /*
+    Subtle area below price
+  */
 
-
-  context.fillStyle = "#d9b45b";
+  const lastIndex =
+    candles.length - 1;
 
   context.beginPath();
 
-  context.arc(
-    x(candles.length - 1),
-    y(last.close),
-    3,
-    0,
-    Math.PI * 2
+  candles.forEach(
+    (item, index) => {
+      const close =
+        Number(item.close);
+
+      if (!Number.isFinite(close)) {
+        return;
+      }
+
+      const xx =
+        x(index);
+
+      const yy =
+        y(close);
+
+      if (index === 0) {
+        context.moveTo(
+          xx,
+          yy
+        );
+      } else {
+        context.lineTo(
+          xx,
+          yy
+        );
+      }
+    }
   );
+
+  context.lineTo(
+    x(lastIndex),
+    height - padding.bottom
+  );
+
+  context.lineTo(
+    x(0),
+    height - padding.bottom
+  );
+
+  context.closePath();
+
+  const gradient =
+    context.createLinearGradient(
+      0,
+      padding.top,
+      0,
+      height - padding.bottom
+    );
+
+  gradient.addColorStop(
+    0,
+    "rgba(217,180,91,0.10)"
+  );
+
+  gradient.addColorStop(
+    1,
+    "rgba(217,180,91,0)"
+  );
+
+  context.fillStyle =
+    gradient;
 
   context.fill();
 
+
+  /*
+    Last price marker
+  */
+
+  const last =
+    candles[candles.length - 1];
+
+  const lastClose =
+    Number(last.close);
+
+  if (Number.isFinite(lastClose)) {
+    const lastX =
+      x(lastIndex);
+
+    const lastY =
+      y(lastClose);
+
+
+    context.fillStyle =
+      "#d9b45b";
+
+    context.beginPath();
+
+    context.arc(
+      lastX,
+      lastY,
+      3.5,
+      0,
+      Math.PI * 2
+    );
+
+    context.fill();
+
+
+    /*
+      Current price line
+    */
+
+    context.strokeStyle =
+      "rgba(217,180,91,0.35)";
+
+    context.setLineDash([
+      4,
+      5
+    ]);
+
+    context.beginPath();
+
+    context.moveTo(
+      padding.left,
+      lastY
+    );
+
+    context.lineTo(
+      width - padding.right,
+      lastY
+    );
+
+    context.stroke();
+
+    context.setLineDash([]);
+
+
+    /*
+      Current price label
+    */
+
+    context.fillStyle =
+      "#d9b45b";
+
+    context.font =
+      "600 10px system-ui, sans-serif";
+
+    context.textAlign =
+      "left";
+
+    context.fillText(
+      money(lastClose),
+      width - padding.right + 8,
+      lastY + 3
+    );
+  }
+
+
+  /*
+    Bottom time labels
+  */
+
+  context.fillStyle =
+    "#6f6b64";
+
+  context.font =
+    "10px system-ui, sans-serif";
+
+  context.textAlign =
+    "center";
+
+  const labelCount =
+    Math.min(5, candles.length);
+
+  for (let i = 0; i < labelCount; i++) {
+    const index =
+      Math.round(
+        i *
+        (candles.length - 1) /
+        Math.max(labelCount - 1, 1)
+      );
+
+    const item =
+      candles[index];
+
+    const timestamp =
+      Number(
+        item.time ??
+        item.timestamp ??
+        item.t
+      );
+
+    let label = "";
+
+    if (Number.isFinite(timestamp)) {
+      const date =
+        new Date(
+          timestamp < 100000000000
+            ? timestamp * 1000
+            : timestamp
+        );
+
+      label =
+        date.toLocaleDateString(
+          undefined,
+          {
+            month: "short",
+            day: "numeric"
+          }
+        );
+    }
+
+    if (!label && item.timeLabel) {
+      label =
+        String(item.timeLabel);
+    }
+
+    if (label) {
+      context.fillText(
+        label,
+        x(index),
+        height - 12
+      );
+    }
+  }
 }
 
 
 async function loadChart(
   range = currentRange
 ) {
-
-  currentRange = range;
+  currentRange =
+    range;
 
   if ($("chartState")) {
     $("chartState").textContent =
       "Loading real market history…";
   }
 
-
   try {
-
-    const response = await fetch(
-      `${API_BASE}/api/chart?range=${encodeURIComponent(range)}`,
-      {
-        cache: "no-store"
-      }
-    );
-
+    const response =
+      await fetch(
+        `${API_BASE}/api/chart?range=${encodeURIComponent(range)}`,
+        {
+          cache: "no-store"
+        }
+      );
 
     const data =
       await response.json();
-
 
     if (!data.ok) {
       throw new Error(
@@ -364,24 +725,26 @@ async function loadChart(
       );
     }
 
-
     candles =
       Array.isArray(data.candles)
         ? data.candles
         : [];
 
-
     draw();
 
-
-    if (!candles.length && $("chartState")) {
+    if (
+      !candles.length &&
+      $("chartState")
+    ) {
       $("chartState").textContent =
         "Verified historical data unavailable";
     }
 
   } catch (error) {
-
-    console.error("Chart:", error);
+    console.error(
+      "Chart:",
+      error
+    );
 
     candles = [];
 
@@ -391,30 +754,26 @@ async function loadChart(
       $("chartState").textContent =
         "Historical data unavailable";
     }
-
   }
-
 }
 
 
-/* WALLET */
+/* =========================================================
+   WALLET
+========================================================= */
 
 function short(address) {
-
   return address
     ? `${address.slice(0, 6)}…${address.slice(-4)}`
     : "—";
-
 }
 
 
 function hexAddress(address) {
-
   return address
     .toLowerCase()
     .replace(/^0x/, "")
     .padStart(64, "0");
-
 }
 
 
@@ -422,7 +781,6 @@ async function ethCall(
   to,
   data
 ) {
-
   return window.ethereum.request({
     method: "eth_call",
     params: [
@@ -433,7 +791,6 @@ async function ethCall(
       "latest"
     ]
   });
-
 }
 
 
@@ -441,23 +798,23 @@ async function tokenBalance(
   token,
   account
 ) {
-
   const data =
     "0x70a08231" +
     hexAddress(account);
 
   const raw =
-    await ethCall(token, data);
+    await ethCall(
+      token,
+      data
+    );
 
   return Number(
     BigInt(raw)
   ) / 1e18;
-
 }
 
 
 async function nativeBalance(account) {
-
   const raw =
     await window.ethereum.request({
       method: "eth_getBalance",
@@ -470,33 +827,31 @@ async function nativeBalance(account) {
   return Number(
     BigInt(raw)
   ) / 1e18;
-
 }
 
 
 async function ensureBsc() {
-
   const chain =
     await window.ethereum.request({
       method: "eth_chainId"
     });
 
-
   if (
     chain &&
-    chain.toLowerCase() === BSC_CHAIN_ID
+    chain.toLowerCase() ===
+      BSC_CHAIN_ID
   ) {
     return true;
   }
 
-
   try {
-
     await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
+      method:
+        "wallet_switchEthereumChain",
       params: [
         {
-          chainId: BSC_CHAIN_ID
+          chainId:
+            BSC_CHAIN_ID
         }
       ]
     });
@@ -508,19 +863,26 @@ async function ensureBsc() {
     if (error.code === 4902) {
 
       await window.ethereum.request({
-        method: "wallet_addEthereumChain",
+        method:
+          "wallet_addEthereumChain",
         params: [
           {
-            chainId: BSC_CHAIN_ID,
-            chainName: "BNB Smart Chain",
+            chainId:
+              BSC_CHAIN_ID,
+
+            chainName:
+              "BNB Smart Chain",
+
             nativeCurrency: {
               name: "BNB",
               symbol: "BNB",
               decimals: 18
             },
+
             rpcUrls: [
               "https://bsc-dataseed.bnbchain.org"
             ],
+
             blockExplorerUrls: [
               "https://bscscan.com"
             ]
@@ -533,29 +895,25 @@ async function ensureBsc() {
 
     throw error;
   }
-
 }
 
 
 async function refreshWallet(account) {
-
-  if (!account) return;
-
+  if (!account) {
+    return;
+  }
 
   if ($("walletAddress")) {
     $("walletAddress").textContent =
       short(account);
   }
 
-
   try {
-
     const gdty =
       await tokenBalance(
         GDTY,
         account
       );
-
 
     const usdt =
       await tokenBalance(
@@ -563,10 +921,10 @@ async function refreshWallet(account) {
         account
       );
 
-
     const bnb =
-      await nativeBalance(account);
-
+      await nativeBalance(
+        account
+      );
 
     if ($("walletGdty")) {
       $("walletGdty").textContent =
@@ -578,7 +936,6 @@ async function refreshWallet(account) {
         );
     }
 
-
     if ($("walletUsdt")) {
       $("walletUsdt").textContent =
         usdt.toLocaleString(
@@ -588,7 +945,6 @@ async function refreshWallet(account) {
           }
         );
     }
-
 
     if ($("walletBnb")) {
       $("walletBnb").textContent =
@@ -601,30 +957,31 @@ async function refreshWallet(account) {
     }
 
   } catch (error) {
-
-    console.error("Wallet:", error);
+    console.error(
+      "Wallet:",
+      error
+    );
 
     if ($("walletGdty")) {
-      $("walletGdty").textContent = "—";
+      $("walletGdty").textContent =
+        "—";
     }
 
     if ($("walletUsdt")) {
-      $("walletUsdt").textContent = "—";
+      $("walletUsdt").textContent =
+        "—";
     }
 
     if ($("walletBnb")) {
-      $("walletBnb").textContent = "—";
+      $("walletBnb").textContent =
+        "—";
     }
-
   }
-
 }
 
 
 async function connectWallet() {
-
   if (!window.ethereum) {
-
     alert(
       "MetaMask or another EVM-compatible wallet was not detected."
     );
@@ -632,41 +989,33 @@ async function connectWallet() {
     return null;
   }
 
-
   const button =
     $("walletBtn");
-
 
   if (button) {
     button.disabled = true;
   }
 
-
   try {
-
     await ensureBsc();
-
 
     const accounts =
       await window.ethereum.request({
-        method: "eth_requestAccounts"
+        method:
+          "eth_requestAccounts"
       });
-
 
     const account =
       accounts?.[0];
-
 
     if (!account) {
       return null;
     }
 
-
     localStorage.setItem(
       "gdtyWallet",
       account
     );
-
 
     if ($("walletBtn")) {
       $("walletBtn").textContent =
@@ -677,19 +1026,18 @@ async function connectWallet() {
       );
     }
 
-
     if ($("walletMenu")) {
-      $("walletMenu").hidden = false;
+      $("walletMenu").hidden =
+        false;
     }
 
-
-    await refreshWallet(account);
-
+    await refreshWallet(
+      account
+    );
 
     return account;
 
   } catch (error) {
-
     console.error(
       "Wallet connection:",
       error
@@ -703,95 +1051,87 @@ async function connectWallet() {
     return null;
 
   } finally {
-
     if (button) {
       button.disabled = false;
     }
-
   }
-
 }
 
 
 async function restoreWallet() {
-
-  if (!window.ethereum) return;
-
+  if (!window.ethereum) {
+    return;
+  }
 
   try {
-
     const accounts =
       await window.ethereum.request({
-        method: "eth_accounts"
+        method:
+          "eth_accounts"
       });
-
 
     const account =
       accounts?.[0];
 
-
-    if (!account) return;
-
+    if (!account) {
+      return;
+    }
 
     localStorage.setItem(
       "gdtyWallet",
       account
     );
 
-
     if ($("walletBtn")) {
-
       $("walletBtn").textContent =
         short(account);
 
       $("walletBtn").classList.add(
         "connected"
       );
-
     }
-
 
     if ($("walletMenu")) {
-      $("walletMenu").hidden = false;
+      $("walletMenu").hidden =
+        false;
     }
 
-
-    await refreshWallet(account);
+    await refreshWallet(
+      account
+    );
 
   } catch (error) {
-
     console.error(
       "Restore wallet:",
       error
     );
-
   }
-
 }
 
 
-/* DEX */
+/* =========================================================
+   DEX
+========================================================= */
 
 async function openDex(url) {
-
   if (window.ethereum) {
     await connectWallet();
   }
 
-  window.location.href = url;
-
+  window.location.href =
+    url;
 }
 
 
-/* COPY */
+/* =========================================================
+   COPY CONTRACT
+========================================================= */
 
 async function copyContract() {
-
-  const address = GDTY;
-
+  const address =
+    GDTY;
 
   try {
-
     await navigator.clipboard.writeText(
       address
     );
@@ -799,41 +1139,38 @@ async function copyContract() {
     const button =
       $("copyContract");
 
-
     if (button) {
-
       const original =
         button.textContent;
 
       button.textContent =
         "Copied";
 
-      setTimeout(() => {
-        button.textContent =
-          original;
-      }, 1500);
-
+      setTimeout(
+        () => {
+          button.textContent =
+            original;
+        },
+        1500
+      );
     }
 
   } catch {
-
     alert(
       `GDTY Contract:\n${address}`
     );
-
   }
-
 }
 
 
-/* EVENTS */
+/* =========================================================
+   MARKET RANGE EVENTS
+========================================================= */
 
 const ranges =
   $("ranges");
 
-
 if (ranges) {
-
   ranges.addEventListener(
     "click",
     event => {
@@ -843,9 +1180,9 @@ if (ranges) {
           "button[data-range]"
         );
 
-
-      if (!button) return;
-
+      if (!button) {
+        return;
+      }
 
       document
         .querySelectorAll(
@@ -857,24 +1194,23 @@ if (ranges) {
           )
         );
 
-
       button.classList.add(
         "active"
       );
 
-
       loadChart(
         button.dataset.range
       );
-
     }
   );
-
 }
 
 
-if ($("walletBtn")) {
+/* =========================================================
+   WALLET BUTTON
+========================================================= */
 
+if ($("walletBtn")) {
   $("walletBtn").addEventListener(
     "click",
     async () => {
@@ -884,40 +1220,29 @@ if ($("walletBtn")) {
           "gdtyWallet"
         );
 
-
       if (!connected) {
-
         await connectWallet();
-
         return;
       }
 
-
       if ($("walletMenu")) {
-
         $("walletMenu").hidden =
           !$("walletMenu").hidden;
-
       }
-
     }
   );
-
 }
 
 
 if ($("heroWallet")) {
-
   $("heroWallet").addEventListener(
     "click",
     connectWallet
   );
-
 }
 
 
 if ($("disconnectBtn")) {
-
   $("disconnectBtn").addEventListener(
     "click",
     () => {
@@ -926,58 +1251,79 @@ if ($("disconnectBtn")) {
         "gdtyWallet"
       );
 
-
       if ($("walletMenu")) {
-        $("walletMenu").hidden = true;
+        $("walletMenu").hidden =
+          true;
       }
 
-
       if ($("walletBtn")) {
-
         $("walletBtn").textContent =
           "Connect Wallet";
 
         $("walletBtn").classList.remove(
           "connected"
         );
-
       }
-
     }
   );
-
 }
 
 
-if ($("copyContract")) {
+/* =========================================================
+   COPY / DEX BUTTONS
+========================================================= */
 
+if ($("copyContract")) {
   $("copyContract").addEventListener(
     "click",
     copyContract
   );
-
 }
 
 
 if ($("buyUniswap")) {
-
   $("buyUniswap").addEventListener(
     "click",
-    () => openDex(UNISWAP_URL)
+    () =>
+      openDex(
+        UNISWAP_URL
+      )
   );
-
 }
 
 
 if ($("buyPancake")) {
-
   $("buyPancake").addEventListener(
     "click",
-    () => openDex(PANCAKESWAP_URL)
+    () =>
+      openDex(
+        PANCAKESWAP_URL
+      )
   );
-
 }
 
+
+/* =========================================================
+   COINGECKO
+========================================================= */
+
+if ($("coinGecko")) {
+  $("coinGecko").addEventListener(
+    "click",
+    () => {
+      window.open(
+        COINGECKO_SEARCH,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+  );
+}
+
+
+/* =========================================================
+   WALLET EVENTS
+========================================================= */
 
 if (window.ethereum) {
 
@@ -1001,9 +1347,7 @@ if (window.ethereum) {
         if ($("disconnectBtn")) {
           $("disconnectBtn").click();
         }
-
       }
-
     }
   );
 
@@ -1012,21 +1356,34 @@ if (window.ethereum) {
     "chainChanged",
     () => location.reload()
   );
-
 }
 
 
-/* ACCOUNT / AUTH */
+/* =========================================================
+   ACCOUNT / AUTH
+========================================================= */
 
 function setAccountState(user) {
+  const menu =
+    $("accountMenu");
 
-  const menu = $("accountMenu");
-  const label = $("accountLabel");
-  const guest = $("accountGuest");
-  const signedIn = $("accountSignedIn");
-  const userName = $("accountUserName");
-  const userEmail = $("accountUserEmail");
-  const mobileLogin = $("mobileLogin");
+  const label =
+    $("accountLabel");
+
+  const guest =
+    $("accountGuest");
+
+  const signedIn =
+    $("accountSignedIn");
+
+  const userName =
+    $("accountUserName");
+
+  const userEmail =
+    $("accountUserEmail");
+
+  const mobileLogin =
+    $("mobileLogin");
 
   const mobileRegister =
     document.querySelector(
@@ -1043,38 +1400,34 @@ function setAccountState(user) {
 
 
     if (menu) {
-      menu.classList.add("signed-in");
+      menu.classList.add(
+        "signed-in"
+      );
     }
-
 
     if (label) {
       label.textContent =
         `My Account · ${name}`;
     }
 
-
     if (guest) {
       guest.hidden = true;
     }
 
-
     if (signedIn) {
       signedIn.hidden = false;
     }
-
 
     if (userName) {
       userName.textContent =
         name;
     }
 
-
     if (userEmail) {
       userEmail.textContent =
         user.email ||
         "Signed in";
     }
-
 
     if (mobileLogin) {
       mobileLogin.textContent =
@@ -1085,11 +1438,10 @@ function setAccountState(user) {
       );
     }
 
-
     if (mobileRegister) {
-      mobileRegister.hidden = true;
+      mobileRegister.hidden =
+        true;
     }
-
 
   } else {
 
@@ -1099,34 +1451,28 @@ function setAccountState(user) {
       );
     }
 
-
     if (label) {
       label.textContent =
         "Register / Sign In";
     }
 
-
     if (guest) {
       guest.hidden = false;
     }
 
-
     if (signedIn) {
       signedIn.hidden = true;
     }
-
 
     if (userName) {
       userName.textContent =
         "Account";
     }
 
-
     if (userEmail) {
       userEmail.textContent =
         "Signed out";
     }
-
 
     if (mobileLogin) {
       mobileLogin.textContent =
@@ -1137,24 +1483,21 @@ function setAccountState(user) {
       );
     }
 
-
     if (mobileRegister) {
-      mobileRegister.hidden = false;
+      mobileRegister.hidden =
+        false;
     }
-
   }
-
 }
 
 
 function closeLoginModal() {
-
   const modal =
     $("loginModal");
 
-
-  if (!modal) return;
-
+  if (!modal) {
+    return;
+  }
 
   modal.hidden = true;
 
@@ -1162,27 +1505,23 @@ function closeLoginModal() {
     "aria-hidden",
     "true"
   );
-
 }
 
 
 function openLoginModal() {
-
   const modal =
     $("loginModal");
 
-
-  if (!modal) return;
-
+  if (!modal) {
+    return;
+  }
 
   const menu =
     $("accountMenu");
 
-
   if (menu) {
     menu.open = false;
   }
-
 
   modal.hidden = false;
 
@@ -1191,86 +1530,70 @@ function openLoginModal() {
     "false"
   );
 
-
   const state =
     $("loginState");
 
-
   if (state) {
-
     state.textContent = "";
 
     state.className =
       "status-text";
-
   }
 
-
-  setTimeout(() => {
-
-    $("loginEmail")?.focus();
-
-  }, 0);
-
+  setTimeout(
+    () => {
+      $("loginEmail")?.focus();
+    },
+    0
+  );
 }
 
 
 async function loadAccountSession() {
-
   try {
-
     const response =
       await fetch(
         `${API_BASE}/api/me`,
         {
           method: "GET",
-          credentials: "same-origin",
+          credentials:
+            "same-origin",
           cache: "no-store"
         }
       );
-
 
     const data =
       await response
         .json()
         .catch(() => ({}));
 
-
     if (
       response.ok &&
       data.ok &&
       data.user
     ) {
-
       setAccountState(
         data.user
       );
 
       return data.user;
-
     }
 
   } catch (error) {
-
     console.error(
       "Account session:",
       error
     );
-
   }
-
 
   setAccountState(null);
 
   return null;
-
 }
 
 
 async function signIn(event) {
-
   event.preventDefault();
-
 
   const email =
     $("loginEmail")?.value.trim() ||
@@ -1290,38 +1613,31 @@ async function signIn(event) {
   if (!email || !password) {
 
     if (state) {
-
       state.className =
         "status-text error";
 
       state.textContent =
         "Please enter your email and password.";
-
     }
 
     return;
-
   }
 
 
   if (submit) {
-
     submit.disabled = true;
 
     submit.textContent =
       "Signing in…";
-
   }
 
 
   if (state) {
-
     state.className =
       "status-text";
 
     state.textContent =
       "Checking your account…";
-
   }
 
 
@@ -1332,15 +1648,17 @@ async function signIn(event) {
         `${API_BASE}/api/login`,
         {
           method: "POST",
-          credentials: "same-origin",
+          credentials:
+            "same-origin",
           headers: {
             "content-type":
               "application/json"
           },
-          body: JSON.stringify({
-            email,
-            password
-          })
+          body:
+            JSON.stringify({
+              email,
+              password
+            })
         }
       );
 
@@ -1369,7 +1687,6 @@ async function signIn(event) {
 
         registration_not_configured:
           "Account service is temporarily unavailable."
-
       };
 
 
@@ -1378,14 +1695,13 @@ async function signIn(event) {
         data.message ||
         "Sign in failed. Please try again."
       );
-
     }
 
 
     setAccountState(
-      data.user || null
+      data.user ||
+      null
     );
-
 
     closeLoginModal();
 
@@ -1395,7 +1711,6 @@ async function signIn(event) {
         "/dashboard.html";
     }
 
-
   } catch (error) {
 
     console.error(
@@ -1403,43 +1718,36 @@ async function signIn(event) {
       error
     );
 
-
     if (state) {
-
       state.className =
         "status-text error";
 
       state.textContent =
         error.message ||
         "Sign in failed.";
-
     }
 
   } finally {
 
     if (submit) {
-
       submit.disabled = false;
 
       submit.textContent =
         "Sign In";
-
     }
-
   }
-
 }
 
 
 async function signOut() {
-
   try {
 
     await fetch(
       `${API_BASE}/api/logout`,
       {
         method: "POST",
-        credentials: "same-origin",
+        credentials:
+          "same-origin",
         headers: {
           "content-type":
             "application/json"
@@ -1453,44 +1761,38 @@ async function signOut() {
       "Sign out:",
       error
     );
-
   }
 
-
   setAccountState(null);
-
 
   const menu =
     $("accountMenu");
 
-
   if (menu) {
     menu.open = false;
   }
-
 }
 
+
+/* =========================================================
+   LOGIN EVENTS
+========================================================= */
 
 const openLogin =
   $("openLogin");
 
-
 if (openLogin) {
-
   openLogin.addEventListener(
     "click",
     openLoginModal
   );
-
 }
 
 
 const mobileLogin =
   $("mobileLogin");
 
-
 if (mobileLogin) {
-
   mobileLogin.addEventListener(
     "click",
     async () => {
@@ -1502,99 +1804,75 @@ if (mobileLogin) {
             "signed-in"
           );
 
-
       const mobileNav =
         document.querySelector(
           ".mobile-nav"
         );
 
-
       if (mobileNav) {
         mobileNav.open = false;
       }
 
-
       if (signedIn) {
-
         await signOut();
-
       } else {
-
         openLoginModal();
-
       }
-
     }
   );
-
 }
 
 
 const accountLogout =
   $("accountLogout");
 
-
 if (accountLogout) {
-
   accountLogout.addEventListener(
     "click",
     signOut
   );
-
 }
 
 
 const closeLogin =
   $("closeLogin");
 
-
 if (closeLogin) {
-
   closeLogin.addEventListener(
     "click",
     closeLoginModal
   );
-
 }
 
 
 const loginModal =
   $("loginModal");
 
-
 if (loginModal) {
-
   loginModal.addEventListener(
     "click",
     event => {
 
       if (
         event.target.matches(
-          "[data-close-login=\"true\"]"
+          '[data-close-login="true"]'
         )
       ) {
-
         closeLoginModal();
-
       }
-
     }
   );
-
 }
 
 
 const loginForm =
   $("loginForm");
 
-
 if (loginForm) {
-
   loginForm.addEventListener(
     "submit",
     signIn
   );
-
 }
 
 
@@ -1606,16 +1884,15 @@ document.addEventListener(
       event.key === "Escape" &&
       !$("loginModal")?.hidden
     ) {
-
       closeLoginModal();
-
     }
-
   }
 );
 
 
-/* START */
+/* =========================================================
+   START
+========================================================= */
 
 loadMarket();
 
@@ -1625,6 +1902,11 @@ restoreWallet();
 
 loadAccountSession();
 
+
+/*
+  Refresh live market data
+  every 15 seconds.
+*/
 
 setInterval(
   loadMarket,
