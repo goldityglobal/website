@@ -539,171 +539,362 @@ async function loginUser(e,req) {
 
 async function registerUser(e,req) {
 
-  if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
+  if(!e.DB)
 
-  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+    return out({
 
-  if(!await rateLimit(e,`register:${ip(req)}`,5,3600000))return out({ok:false,error:"rate_limited"},429,cors(e));
+      ok:false,
 
+      error:"registration_not_configured",
 
-  const d=await req.json().catch(()=>({}));
+      message:"Registration is temporarily unavailable."
 
-  const first=clean(d.firstName,80),last=clean(d.lastName,80),email=normalizeEmail(d.email);
-
-  const country=clean(d.country,80),phone=clean(d.phone,40)||null;
-
-  const password=String(d.password||""),ref=clean(d.referralCode,32).toUpperCase()||null;
+    },503,cors(e));
 
 
-  if(!first||!last||!emailRe.test(email)||!country||!validPassword(password)||!d.ageConfirmed||!d.termsAccepted||!d.privacyAccepted)
+  if(!await requireOrigin(e,req))
 
-    return out({ok:false,error:"validation_failed",message:"Please complete the required registration fields and accept the required terms."},400,cors(e));
-
-
-  if(await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first())
-
-    return out({ok:false,error:"email_exists",message:"An account with this email already exists."},409,cors(e));
-
-
-  let referredBy=null;
-
-
-  if(ref){
-
-    const r=await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(ref).first();
-
-
-    if(!r)
-
-      return out({ok:false,error:"invalid_referral",message:"The referral code is not valid."},400,cors(e));
-
-
-    referredBy=r.referral_code;
-
-  }
-
-
-  let code=await makeReferralCode(e);
-
-  const salt=crypto.getRandomValues(new Uint8Array(16));
-
-  const hash=await hashPassword(password,salt);
-
-  const uid=id(), now=nowIso();
+    return out({ok:false,error:"forbidden"},403,cors(e));
 
 
   try{
 
-    await e.DB.prepare(`
+    if(!await rateLimit(e,`register:${ip(req)}`,5,3600000))
 
-      INSERT INTO users(
+      return out({
 
-        id,email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
+        ok:false,
 
-        email_verified,terms_version,privacy_version,age_confirmed,marketing_consent,
+        error:"rate_limited",
 
-        created_at,updated_at
+        message:"Too many registration attempts. Please try again later."
 
-      )
-
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-
-    `).bind(
-
-      uid,email,hash,first,last,country,phone,code,referredBy,
-
-      0,TERMS_VERSION,PRIVACY_VERSION,1,d.marketingConsent?1:0,now,now
-
-    ).run();
-
-  }catch{
-
-    return out({ok:false,error:"registration_failed",message:"Account creation failed. Please try again."},500,cors(e));
-
-  }
+      },429,cors(e));
 
 
-  const raw=token(), tokenHash=await sha256Text(raw), exp=new Date(Date.now()+86400000).toISOString();
+    const d=await req.json().catch(()=>({}));
 
 
-  await e.DB.prepare(`
+    const first=clean(d.firstName,80);
 
-    INSERT INTO email_verification_tokens(token_hash,user_id,expires_at,created_at)
+    const last=clean(d.lastName,80);
 
-    VALUES(?,?,?,?)
+    const email=normalizeEmail(d.email);
 
-  `).bind(tokenHash,uid,exp,now).run();
+    const country=clean(d.country,80)||"";
 
+    const phone=clean(d.phone,40)||null;
 
-  let emailSent=false;
+    const password=String(d.password||"");
 
-
-  if(e.RESEND_API_KEY&&e.FROM_EMAIL){
-
-    const link=`${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}/verify-email.html?token=${encodeURIComponent(raw)}`;
+    const ref=clean(d.referralCode,32).toUpperCase()||null;
 
 
-    const r=await fetch("https://api.resend.com/emails",{
+    if(
 
-      method:"POST",
+      !first||
 
-      headers:{
+      !last||
 
-        authorization:`Bearer ${e.RESEND_API_KEY}`,
+      !emailRe.test(email)||
 
-        "content-type":"application/json"
+      !validPassword(password)||
 
-      },
+      !d.ageConfirmed||
 
-      body:JSON.stringify({
+      !d.termsAccepted||
 
-        from:e.FROM_EMAIL,
+      !d.privacyAccepted
 
-        to:[email],
+    )
 
-        subject:"Verify your GOLDITY account",
+      return out({
 
-        html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Welcome to GOLDITY</h2><p>Hello ${htmlEscape(first)},</p><p>Verify your email to activate your account.</p><p><a href="${htmlEscape(link)}">Verify Email</a></p></div>`
+        ok:false,
 
-      })
+        error:"validation_failed",
 
-    }).catch(()=>null);
+        message:"Please complete the required registration fields and accept the required terms."
 
-
-    emailSent=!!r?.ok;
-
-  }
+      },400,cors(e));
 
 
-  return out({
+    const existing=await e.DB.prepare(
 
-    ok:true,
+      "SELECT id FROM users WHERE email=?"
 
-    status:"pending_email_verification",
+    ).bind(email).first();
 
-    emailSent,
 
-    user:{
+    if(existing)
 
-      id:uid,
+      return out({
 
-      email,
+        ok:false,
 
-      firstName:first,
+        error:"email_exists",
 
-      lastName:last,
+        message:"An account with this email already exists."
 
-      country,
+      },409,cors(e));
 
-      referralCode:code,
 
-      referredBy,
+    let referredBy=null;
 
-      createdAt:now
+
+    if(ref){
+
+      const r=await e.DB.prepare(
+
+        "SELECT referral_code FROM users WHERE referral_code=?"
+
+      ).bind(ref).first();
+
+
+      if(!r)
+
+        return out({
+
+          ok:false,
+
+          error:"invalid_referral",
+
+          message:"The referral code is not valid."
+
+        },400,cors(e));
+
+
+      referredBy=r.referral_code;
 
     }
 
-  },201,cors(e));
+
+    const code=await makeReferralCode(e);
+
+    const salt=crypto.getRandomValues(new Uint8Array(16));
+
+    const passwordHash=await hashPassword(password,salt);
+
+    const uid=id();
+
+    const now=nowIso();
+
+    const rawVerificationToken=token();
+
+    const verificationTokenHash=await sha256Text(rawVerificationToken);
+
+    const verificationExpiresAt=new Date(Date.now()+86400000).toISOString();
+
+
+    /*
+
+      User creation and verification-token creation are one D1 batch.
+
+      D1 batches are transactional: if either statement fails, the batch
+
+      is rolled back. This prevents half-created accounts when the token
+
+      table/schema is unavailable.
+
+    */
+
+    await e.DB.batch([
+
+      e.DB.prepare(`
+
+        INSERT INTO users(
+
+          id,email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
+
+          email_verified,terms_version,privacy_version,age_confirmed,marketing_consent,
+
+          created_at,updated_at
+
+        )
+
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+
+      `).bind(
+
+        uid,
+
+        email,
+
+        passwordHash,
+
+        first,
+
+        last,
+
+        country,
+
+        phone,
+
+        code,
+
+        referredBy,
+
+        0,
+
+        TERMS_VERSION,
+
+        PRIVACY_VERSION,
+
+        1,
+
+        d.marketingConsent?1:0,
+
+        now,
+
+        now
+
+      ),
+
+
+      e.DB.prepare(`
+
+        INSERT INTO email_verification_tokens(
+
+          token_hash,user_id,expires_at,created_at
+
+        )
+
+        VALUES(?,?,?,?)
+
+      `).bind(
+
+        verificationTokenHash,
+
+        uid,
+
+        verificationExpiresAt,
+
+        now
+
+      )
+
+    ]);
+
+
+    let emailSent=false;
+
+
+    if(e.RESEND_API_KEY&&e.FROM_EMAIL){
+
+      const link=
+
+        `${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}`+
+
+        `/verify-email.html?token=${encodeURIComponent(rawVerificationToken)}`;
+
+
+      const r=await fetch("https://api.resend.com/emails",{
+
+        method:"POST",
+
+        headers:{
+
+          authorization:`Bearer ${e.RESEND_API_KEY}`,
+
+          "content-type":"application/json"
+
+        },
+
+        body:JSON.stringify({
+
+          from:e.FROM_EMAIL,
+
+          to:[email],
+
+          subject:"Verify your GOLDITY account",
+
+          html:
+
+            `<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px">`+
+
+            `<h2>Welcome to GOLDITY</h2>`+
+
+            `<p>Hello ${htmlEscape(first)},</p>`+
+
+            `<p>Verify your email to activate your account.</p>`+
+
+            `<p><a href="${htmlEscape(link)}">Verify Email</a></p>`+
+
+            `</div>`
+
+        })
+
+      }).catch(err=>{
+
+        console.error("GOLDITY verification email failed",{
+
+          message:err instanceof Error?err.message:String(err)
+
+        });
+
+        return null;
+
+      });
+
+
+      emailSent=!!r?.ok;
+
+    }
+
+
+    return out({
+
+      ok:true,
+
+      status:"pending_email_verification",
+
+      emailSent,
+
+      user:{
+
+        id:uid,
+
+        email,
+
+        firstName:first,
+
+        lastName:last,
+
+        country,
+
+        referralCode:code,
+
+        referredBy,
+
+        createdAt:now
+
+      }
+
+    },201,cors(e));
+
+
+  }catch(err){
+
+    console.error("GOLDITY registration failed",{
+
+      name:err instanceof Error?err.name:undefined,
+
+      message:err instanceof Error?err.message:String(err)
+
+    });
+
+
+    return out({
+
+      ok:false,
+
+      error:"registration_failed",
+
+      message:"Account creation failed. Please try again."
+
+    },500,cors(e));
+
+  }
 
 }
 
