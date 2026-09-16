@@ -393,7 +393,7 @@ img{max-width:100%}
 .token-card.tax-card strong{color:#9fe09c;font-size:20px}
 
 /* BUY */
-.buy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:30px}
+.buy-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-top:30px}
 .buy-card{padding:27px}
 .buy-card-head{display:flex;align-items:center;gap:12px}
 .buy-card h3{margin:0;color:#f0e6d4;font-family:Georgia,serif;font-size:20px}
