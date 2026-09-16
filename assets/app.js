@@ -171,7 +171,7 @@ const money = value => {
 
     minimumFractionDigits: number < 1 ? 4 : 2,
 
-    maximumFractionDigits: number < 1 ? 8 : 4
+    maximumFractionDigits: number < 1 ? 4 : 2
 
   })}`;
 
@@ -290,9 +290,17 @@ async function loadMarket() {
 
         data.dataStatus === "live"
 
-          ? "LIVE · verified on-chain sources"
+          ? "LIVE"
 
-          : "LIVE DATA UNAVAILABLE";
+          : "UNAVAILABLE";
+
+      $("status").classList.toggle(
+
+        "is-down",
+
+        data.dataStatus !== "live"
+
+      );
 
     }
 
@@ -407,7 +415,9 @@ if ($("totalGdtyReserve")) {
 
       $("status").textContent =
 
-        "LIVE DATA UNAVAILABLE";
+        "UNAVAILABLE";
+
+      $("status").classList.add("is-down");
 
     }
 
@@ -535,9 +545,9 @@ function draw() {
 
     if ($("chartState")) {
 
-      $("chartState").textContent =
+      $("chartState").innerHTML =
 
-        "Verified historical data unavailable";
+        '<svg width="30" height="18" viewBox="0 0 30 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 14L8 9L13 12L19 4L29 8" stroke="#5b5247" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>No history indexed for this pool yet</span>';
 
     }
 
@@ -1406,9 +1416,9 @@ async function loadChart(
 
     ) {
 
-      $("chartState").textContent =
+      $("chartState").innerHTML =
 
-        "Verified historical data unavailable";
+        '<svg width="30" height="18" viewBox="0 0 30 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 14L8 9L13 12L19 4L29 8" stroke="#5b5247" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>No history indexed for this pool yet</span>';
 
     }
 
