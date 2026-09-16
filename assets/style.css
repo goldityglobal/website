@@ -426,6 +426,7 @@ img{max-width:100%}
 .dashboard-card{position:relative;min-width:0;overflow-wrap:anywhere;padding:21px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(255,255,255,.018),rgba(255,255,255,0)),var(--panel);box-shadow:var(--shadow-soft);overflow:hidden}
 .dashboard-card::after{content:"";position:absolute;inset:auto 18px 0;height:1px;background:linear-gradient(90deg,transparent,rgba(217,180,91,.14),transparent);pointer-events:none}
 .dashboard-card:hover{border-color:#393226}
+.account-grid .dashboard-card{grid-column:span 3}
 .dashboard-card h3{margin:0 0 7px;color:#ece6da;font-size:14px}.dashboard-card p{margin:0;color:var(--muted);font-size:12px}
 .featured-card{border-color:#3b3323;background:radial-gradient(circle at 100% 0,rgba(217,180,91,.075),transparent 34%),linear-gradient(145deg,#12110d,#090909 65%)}
 .card-label{display:block;margin-bottom:7px;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
