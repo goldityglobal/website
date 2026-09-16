@@ -4236,6 +4236,8 @@ async function load() {
 
     renderAccount(data);
 
+    referralWithdrawalEnabled = !!data.referralWithdrawalEnabled;
+
  
 
     renderWallet(data.wallet);
