@@ -3491,3 +3491,38 @@ window.addEventListener(
   draw
 
 );
+
+/* =========================================================
+   HEADER MENUS: mutual exclusivity + close on outside click
+   (fixes account menu / wallet menu overlapping each other)
+========================================================= */
+document.addEventListener("click", function (e) {
+  var accountMenu = document.getElementById("accountMenu");
+  var walletMenu = document.getElementById("walletMenu");
+  var walletBtn = document.getElementById("walletBtn");
+
+  if (walletBtn && walletBtn.contains(e.target) && accountMenu) {
+    accountMenu.open = false;
+  }
+  if (accountMenu && accountMenu.open && !accountMenu.contains(e.target)) {
+    accountMenu.open = false;
+  }
+  if (
+    walletMenu &&
+    !walletMenu.hidden &&
+    !walletMenu.contains(e.target) &&
+    (!walletBtn || !walletBtn.contains(e.target))
+  ) {
+    walletMenu.hidden = true;
+  }
+});
+
+var accountMenuEl = document.getElementById("accountMenu");
+if (accountMenuEl) {
+  accountMenuEl.addEventListener("toggle", function () {
+    if (accountMenuEl.open) {
+      var wm = document.getElementById("walletMenu");
+      if (wm) wm.hidden = true;
+    }
+  });
+}
