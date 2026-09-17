@@ -1861,6 +1861,22 @@ async function connectWallet() {
 
   if (!window.ethereum) {
 
+    const isMobile =
+
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+
+    if (isMobile) {
+
+      window.location.href =
+
+        `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+
+      return null;
+
+    }
+
+
     alert(
 
       "MetaMask or another EVM-compatible wallet was not detected."
@@ -2327,14 +2343,36 @@ if ($("disconnectBtn")) {
 
     "click",
 
-    () => {
-
+    async () => {
 
       localStorage.removeItem(
 
         "gdtyWallet"
 
       );
+
+
+      if (window.ethereum) {
+
+        try {
+
+          await window.ethereum.request({
+
+            method: "wallet_revokePermissions",
+
+            params: [{ eth_accounts: {} }]
+
+          });
+
+        } catch (error) {
+
+          /* Wallet doesn't support revocation (older MetaMask, WalletConnect, etc.) —
+             local state is still cleared above, so the site itself forgets the wallet
+             even though the wallet extension may still show it as "connected" to this site. */
+
+        }
+
+      }
 
 
       if ($("walletMenu")) {
@@ -2383,6 +2421,66 @@ if ($("copyContract")) {
     "click",
 
     copyContract
+
+  );
+
+}
+
+
+
+if ($("addToMetaMask")) {
+
+  $("addToMetaMask").addEventListener(
+
+    "click",
+
+    async () => {
+
+      if (!window.ethereum) {
+
+        alert(
+
+          "No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first."
+
+        );
+
+        return;
+
+      }
+
+      try {
+
+        await window.ethereum.request({
+
+          method: "wallet_watchAsset",
+
+          params: {
+
+            type: "ERC20",
+
+            options: {
+
+              address: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801",
+
+              symbol: "GDTY",
+
+              decimals: 18,
+
+              image: `${window.location.origin}/favicon.png`
+
+            }
+
+          }
+
+        });
+
+      } catch (error) {
+
+        console.error("Add to MetaMask:", error);
+
+      }
+
+    }
 
   );
 
