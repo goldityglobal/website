@@ -372,9 +372,12 @@ async function signLegacyTx(privHex,{nonce,gasPrice,gasLimit,to,value,data}) {
   const unsignedRlp=rlpEncode(build([bigIntToBytes(chainId),new Uint8Array(0),new Uint8Array(0)]));
   const msgHash=keccak_256(unsignedRlp);
   const privKeyBytes=bytes(privHex);
-  const sig=await secp.signAsync(msgHash,privKeyBytes);
-  const v=chainId*2n+35n+BigInt(sig.recovery);
-  const signedRlp=rlpEncode(build([bigIntToBytes(v),bigIntToBytes(sig.r),bigIntToBytes(sig.s)]));
+  const sigBytes=await secp.signAsync(msgHash,privKeyBytes,{format:"recovered",prehash:false});
+  const recovery=BigInt(sigBytes[0]);
+  const rBig=uint("0x"+[...sigBytes.slice(1,33)].map(x=>x.toString(16).padStart(2,"0")).join(""));
+  const sBig=uint("0x"+[...sigBytes.slice(33,65)].map(x=>x.toString(16).padStart(2,"0")).join(""));
+  const v=chainId*2n+35n+recovery;
+  const signedRlp=rlpEncode(build([bigIntToBytes(v),bigIntToBytes(rBig),bigIntToBytes(sBig)]));
   return "0x"+[...signedRlp].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
 
@@ -398,8 +401,8 @@ function recoveredAddress(signatureHex,message) {
   if(v>=27)v-=27;
   if(v>1)throw new Error("invalid_signature");
   const sig=new Uint8Array(65);
-  sig.set(raw.slice(0,64));sig[64]=v;
-  const pub=secp.recoverPublicKey(sig,eip191Digest(message),{prehash:false});
+  sig[0]=v;sig.set(raw.slice(0,64),1);
+  const pub=secp.recoverPublicKey(sig,eip191Digest(message),{prehash:false,isCompressed:false});
   const uncompressed=pub.length===65?pub.slice(1):pub;
   const h=keccak_256(uncompressed);
   return "0x"+[...h.slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("");
