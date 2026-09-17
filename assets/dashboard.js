@@ -525,6 +525,7 @@ function renderWallet(wallet) {
  
 
     updateWithdrawButton();
+    updateVerifyPurchaseButton();
 
  
 
@@ -629,6 +630,7 @@ function renderWallet(wallet) {
  
 
   updateWithdrawButton();
+  updateVerifyPurchaseButton();
 
  
 
@@ -1513,6 +1515,7 @@ function renderRewards(rewards) {
  
 
   updateWithdrawButton();
+  updateVerifyPurchaseButton();
 
  
 
@@ -1557,6 +1560,7 @@ function renderPayout(payout) {
     );
 
     updateWithdrawButton();
+    updateVerifyPurchaseButton();
 
     return;
 
@@ -1629,6 +1633,7 @@ function renderPayout(payout) {
  
 
   updateWithdrawButton();
+  updateVerifyPurchaseButton();
 
  
 
@@ -2035,6 +2040,7 @@ async function withdrawRewards() {
  
 
   updateWithdrawButton();
+  updateVerifyPurchaseButton();
 
  
 
@@ -2211,6 +2217,7 @@ async function withdrawRewards() {
  
 
     updateWithdrawButton();
+    updateVerifyPurchaseButton();
 
  
 
@@ -2297,6 +2304,93 @@ function setupWithdrawal() {
  
 
  
+
+
+/* =========================
+   VERIFY PURCHASE
+========================= */
+
+const TX_HASH_RE = /^0x[a-fA-F0-9]{64}$/;
+
+let verifyPurchaseBusy = false;
+
+function setVerifyPurchaseState(message, error = false) {
+  const el = $("verifyPurchaseState");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("error", error);
+}
+
+function updateVerifyPurchaseButton() {
+  const button = $("verifyPurchaseSubmit");
+  if (!button) return;
+  button.disabled = verifyPurchaseBusy || !walletConnected;
+}
+
+function verifyPurchaseErrorMessage(code) {
+  const messages = {
+    unauthorized: "Please sign in first.",
+    forbidden: "Request blocked. Please refresh and try again.",
+    rate_limited: "Too many attempts. Please try again shortly.",
+    invalid_tx_hash: "Enter a valid transaction hash (0x followed by 64 hex characters).",
+    wallet_not_connected: "Connect and verify your wallet before verifying a purchase.",
+    transaction_not_found: "This transaction was not found on BNB Smart Chain yet. If you just sent it, wait a few seconds and try again.",
+    transaction_wallet_mismatch: "This transaction was not sent from your connected wallet.",
+    transaction_failed: "This transaction failed on-chain and cannot be verified.",
+    unsupported_trade: "This transaction is not a recognized GDTY buy or sell on PancakeSwap V2 or Uniswap V2.",
+    transaction_already_recorded: "This transaction has already been verified and recorded."
+  };
+  return messages[code] || "Unable to verify this transaction. Please try again.";
+}
+
+async function verifyPurchase(event) {
+  event.preventDefault();
+  if (verifyPurchaseBusy) return;
+
+  const input = $("verifyPurchaseTxHash");
+  const txHash = (input?.value || "").trim().toLowerCase();
+
+  if (!TX_HASH_RE.test(txHash)) {
+    setVerifyPurchaseState("Enter a valid transaction hash (0x followed by 64 hex characters).", true);
+    return;
+  }
+
+  if (!walletConnected) {
+    setVerifyPurchaseState("Connect and verify your wallet before verifying a purchase.", true);
+    return;
+  }
+
+  verifyPurchaseBusy = true;
+  updateVerifyPurchaseButton();
+  setVerifyPurchaseState("Verifying transaction on BNB Smart Chain…");
+
+  try {
+    const data = await api("/api/trade/verify", {
+      method: "POST",
+      body: JSON.stringify({ txHash })
+    });
+
+    const statusLabel = data.status === "confirmed" ? "confirmed" : "pending confirmations";
+    setVerifyPurchaseState(`Purchase verified and recorded (${statusLabel}).`);
+    if (input) input.value = "";
+
+    await load();
+  } catch (error) {
+    setVerifyPurchaseState(verifyPurchaseErrorMessage(error.message), true);
+
+    if (error.message === "unauthorized" || error.message === "Please sign in first.") {
+      location.href = "/login.html";
+      return;
+    }
+  } finally {
+    verifyPurchaseBusy = false;
+    updateVerifyPurchaseButton();
+  }
+}
+
+function setupVerifyPurchase() {
+  $("verifyPurchaseForm")?.addEventListener("submit", verifyPurchase);
+}
 
 /* =========================
 
@@ -4425,6 +4519,10 @@ setupWalletEvents();
  
 
 setupWithdrawal();
+
+setupVerifyPurchase();
+
+updateVerifyPurchaseButton();
 
  
 
