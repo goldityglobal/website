@@ -328,7 +328,7 @@ img{max-width:100%}
 .contract-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
 .contract-meta span{padding:5px 9px;border:1px solid #302a20;border-radius:999px;color:#999084;background:#080807;font-size:9px}
 .contract-meta span:first-child{color:#b7d6a6}
-.contract-actions{display:flex;align-items:center;gap:8px}
+.contract-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .contract-explorer{width:44px;height:44px;display:grid;place-items:center;border:1px solid #40382b;border-radius:9px;color:var(--gold-light);font-size:19px}
 .contract-explorer:hover{border-color:var(--gold);background:rgba(217,180,91,.06)}
 
@@ -463,7 +463,9 @@ img{max-width:100%}
 .dashboard-card strong{color:#f1e5c1;font-size:22px;font-weight:800;letter-spacing:-.02em}.dashboard-card small{color:var(--muted-2)}
 .balance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.balance-grid .dashboard-card{min-height:118px}
 .portfolio-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.wallet-card,.referral-code-card,.referral-link-card{grid-column:span 6}.security-note{grid-column:span 12;padding:15px 18px;border:1px solid #29251d;border-radius:10px;background:rgba(217,180,91,.025);color:var(--muted);font-size:11px}
+.wallet-card,.referral-code-card,.referral-link-card{grid-column:span 6}
+.referral-code-card{grid-column:span 12}
+.referral-stat-card{grid-column:span 4}.security-note{grid-column:span 12;padding:15px 18px;border:1px solid #29251d;border-radius:10px;background:rgba(217,180,91,.025);color:var(--muted);font-size:11px}
 .wallet-address-wrap,.copy-row{display:flex;align-items:center;gap:8px}.wallet-address-wrap{margin-top:10px;padding:11px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#080807}.wallet-address-wrap code{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gold-light);font-size:11px}.wallet-status{display:inline-flex;align-items:center;gap:6px;margin-top:10px;color:var(--muted);font-size:10px}.wallet-status::before{content:"";width:6px;height:6px;border-radius:50%;background:#6e6a61}
 .copy-row{margin-top:10px}.copy-row input,.copy-row code{min-width:0;flex:1}.copy-row input{width:100%;padding:10px 11px;border:1px solid var(--line-soft);border-radius:8px;background:#080807;color:var(--text-soft)}
 .badge{display:inline-flex;align-items:center;min-height:24px;padding:4px 9px;border:1px solid #383227;border-radius:999px;color:var(--gold-light);background:rgba(217,180,91,.045);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
@@ -633,7 +635,11 @@ img{max-width:100%}
 }
 
 @media(max-width:760px){
-  .account-menu{display:none}
+  .account-menu{display:block}
+  .account-menu summary{padding:8px 9px;gap:5px}
+  .account-menu summary span#accountLabel{max-width:58px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
+  .account-dropdown{width:min(300px,calc(100vw - 24px))}
+  .header-actions{gap:7px}
   .auth-modal{padding:14px}
   .auth-modal-card{padding:25px 20px}
 }
