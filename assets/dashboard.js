@@ -545,7 +545,7 @@ function renderWallet(wallet) {
 
  
 
-  setText("walletAddress", shortAddress(wallet.address));
+  setText("walletAddress", wallet.address);
 
  
 
