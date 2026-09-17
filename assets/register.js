@@ -162,11 +162,11 @@ if(form){
 
     data.ageConfirmed=form.ageConfirmed.checked;
 
-    data.termsAccepted=form.termsAccepted.checked;
+    data.termsAccepted=form.termsPrivacyAccepted.checked;
 
-    data.privacyAccepted=form.privacyAccepted.checked;
+    data.privacyAccepted=form.termsPrivacyAccepted.checked;
 
-    data.marketingConsent=form.marketingConsent.checked;
+    data.marketingConsent=false;
 
  
 
