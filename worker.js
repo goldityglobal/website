@@ -489,26 +489,58 @@ function parseTransfer(log) {
 
 async function verifyTrade(e,u,txHash) {
   if(!u.wallet_address)return {ok:false,error:"wallet_not_connected"};
+  const wallet=u.wallet_address.toLowerCase();
   const tx=await rpc(e,"eth_getTransactionByHash",[txHash]);
   const receipt=await rpc(e,"eth_getTransactionReceipt",[txHash]);
   if(!tx||!receipt)return {ok:false,error:"transaction_not_found"};
-  if(String(tx.from).toLowerCase()!==u.wallet_address.toLowerCase())return {ok:false,error:"transaction_wallet_mismatch"};
+  if(String(tx.from).toLowerCase()!==wallet)return {ok:false,error:"transaction_wallet_mismatch"};
   if(receipt.status!=="0x1")return {ok:false,error:"transaction_failed"};
-  const pp=await pair(e);
-  const pools=new Map([[A.UNI,"Uniswap V2"],[pp,"PancakeSwap V2"]]);
-  const pairAddress=String(tx.to||"").toLowerCase();
-  let dex=pools.get(pairAddress);
+
   const logs=(receipt.logs||[]).map(parseTransfer).filter(Boolean);
-  const relevantPools=[...pools.entries()].filter(([p])=>logs.some(l=>l.token===A.G||l.token===A.U)&&String(p).length===42);
-  for(const [p,name] of relevantPools){
-    const gBuy=logs.find(l=>l.token===A.G&&l.from===p&&l.to===u.wallet_address.toLowerCase());
-    const uBuy=logs.find(l=>l.token===A.U&&l.from===u.wallet_address.toLowerCase()&&l.to===p);
-    if(gBuy&&uBuy){dex=name;return {ok:true,side:"buy",pair:p,dex,gdty:gBuy.amount,usdt:uBuy.amount,block:parseInt(receipt.blockNumber,16)};}
-    const gSell=logs.find(l=>l.token===A.G&&l.from===u.wallet_address.toLowerCase()&&l.to===p);
-    const uSell=logs.find(l=>l.token===A.U&&l.from===p&&l.to===u.wallet_address.toLowerCase());
-    if(gSell&&uSell){dex=name;return {ok:true,side:"sell",pair:p,dex,gdty:gSell.amount,usdt:uSell.amount,block:parseInt(receipt.blockNumber,16)};}
+
+  // Net GDTY movement for this wallet across every transfer log in the tx. This works no matter
+  // which pool, DEX, aggregator or router the trade actually went through (PancakeSwap V2/V3,
+  // Uniswap, MetaMask's built-in swap, Trust Wallet's built-in swap, a multi-hop route, etc.) -
+  // we only care about the net result on the user's own wallet, not the exact path taken.
+  let gdtyIn=0n,gdtyOut=0n;
+  for(const l of logs){
+    if(l.token!==A.G)continue;
+    if(l.to===wallet)gdtyIn+=BigInt(l.amount);
+    if(l.from===wallet)gdtyOut+=BigInt(l.amount);
   }
-  return {ok:false,error:"unsupported_trade"};
+  const gdtyNet=gdtyIn-gdtyOut;
+  if(gdtyNet===0n)return {ok:false,error:"unsupported_trade"};
+  const side=gdtyNet>0n?"buy":"sell";
+
+  // USDT that moved for this wallet in the same tx - used only for the displayed price/portfolio
+  // figures. The 5% referral reward is based purely on the GDTY amount, so it is unaffected by
+  // which currency (USDT, BNB, or any other token) was actually used to pay for the trade.
+  let usdtIn=0n,usdtOut=0n;
+  for(const l of logs){
+    if(l.token!==A.U)continue;
+    if(l.to===wallet)usdtIn+=BigInt(l.amount);
+    if(l.from===wallet)usdtOut+=BigInt(l.amount);
+  }
+
+  // Proof that real value actually left/entered this wallet in the same tx - stops a plain
+  // "someone sent me GDTY for free" transfer from being counted as a purchase. Covers payment in
+  // USDT, any other ERC20 token, or native BNB.
+  const otherTokenOut=logs.some(l=>l.token!==A.G&&l.from===wallet);
+  const otherTokenIn=logs.some(l=>l.token!==A.G&&l.to===wallet);
+  const bnbSent=BigInt(tx.value||"0x0")>0n;
+  if(side==="buy"&&!(usdtOut>0n||otherTokenOut||bnbSent))return {ok:false,error:"unsupported_trade"};
+  if(side==="sell"&&!(usdtIn>0n||otherTokenIn))return {ok:false,error:"unsupported_trade"};
+
+  const pp=await pair(e);
+  const dexMap=new Map([[A.UNI,"Uniswap V2"],[pp,"PancakeSwap V2"]]);
+  const dex=dexMap.get(String(tx.to||"").toLowerCase())||"On-chain";
+
+  return {
+    ok:true,side,dex,pair:String(tx.to||"").toLowerCase(),
+    gdty:(side==="buy"?gdtyNet:-gdtyNet).toString(),
+    usdt:(side==="buy"?usdtOut:usdtIn).toString(),
+    block:parseInt(receipt.blockNumber,16)
+  };
 }
 
 async function recordTrade(e,u,trade) {
@@ -544,7 +576,8 @@ async function recordTrade(e,u,trade) {
     `).bind(u.id,(bought+g).toString(),sold.toString(),(spent+uAmt).toString(),received.toString(),(cost+uAmt).toString(),realized.toString(),now).run();
     const reward=g/20n;
     const refUser=u.referred_by?await e.DB.prepare("SELECT id FROM users WHERE referral_code=?").bind(u.referred_by).first():null;
-    if(refUser&&reward>0n){
+    const alreadyRewarded=refUser?await e.DB.prepare("SELECT id FROM referral_rewards WHERE referred_user_id=? LIMIT 1").bind(u.id).first():null;
+    if(refUser&&reward>0n&&!alreadyRewarded){
       await e.DB.prepare(`
         INSERT OR IGNORE INTO referral_rewards(id,referrer_user_id,referred_user_id,trade_id,source_tx_hash,gdty_amount_wei,reward_amount_wei,reward_rate_bps,status,created_at,available_at)
         VALUES(?,?,?,?,?,?,?,?,?,?,?)
