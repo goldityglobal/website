@@ -3140,6 +3140,64 @@ async function copyText(text, button) {
 
  
 
+function setupAddToken() {
+
+  $("addGdtyToken")?.addEventListener(
+
+    "click",
+
+    async () => {
+
+      if (!window.ethereum) {
+
+        alert(
+
+          "No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first."
+
+        );
+
+        return;
+
+      }
+
+      try {
+
+        await window.ethereum.request({
+
+          method: "wallet_watchAsset",
+
+          params: {
+
+            type: "ERC20",
+
+            options: {
+
+              address: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801",
+
+              symbol: "GDTY",
+
+              decimals: 18,
+
+              image: `${window.location.origin}/favicon.png`
+
+            }
+
+          }
+
+        });
+
+      } catch (error) {
+
+        console.error("Add to wallet:", error);
+
+      }
+
+    }
+
+  );
+
+}
+
 function setupCopyButtons() {
 
  
@@ -4503,6 +4561,10 @@ async function load() {
  
 
 setupCopyButtons();
+
+ 
+
+setupAddToken();
 
  
 
