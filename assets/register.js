@@ -6,125 +6,13 @@ const form=document.getElementById("registerForm");
 
 const state=document.getElementById("registerState");
 
-const ref=document.getElementById("referralCode");
 
-const refStatus=document.getElementById("refStatus");
 
  
 
 function setState(message){
 
   if(state) state.textContent=message;
-
-}
-
- 
-
-async function readJson(response){
-
-  const text=await response.text();
-
- 
-
-  try{
-
-    return text?JSON.parse(text):{};
-
-  }catch{
-
-    return {
-
-      ok:false,
-
-      error:"invalid_server_response",
-
-      message:"The server returned an invalid response. Please try again."
-
-    };
-
-  }
-
-}
-
- 
-
-if(ref){
-
-  ref.addEventListener("blur",async()=>{
-
-    const code=ref.value.trim();
-
- 
-
-    if(!code){
-
-      refStatus.textContent="";
-
-      return;
-
-    }
-
- 
-
-    refStatus.textContent="Checking referral code…";
-
- 
-
-    try{
-
-      const response=await fetch(
-
-        API_BASE+"/api/referral/check?code="+encodeURIComponent(code),
-
-        {
-
-          headers:{
-
-            accept:"application/json"
-
-          }
-
-        }
-
-      );
-
- 
-
-      const data=await readJson(response);
-
- 
-
-      if(!response.ok){
-
-        refStatus.textContent=
-
-          data.message||
-
-          "Referral validation is temporarily unavailable.";
-
-        return;
-
-      }
-
- 
-
-      refStatus.textContent=data.valid
-
-        ?"Valid referral code."
-
-        :"Referral code not found.";
-
- 
-
-    }catch{
-
-      refStatus.textContent=
-
-        "Referral validation is temporarily unavailable.";
-
-    }
-
-  });
 
 }
 
@@ -220,12 +108,6 @@ if(form){
 
               :
 
-            result.error==="invalid_referral"
-
-              ?"The referral code is not valid."
-
-              :
-
             result.error==="validation_failed"
 
               ?"Please complete the required fields and accept the required terms."
@@ -242,17 +124,9 @@ if(form){
 
  
 
-      const code=result?.user?.referralCode;
-
- 
-
       setState(
 
-        code
-
-          ?`Account created. Your referral code is ${code}. Email verification is required before activation.`
-
-          :"Account created. Email verification is required before activation."
+        "Account created. Email verification is required before activation."
 
       );
 
