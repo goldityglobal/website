@@ -3148,7 +3148,9 @@ function setupAddToken() {
 
     async () => {
 
-      if (!window.ethereum) {
+      const eth = getEthereum();
+
+      if (!eth) {
 
         alert(
 
@@ -3162,7 +3164,7 @@ function setupAddToken() {
 
       try {
 
-        await window.ethereum.request({
+        await eth.request({
 
           method: "wallet_watchAsset",
 
@@ -3310,6 +3312,79 @@ function setupCopyButtons() {
 
  
 
+/* =========================================================
+   WALLET PROVIDER DISCOVERY (EIP-6963)
+   Lets a user with several wallet extensions installed (MetaMask,
+   Trust Wallet, Coinbase Wallet, etc.) pick which one to connect,
+   instead of silently grabbing whichever one claimed window.ethereum.
+========================================================= */
+
+let activeProvider = null;
+const discoveredWallets = [];
+
+window.addEventListener("eip6963:announceProvider", event => {
+  const detail = event.detail;
+  if (!detail?.info?.uuid) return;
+  if (discoveredWallets.some(w => w.info.uuid === detail.info.uuid)) return;
+  discoveredWallets.push(detail);
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+function getEthereum() {
+  return activeProvider || window.ethereum || null;
+}
+
+function pickWalletProvider() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      if (discoveredWallets.length === 0) {
+        resolve(window.ethereum || null);
+        return;
+      }
+      if (discoveredWallets.length === 1) {
+        resolve(discoveredWallets[0].provider);
+        return;
+      }
+      showWalletPicker(discoveredWallets, chosen => {
+        resolve(chosen ? chosen.provider : null);
+      });
+    }, 150);
+  });
+}
+
+function showWalletPicker(wallets, onChoose) {
+  const overlay = document.createElement("div");
+  overlay.className = "wallet-picker-overlay";
+  overlay.innerHTML = `
+    <div class="wallet-picker" role="dialog" aria-label="Choose a wallet">
+      <h3>Choose a wallet</h3>
+      <div class="wallet-picker-list">
+        ${wallets.map((w, i) => `
+          <button type="button" class="wallet-picker-item" data-idx="${i}">
+            <img src="${w.info.icon}" alt="" width="26" height="26">
+            <span>${w.info.name}</span>
+          </button>
+        `).join("")}
+      </div>
+      <button type="button" class="wallet-picker-cancel">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const cleanup = result => {
+    overlay.remove();
+    onChoose(result);
+  };
+
+  overlay.querySelectorAll(".wallet-picker-item").forEach(btn => {
+    btn.addEventListener("click", () => cleanup(wallets[Number(btn.dataset.idx)]));
+  });
+  overlay.querySelector(".wallet-picker-cancel")?.addEventListener("click", () => cleanup(null));
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) cleanup(null);
+  });
+}
+
 async function connectWallet() {
 
  
@@ -3318,31 +3393,25 @@ async function connectWallet() {
 
  
 
-  if (!window.ethereum) {
+  const provider = await pickWalletProvider();
 
- 
+  if (!provider) {
 
     setState(
 
- 
-
       "MetaMask or a compatible Web3 wallet is required.",
-
- 
 
       true
 
- 
-
     );
-
- 
 
     return;
 
- 
-
   }
+
+  activeProvider = provider;
+
+  bindWalletEvents(provider);
 
  
 
@@ -3362,7 +3431,7 @@ async function connectWallet() {
 
  
 
-      await window.ethereum.request({
+      await provider.request({
 
  
 
@@ -3418,7 +3487,7 @@ async function connectWallet() {
 
  
 
-      await window.ethereum.request({
+      await provider.request({
 
  
 
@@ -3554,7 +3623,7 @@ async function connectWallet() {
 
  
 
-      await window.ethereum.request({
+      await provider.request({
 
  
 
@@ -4242,78 +4311,16 @@ function setupLogout() {
 
  
 
+function bindWalletEvents(eth) {
+  if (!eth || eth.__gdtyBound) return;
+  eth.__gdtyBound = true;
+  eth.on?.("accountsChanged", () => load());
+  eth.on?.("chainChanged", () => load());
+}
+
 function setupWalletEvents() {
-
- 
-
- 
-
- 
-
-  $("connectWallet")?.addEventListener(
-
- 
-
-    "click",
-
- 
-
-    connectWallet
-
- 
-
-  );
-
- 
-
- 
-
- 
-
-  if (!window.ethereum) return;
-
- 
-
- 
-
- 
-
-  window.ethereum.on?.(
-
- 
-
-    "accountsChanged",
-
- 
-
-    () => load()
-
- 
-
-  );
-
- 
-
- 
-
- 
-
-  window.ethereum.on?.(
-
- 
-
-    "chainChanged",
-
- 
-
-    () => load()
-
- 
-
-  );
-
- 
-
+  $("connectWallet")?.addEventListener("click", connectWallet);
+  bindWalletEvents(getEthereum());
 }
 
  
