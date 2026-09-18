@@ -645,13 +645,3 @@ img{max-width:100%}
 @media(max-width:420px){
   .auth-modal-card h2{font-size:25px}
 }
-
-.wallet-picker-overlay{position:fixed;inset:0;z-index:9999;background:rgba(4,4,3,.72);display:flex;align-items:center;justify-content:center;padding:20px}
-.wallet-picker{width:100%;max-width:340px;background:#0c0b09;border:1px solid var(--line-soft);border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.wallet-picker h3{margin:0 0 14px;color:var(--gold-light);font-size:16px}
-.wallet-picker-list{display:flex;flex-direction:column;gap:8px}
-.wallet-picker-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#100f0c;color:var(--text);font-size:14px;cursor:pointer;text-align:left}
-.wallet-picker-item:hover{border-color:var(--gold);background:rgba(217,180,91,.08)}
-.wallet-picker-item img{border-radius:6px;flex:none}
-.wallet-picker-cancel{width:100%;margin-top:14px;padding:9px 12px;border:1px solid var(--line-soft);border-radius:9px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
-.wallet-picker-cancel:hover{color:var(--text)}
