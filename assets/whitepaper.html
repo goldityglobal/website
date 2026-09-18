@@ -51,99 +51,109 @@
 
 <main class="page paper">
 
-<p class="eyebrow">OFFICIAL DOCUMENT · VERSION 1.0 · 13 SEP 2026</p>
+<p class="eyebrow">OFFICIAL DOCUMENT · VERSION 1.1 · 19 SEPTEMBER 2026</p>
 
 <h1>GOLDITY Whitepaper</h1>
 
-<p class="lead">GOLDITY (GDTY) is a fixed-supply digital asset deployed on BNB Smart Chain. This document describes the currently verified token parameters, contract behavior and market-data methodology.</p>
-
- 
+<p class="lead">GOLDITY (GDTY) is a fixed-supply digital asset deployed on BNB Smart Chain. This document describes the token parameters, contract behavior, token distribution and lock schedule as verified on-chain at the snapshot date. All figures can be verified on BscScan and may change over time.</p>
 
 <div class="paper-grid">
 
- 
-
 <article>
-
 <h2>1. Token Overview</h2>
-
-<p><strong>Name:</strong> GOLDITY<br>
-
-<strong>Symbol:</strong> GDTY<br>
-
-<strong>Network:</strong> BNB Smart Chain<br>
-
-<strong>Chain ID:</strong> 56<br>
-
-<strong>Decimals:</strong> 18<br>
-
-<strong>Total supply:</strong> 19,100,000 GDTY</p>
-
+<div class="table-wrap">
+<table class="dashboard-table">
+<tbody>
+<tr><td>Name</td><td>GOLDITY</td></tr>
+<tr><td>Symbol</td><td>GDTY</td></tr>
+<tr><td>Network</td><td>BNB Smart Chain (Chain ID 56)</td></tr>
+<tr><td>Decimals</td><td>18</td></tr>
+<tr><td>Total supply</td><td>19,100,000 GDTY</td></tr>
+<tr><td>Contract</td><td><code><a href="/contract.html">0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801</a></code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Always verify the contract address on the official website before interacting with the token.</p>
 </article>
 
- 
-
 <article>
-
-<h2>2. Contract</h2>
-
-<p>The official GDTY contract address is shown on the dedicated Contract page and should always be verified before interacting with the token.</p>
-
-<a class="cta secondary" href="/contract.html">View Contract →</a>
-
+<h2>2. Contract Mechanics</h2>
+<p>The entire supply was minted once at deployment. The contract has no mint function, so supply can only decrease, because holders may burn their own tokens.</p>
+<p>Buy tax, sell tax and wallet-to-wallet transfer tax are all 0%. The contract contains no tax logic, blacklist, pause function or trading restriction.</p>
+<p>Ownership uses a two-step transfer process. The current owner is a smart contract address. The owner's only administrative function, registering the four vesting contracts, has been executed and cannot be executed again.</p>
 </article>
 
- 
-
-<article>
-
-<h2>3. Contract Mechanics</h2>
-
-<p>The current contract uses a fixed supply with no mint function. Holders can burn their own tokens. Buy tax is 0%; sell tax is 0%; wallet-to-wallet transfers are 0%. The contract uses two-step ownership and supports tax-exempt pair/vesting addresses according to its deployed logic.</p>
-
+<article style="grid-column:1/-1">
+<h2>3. Token Distribution</h2>
+<p>On-chain snapshot: 19 September 2026.</p>
+<div class="table-wrap">
+<table class="dashboard-table">
+<thead>
+<tr><th>Allocation</th><th>GDTY</th><th>% of supply</th><th>Mechanism</th><th>Release</th></tr>
+</thead>
+<tbody>
+<tr><td>Locked tokens</td><td>6,000,000</td><td>31.41%</td><td>Team Finance token lock</td><td>28 March 2028</td></tr>
+<tr><td>Reserve</td><td>1,910,000</td><td>10.00%</td><td>GOLDITYVesting</td><td>Single release on 5 March 2027</td></tr>
+<tr><td>Marketing</td><td>764,000</td><td>4.00%</td><td>GOLDITYVesting</td><td>50% on 5 March 2027, then monthly until 1 September 2027</td></tr>
+<tr><td>Advisors</td><td>573,000</td><td>3.00%</td><td>GOLDITYVesting</td><td>Single release on 6 September 2027</td></tr>
+<tr><td>Team</td><td>573,000</td><td>3.00%</td><td>GOLDITYVesting</td><td>Single release on 6 September 2027</td></tr>
+<tr><td>Public offering and liquidity support</td><td>≈ 6,749,713</td><td>≈ 35.34%</td><td>Wallet 0x02e5…c0C8</td><td>Terms published before any sale</td></tr>
+<tr><td>Community rewards, quests, airdrops, contests</td><td>≈ 2,000,008</td><td>≈ 10.47%</td><td>Wallet 0x6D00…8b32</td><td>Each distribution documented publicly</td></tr>
+<tr><td>Operations</td><td>≈ 516,841</td><td>≈ 2.71%</td><td>Wallets 0x57c0…676a and 0x4908…d</td><td>Operational use</td></tr>
+<tr><td>DEX liquidity</td><td>see market data</td><td>≈ 0.03%</td><td>PancakeSwap V2 and Uniswap V2 pools</td><td>Market liquidity</td></tr>
+</tbody>
+</table>
+</div>
+<p>The remaining supply is held by other small wallets. The locks and vesting contracts described in this document apply to GDTY tokens; liquidity pool positions are outside its scope.</p>
 </article>
 
- 
-
-<article>
-
-<h2>4. Market Reference Price</h2>
-
-<p>The website's Reference Price is calculated from valid GDTY/USDT prices from the configured Uniswap V2 and PancakeSwap V2 pools. When both configured sources are valid, the Reference Price is their arithmetic mean. If one source is unavailable, the site does not present a two-source average and displays the reference price as unavailable until both sources are valid again.</p>
-
+<article style="grid-column:1/-1">
+<h2>4. Lock and Vesting Schedule</h2>
+<p><strong>Team Finance lock.</strong> 6,000,000 GDTY are locked from 14 September 2026 until 28 March 2028.</p>
+<p><strong>GOLDITYVesting contracts.</strong> The four vesting contracts have no owner and no administrative functions. Token, beneficiary, start time, cliff, duration, interval and amount are fixed at deployment and cannot be changed. Only the beneficiary can release vested tokens. All four contracts were deployed on 6 September 2026 and are fully funded.</p>
+<div class="table-wrap">
+<table class="dashboard-table">
+<thead>
+<tr><th>Contract</th><th>Cliff</th><th>Release schedule</th></tr>
+</thead>
+<tbody>
+<tr><td>Reserve</td><td>180 days</td><td>Single release on 5 March 2027</td></tr>
+<tr><td>Marketing</td><td>180 days</td><td>50% (382,000 GDTY) on 5 March 2027, then one twelfth (≈ 63,667 GDTY) every 30 days until 1 September 2027</td></tr>
+<tr><td>Advisors</td><td>365 days</td><td>Single release on 6 September 2027</td></tr>
+<tr><td>Team</td><td>365 days</td><td>Single release on 6 September 2027</td></tr>
+</tbody>
+</table>
+</div>
+<p>Scheduled unlock events. 5 March 2027 (Reserve and the first Marketing release, together about 12% of supply) and 6 September 2027 (Team and Advisors, 6% of supply). These dates are published in advance so that market participants can plan accordingly.</p>
 </article>
 
- 
-
-<article>
-
-<h2>5. Privacy & Compliance</h2>
-
-<p>Personal data is processed according to the site's Privacy Notice. The service should use purpose limitation, data minimisation, retention controls, security safeguards and transparent notices. No government identification document is requested by the standard registration form. Additional identity verification (KYC) should only be introduced if required for a specific regulated activity or jurisdiction.</p>
-
+<article style="grid-column:1/-1">
+<h2>5. Wallet Disclosure</h2>
+<p>The beneficiary of all four vesting contracts is wallet 0x02e5…c0C8. This wallet also owns the Team Finance lock and deployed the contract that currently owns the token contract. The Advisors and Team allocations are therefore released to this same wallet.</p>
+<p><strong>Public offering and liquidity support</strong> (0x02e5…c0C8, ≈ 35% of supply): reserved for a planned public offering and liquidity support. The allocation between sale, liquidity and operations, the price mechanism and any release caps or buyer vesting terms will be published before any tokens are sold. No tokens from this wallet will be sold directly into the liquidity pool.</p>
+<p><strong>Community programs</strong> (0x6D00…8b32, ≈ 10.47% of supply): reserved for community rewards, quests, airdrops and contests. Each distribution will be documented publicly with transaction links. Referral rewards are not part of the program.</p>
+<p><strong>Operations</strong> (0x57c0…676a and 0x4908…d, ≈ 2.71% of supply): used for operational purposes.</p>
 </article>
 
- 
-
 <article>
-
-<h2>6. Risks</h2>
-
-<p>Digital assets can be highly volatile and may lose value. Smart contracts, wallets, bridges, exchanges, RPC providers and third-party data services can fail or be attacked. Users are responsible for checking contract addresses, transaction details, network and applicable laws before interacting.</p>
-
+<h2>6. Market Reference Price</h2>
+<p>The website's reference price is the arithmetic mean of valid GDTY/USDT prices from the configured Uniswap V2 and PancakeSwap V2 pools. If one source is unavailable, no reference price is shown until both are valid again.</p>
 </article>
 
- 
+<article>
+<h2>7. Privacy</h2>
+<p>The website may collect limited personal data as described in its Privacy Notice. No government identification document is requested.</p>
+</article>
+
+<article style="grid-column:1/-1">
+<h2>8. Risks</h2>
+<p>Digital assets are highly volatile and may lose value. At the snapshot date, market liquidity is low, the number of holders is small, and a limited number of addresses hold most of the supply. Large unlock events are scheduled (see section 4), and sales of unlocked tokens may affect the market price. The contracts have not been audited by an independent third party as of the snapshot date. Smart contracts, wallets, exchanges, RPC providers and third-party data services can fail or be attacked. Users are responsible for verifying addresses, transactions, networks and applicable laws before interacting with the token.</p>
+</article>
 
 <article>
-
-<h2>7. No Promise of Return</h2>
-
+<h2>9. No Promise of Return</h2>
 <p>Nothing on this website or in this whitepaper is a promise of profit, guaranteed appreciation or guaranteed liquidity. Market data is informational and may change rapidly.</p>
-
 </article>
-
- 
 
 </div>
 
