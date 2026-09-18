@@ -102,6 +102,31 @@ async function pair(e) {
   return addr(await call(e,A.PF,S.pair + pad(A.G) + pad(A.U)));
 }
 
+async function dexscreenerPair(e) {
+  const cacheKey="dexscreener:"+A.G;
+  if(e.DB){
+    const cached=await e.DB.prepare("SELECT value,updated_at FROM scanner_state WHERE key=?").bind(cacheKey).first();
+    if(cached&&Date.now()-new Date(cached.updated_at).getTime()<300000){
+      return JSON.parse(cached.value);
+    }
+  }
+  const res=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${A.G}`);
+  if(!res.ok)throw new Error("dexscreener_unavailable");
+  const data=await res.json().catch(()=>null);
+  const pairs=(data?.pairs||[]).filter(p=>p.chainId==="bsc");
+  if(!pairs.length)throw new Error("no_pair_found");
+  pairs.sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0));
+  const best=pairs[0];
+  const result={url:best.url,pairAddress:best.pairAddress,dex:best.dexId};
+  if(e.DB){
+    await e.DB.prepare(`
+      INSERT INTO scanner_state(key,value,updated_at) VALUES(?,?,?)
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at
+    `).bind(cacheKey,JSON.stringify(result),nowIso()).run();
+  }
+  return result;
+}
+
 async function inspect(e,p,dex) {
   if (!p || p===Z) return {dex,status:"unavailable",reason:"pair_not_found"};
   const [x0,x1] = await Promise.all([call(e,p,S.t0),call(e,p,S.t1)]);
@@ -389,6 +414,14 @@ export default {
       if(u.pathname==="/api/support/tickets"&&req.method==="POST")return await createTicket(e,req);
       if(u.pathname==="/api/support/tickets"&&req.method==="GET")return await ticketList(e,req);
       if(u.pathname==="/api/support/messages"&&req.method==="GET")return await ticketMessages(e,req);
+      if(u.pathname==="/api/dexscreener-pair"&&req.method==="GET"){
+        try{
+          const p=await dexscreenerPair(e);
+          return out({ok:true,...p},200,60,baseHeaders);
+        }catch{
+          return out({ok:false,error:"pair_lookup_failed"},502,baseHeaders);
+        }
+      }
       if(u.pathname==="/api/market"){
         const pp=await pair(e);
         const [uniR,pcsR]=await Promise.allSettled([inspect(e,A.UNI,"Uniswap V2"),inspect(e,pp,"PancakeSwap V2")]);
