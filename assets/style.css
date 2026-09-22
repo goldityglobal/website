@@ -34,11 +34,15 @@
 
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;background:var(--bg)}
+main{flex:1 0 auto;width:100%}
+footer{flex-shrink:0}
 body{
   margin:0;
   min-height:100vh;
   overflow-x:hidden;
   position:relative;
+  display:flex;
+  flex-direction:column;
   background:
     radial-gradient(ellipse 1100px 620px at 18% -8%,rgba(245,209,110,.10),transparent 60%),
     radial-gradient(ellipse 820px 520px at 104% 18%,rgba(186,120,2,.06),transparent 58%),
@@ -691,8 +695,8 @@ header:has(> .brand){
   align-items:center;
   flex-wrap:wrap;
   gap:24px;
-  width:min(var(--content),calc(100% - 48px));
-  margin:0 auto;
+  padding:0 max(24px,calc((100% - var(--content)) / 2));
+  box-sizing:border-box;
   min-height:76px;
 }
 header:has(> .brand) > nav{
