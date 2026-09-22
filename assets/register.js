@@ -6,13 +6,97 @@ const form=document.getElementById("registerForm");
 
 const state=document.getElementById("registerState");
 
+const ref=document.getElementById("referralCode");
 
+const refStatus=document.getElementById("refStatus");
 
  
 
 function setState(message){
 
   if(state) state.textContent=message;
+
+}
+
+ 
+
+(()=>{
+
+  if(!ref)return;
+
+  const params=new URLSearchParams(location.search);
+
+  const fromLink=params.get("ref");
+
+  if(fromLink)ref.value=fromLink.toUpperCase();
+
+})();
+
+ 
+
+async function readJson(response){
+
+  const text=await response.text();
+
+  try{
+
+    return text?JSON.parse(text):{};
+
+  }catch{
+
+    return {message:"Unexpected server response."};
+
+  }
+
+}
+
+ 
+
+if(ref){
+
+  ref.addEventListener("blur",async()=>{
+
+    const code=ref.value.trim();
+
+    if(!code){
+
+      if(refStatus)refStatus.textContent="";
+
+      return;
+
+    }
+
+    if(refStatus)refStatus.textContent="Checking referral code…";
+
+    try{
+
+      const response=await fetch(
+
+        API_BASE+"/api/referral/check?code="+encodeURIComponent(code),
+
+        {headers:{accept:"application/json"}}
+
+      );
+
+      const data=await readJson(response);
+
+      if(!response.ok){
+
+        if(refStatus)refStatus.textContent=data.message||"Referral validation is temporarily unavailable.";
+
+        return;
+
+      }
+
+      if(refStatus)refStatus.textContent=data.valid?"Valid referral code.":"Referral code not found.";
+
+    }catch{
+
+      if(refStatus)refStatus.textContent="Referral validation is temporarily unavailable.";
+
+    }
+
+  });
 
 }
 
@@ -105,6 +189,12 @@ if(form){
             result.error==="rate_limited"
 
               ?"Too many registration attempts. Please try again later."
+
+              :
+
+            result.error==="invalid_referral"
+
+              ?"The referral code is not valid."
 
               :
 
