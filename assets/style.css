@@ -645,3 +645,41 @@ img{max-width:100%}
 @media(max-width:420px){
   .auth-modal-card h2{font-size:25px}
 }
+
+.wallet-picker-overlay{position:fixed;inset:0;z-index:9999;background:rgba(4,4,3,.72);display:flex;align-items:center;justify-content:center;padding:20px}
+.wallet-picker{width:100%;max-width:340px;background:#0c0b09;border:1px solid var(--line-soft);border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.wallet-picker h3{margin:0 0 14px;color:var(--gold-light);font-size:16px}
+.wallet-picker-list{display:flex;flex-direction:column;gap:8px}
+.wallet-picker-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#100f0c;color:var(--text);font-size:14px;cursor:pointer;text-align:left}
+.wallet-picker-item:hover{border-color:var(--gold);background:rgba(217,180,91,.08)}
+.wallet-picker-item img{border-radius:6px;flex:none}
+.wallet-picker-cancel{width:100%;margin-top:14px;padding:9px 12px;border:1px solid var(--line-soft);border-radius:9px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
+.wallet-picker-cancel:hover{color:var(--text)}
+
+/* ===== NARRATIVE PAGE (About) ===== */
+.narrative-page{max-width:760px}
+.narrative-page h1{margin-top:0}
+.narrative{margin-top:36px;font-family:Georgia,"Times New Roman",serif;color:var(--text-soft);font-size:17px;line-height:1.85}
+.narrative p{margin:0 0 22px}
+.narrative-lead{font-size:21px;color:var(--text);line-height:1.6}
+.narrative-emphasis{color:var(--gold-light);font-size:19px;font-style:italic}
+.narrative-heading{font-family:Georgia,"Times New Roman",serif;color:var(--gold-light);font-size:26px;font-weight:700;margin:44px 0 20px;line-height:1.35}
+.narrative-closing{margin-top:40px;color:var(--gold-light);font-size:22px;line-height:1.7;font-weight:600}
+.narrative-virtues{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:12px}
+.narrative-virtues li{padding:14px 18px;border:1px solid var(--line-soft);border-radius:9px;background:rgba(217,180,91,.03);font-size:15px;line-height:1.6}
+.narrative-virtues strong{color:var(--gold-light);letter-spacing:.04em}
+.narrative-formula{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:16px;margin:32px 0 36px;padding:28px;border:1px solid var(--line-soft);border-radius:var(--radius);background:rgba(217,180,91,.025)}
+.narrative-formula>div{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:130px}
+.narrative-formula strong{font-family:Georgia,"Times New Roman",serif;font-size:24px;color:var(--gold-light)}
+.narrative-formula span{font-family:Inter,sans-serif;font-size:11px;color:var(--muted);max-width:150px}
+.narrative-formula-plus,.narrative-formula-equals{font-size:24px;color:var(--muted-2)}
+.narrative-formula-result strong{font-size:30px;background:var(--brand-gold-gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.narrative-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:48px;padding-top:32px;border-top:1px solid var(--line-soft)}
+@media(max-width:640px){
+  .narrative{font-size:16px}
+  .narrative-lead{font-size:19px}
+  .narrative-emphasis{font-size:17px}
+  .narrative-heading{font-size:22px}
+  .narrative-closing{font-size:19px}
+  .narrative-formula{flex-direction:column}
+}
