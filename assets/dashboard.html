@@ -307,27 +307,114 @@
 
   </section>
 
- 
+  <section class="dashboard-section" id="walletSection">
+    <div class="section-heading">
+      <h2>Wallet</h2>
+      <button id="connectWallet" class="btn btn-gold" type="button">
+        Connect Wallet
+      </button>
+    </div>
 
- 
-
- 
-
- 
-
- 
-
-  <!-- WALLET -->
-
- 
+    <div class="dashboard-card">
+      <div class="wallet-status">
+        <span id="walletStatus">Not connected</span>
+      </div>
+      <div class="wallet-address-wrap">
+        <span class="card-label">Wallet Address</span>
+        <code id="walletAddress">—</code>
+      </div>
+      <button id="addGdtyToken" class="btn btn-outline" type="button">
+        Add GDTY to Wallet
+      </button>
+    </div>
+  </section>
 
   <section class="dashboard-section">
+    <div class="section-heading">
+      <h2>Purchase &amp; Trade History</h2>
+    </div>
 
- 
+    <div class="dashboard-card verify-purchase-card">
+      <p class="card-note">
+        Paste the transaction hash of a GDTY purchase made from your connected wallet on PancakeSwap V2, Uniswap V2, or any DEX/aggregator. Once verified on-chain, it's added to your trade history and, if applicable, generates a 3% referral reward for whoever referred you.
+      </p>
+      <form id="verifyPurchaseForm" class="dashboard-form">
+        <label>
+          Transaction Hash
+          <input
+            id="verifyPurchaseTxHash"
+            type="text"
+            placeholder="0x..."
+            maxlength="66"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          >
+        </label>
+        <button id="verifyPurchaseSubmit" class="btn btn-gold" type="submit">
+          Verify Purchase
+        </button>
+      </form>
+      <div id="verifyPurchaseState" class="status-text" role="status" aria-live="polite"></div>
+    </div>
 
- 
+    <div class="table-wrap">
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>DATE</th><th>DEX</th><th>SIDE</th><th>GDTY</th><th>USDT</th><th>STATUS</th><th>TX</th>
+          </tr>
+        </thead>
+        <tbody id="tradesBody">
+          <tr><td colspan="7">No verified trades yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
- 
+  <section class="dashboard-section" id="referralProgramSection">
+    <div class="section-heading">
+      <h2>Referral Program</h2>
+    </div>
+
+    <p class="card-note">
+      Earn a 3% reward when someone you refer makes a qualifying GDTY purchase (50 GDTY minimum per purchase). Rewards go through a 7-day anti-fraud review, then pay out automatically, capped at 200 GDTY/day per referrer.
+    </p>
+
+    <div class="dashboard-grid">
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Referrals</span>
+        <strong id="refs">0</strong>
+      </article>
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Rewards Paid</span>
+        <strong id="rewardPaid">0 GDTY</strong>
+      </article>
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Pending Review</span>
+        <strong id="rewardPending">0 GDTY</strong>
+      </article>
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Under Review</span>
+        <strong id="rewardFrozen">0 GDTY</strong>
+      </article>
+    </div>
+
+    <div class="dashboard-card">
+      <span class="card-label">Your Referral Code</span>
+      <div class="copy-row">
+        <code id="ref">—</code>
+        <button id="copyReferralCode" class="btn btn-small btn-outline" type="button">Copy</button>
+      </div>
+      <span class="card-label" style="margin-top:14px;display:block">Your Referral Link</span>
+      <div class="copy-row">
+        <input id="referralLink" type="text" readonly>
+        <button id="copyReferralLink" class="btn btn-small btn-outline" type="button">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section">
 
     <div class="section-heading">
 
@@ -554,12 +641,9 @@
  
 
           <option value="Account">Account</option>
-
- 
-
-
- 
-
+          <option value="Wallet">Wallet</option>
+          <option value="Referral">Referral</option>
+          <option value="Purchase">Purchase</option>
           <option value="Technical">Technical</option>
 
  
