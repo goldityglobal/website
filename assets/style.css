@@ -683,3 +683,36 @@ img{max-width:100%}
   .narrative-closing{font-size:19px}
   .narrative-formula{flex-direction:column}
 }
+
+/* ===== SIMPLE-PAGE HEADER FIX (pages without a .header-inner wrapper:
+   contract, whitepaper, about, login, terms, privacy, market) ===== */
+header:has(> .brand){
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:24px;
+  width:min(var(--content),calc(100% - 48px));
+  margin:0 auto;
+  min-height:76px;
+}
+header:has(> .brand) > nav{
+  display:flex;
+  align-items:center;
+  flex:1;
+  min-width:0;
+  gap:22px;
+}
+header:has(> .brand) > nav a{
+  color:#c9c1b4;
+  font-size:12px;
+  white-space:nowrap;
+  transition:color .2s ease;
+}
+header:has(> .brand) > nav a:hover{color:#fff}
+header:has(> .brand) > nav a.social-x{margin-left:auto;font-size:15px}
+header:has(> .brand) > .wallet{margin-left:auto}
+@media(max-width:640px){
+  header:has(> .brand){gap:14px;min-height:64px;padding:14px 0}
+  header:has(> .brand) > nav{gap:13px;flex-wrap:wrap}
+  header:has(> .brand) > nav a{font-size:11px}
+}
