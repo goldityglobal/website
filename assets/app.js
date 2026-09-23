@@ -958,7 +958,7 @@ function setAccountState(user) {
 
       label.textContent =
 
-        "Register / Sign In";
+        "Sign In";
 
     }
 
