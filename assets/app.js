@@ -713,6 +713,121 @@ if ($("copyContract")) {
 
 }
 
+/* =========================================================
+   ADD TO WALLET (EIP-6963 wallet picker)
+========================================================= */
+const discoveredWalletsHome = [];
+
+window.addEventListener("eip6963:announceProvider", event => {
+  const detail = event.detail;
+  if (!detail?.info?.uuid) return;
+  if (discoveredWalletsHome.some(w => w.info.uuid === detail.info.uuid)) return;
+  discoveredWalletsHome.push(detail);
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+function pickHomeWalletProvider() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      if (discoveredWalletsHome.length === 0) { resolve(window.ethereum || null); return; }
+      if (discoveredWalletsHome.length === 1) { resolve(discoveredWalletsHome[0].provider); return; }
+      showHomeWalletPicker(discoveredWalletsHome, chosen => resolve(chosen ? chosen.provider : null));
+    }, 150);
+  });
+}
+
+function showHomeWalletPicker(wallets, onChoose) {
+  const overlay = document.createElement("div");
+  overlay.className = "wallet-picker-overlay";
+  overlay.innerHTML = `
+    <div class="wallet-picker" role="dialog" aria-label="Choose a wallet">
+      <h3>Choose a wallet</h3>
+      <div class="wallet-picker-list">
+        ${wallets.map((w, i) => `
+          <button type="button" class="wallet-picker-item" data-idx="${i}">
+            <img src="${w.info.icon}" alt="" width="26" height="26">
+            <span>${w.info.name}</span>
+          </button>
+        `).join("")}
+      </div>
+      <button type="button" class="wallet-picker-cancel">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const cleanup = result => { overlay.remove(); onChoose(result); };
+  overlay.querySelectorAll(".wallet-picker-item").forEach(btn => {
+    btn.addEventListener("click", () => cleanup(wallets[Number(btn.dataset.idx)]));
+  });
+  overlay.querySelector(".wallet-picker-cancel")?.addEventListener("click", () => cleanup(null));
+  overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(null); });
+}
+
+if ($("addToMetaMask")) {
+
+  $("addToMetaMask").addEventListener(
+
+    "click",
+
+    async () => {
+
+      const provider = await pickHomeWalletProvider();
+
+      if (!provider) {
+
+        alert(
+
+          "No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first."
+
+        );
+
+        return;
+
+      }
+
+      try {
+
+        await provider.request({
+
+          method: "eth_requestAccounts"
+
+        });
+
+        await provider.request({
+
+          method: "wallet_watchAsset",
+
+          params: {
+
+            type: "ERC20",
+
+            options: {
+
+              address: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801",
+
+              symbol: "GDTY",
+
+              decimals: 18,
+
+              image: `${window.location.origin}/favicon.png`
+
+            }
+
+          }
+
+        });
+
+      } catch (error) {
+
+        console.error("Add to wallet:", error);
+
+      }
+
+    }
+
+  );
+
+}
+
 
 
 
