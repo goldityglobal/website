@@ -762,4 +762,4 @@ header:has(> .brand) > .wallet{margin-left:auto}
 @media(max-width:900px){.airdrop-badge span{display:none}}
 @media(max-width:640px){.airdrop-badge{padding:7px 10px;font-size:11px}}
 
-#email{font-size:15px;word-break:break-word;overflow-wrap:break-word}
+#email{font-size:16px;word-break:break-word;overflow-wrap:break-word}
