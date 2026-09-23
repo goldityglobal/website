@@ -20,3 +20,6 @@ binding = "DB"
 database_name = "goldity-users"
 database_id = "292a42d0-6085-44da-bc0e-d420140bcca2"
 migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/3 * * * *"]
