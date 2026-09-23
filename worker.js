@@ -1,3 +1,6 @@
+import * as secp from "@noble/secp256k1";
+import { keccak_256 } from "@noble/hashes/sha3.js";
+
 const A = {
   G: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801".toLowerCase(),
   U: "0x55d398326f99059fF775485246999027B3197955".toLowerCase(),
@@ -206,8 +209,8 @@ async function currentUser(e,req) {
   if(!hit)return null;
   const h=await sha256Text(hit[1]);
   return e.DB.prepare(`
-    SELECT u.id,u.email,u.first_name,u.last_name,u.country,u.phone,
-           u.email_verified,u.marketing_consent,
+    SELECT u.id,u.email,u.first_name,u.last_name,u.country,u.phone,u.wallet_address,
+           u.referral_code,u.referred_by,u.email_verified,u.marketing_consent,
            u.role,u.created_at
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.expires_at>? AND u.email_verified=1
@@ -261,10 +264,170 @@ async function loginUser(e,req) {
     e.DB.prepare("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(hash,row.id,exp,now),
     e.DB.prepare("DELETE FROM sessions WHERE user_id=? AND expires_at<=?").bind(row.id,now)
   ]);
+  await graduateReferralRewards(e,row.id).catch(err=>console.error("GOLDITY graduate error",err));
   return out({
     ok:true,user:{id:row.id,email:row.email,firstName:row.first_name,lastName:row.last_name,
     country:row.country}
   },200,0,{...cors(e),"set-cookie":cookie("GDTY_SESSION",raw,7*86400)});
+}
+
+function bytes(hexString) {
+  const h=String(hexString||"").replace(/^0x/i,"");
+  const clean=h.length%2?"0"+h:h;
+  const out=new Uint8Array(clean.length/2);
+  for(let i=0;i<out.length;i++)out[i]=parseInt(clean.substr(i*2,2),16);
+  return out;
+}
+function concatBytes(arrays) {
+  const total=arrays.reduce((n,a)=>n+a.length,0);
+  const out=new Uint8Array(total);
+  let off=0;
+  for(const a of arrays){out.set(a,off);off+=a.length;}
+  return out;
+}
+function bigIntToBytes(n) {
+  if(n===0n)return new Uint8Array(0);
+  let hex=n.toString(16);
+  if(hex.length%2)hex="0"+hex;
+  return bytes(hex);
+}
+function rlpEncodeLength(len,offset) {
+  if(len<56)return new Uint8Array([offset+len]);
+  let hex=len.toString(16);
+  if(hex.length%2)hex="0"+hex;
+  const lenBytes=bytes(hex);
+  return concatBytes([new Uint8Array([offset+55+lenBytes.length]),lenBytes]);
+}
+function rlpEncode(input) {
+  if(Array.isArray(input)){
+    const parts=input.map(rlpEncode);
+    const body=concatBytes(parts);
+    return concatBytes([rlpEncodeLength(body.length,192),body]);
+  }
+  const b=input instanceof Uint8Array?input:bigIntToBytes(input);
+  if(b.length===1&&b[0]<128)return b;
+  return concatBytes([rlpEncodeLength(b.length,128),b]);
+}
+function addressFromPrivateKey(privHex) {
+  const priv=bytes(privHex);
+  const pub=secp.getPublicKey(priv,false);
+  const uncompressed=pub.length===65?pub.slice(1):pub;
+  const h=keccak_256(uncompressed);
+  return "0x"+[...h.slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+function erc20TransferData(to,amountWei) {
+  return "0xa9059cbb"+pad(to)+bigIntToBytes(amountWei).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),"").padStart(64,"0");
+}
+async function signLegacyTx(privHex,{nonce,gasPrice,gasLimit,to,value,data}) {
+  const chainId=56n;
+  const build=fields=>fields;
+  const msgFields=build([
+    bigIntToBytes(BigInt(nonce)),bigIntToBytes(gasPrice),bigIntToBytes(BigInt(gasLimit)),
+    bytes(to),bigIntToBytes(value),bytes(data),bigIntToBytes(chainId),new Uint8Array(0),new Uint8Array(0)
+  ]);
+  const unsignedRlp=rlpEncode(msgFields);
+  const msgHash=keccak_256(unsignedRlp);
+  const privKeyBytes=bytes(privHex);
+  const sigBytes=await secp.signAsync(msgHash,privKeyBytes,{format:"recovered",prehash:false});
+  const recovery=BigInt(sigBytes[0]);
+  const rBig=uint("0x"+[...sigBytes.slice(1,33)].map(x=>x.toString(16).padStart(2,"0")).join(""));
+  const sBig=uint("0x"+[...sigBytes.slice(33,65)].map(x=>x.toString(16).padStart(2,"0")).join(""));
+  const v=chainId*2n+35n+recovery;
+  // Rebuild the 9-field RLP list with v, r, s in place of the empty placeholders.
+  const finalFields=[
+    bigIntToBytes(BigInt(nonce)),bigIntToBytes(gasPrice),bigIntToBytes(BigInt(gasLimit)),
+    bytes(to),bigIntToBytes(value),bytes(data),bigIntToBytes(v),bigIntToBytes(rBig),bigIntToBytes(sBig)
+  ];
+  const finalRlp=rlpEncode(finalFields);
+  return "0x"+[...finalRlp].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+async function getNonce(e,address) {
+  return parseInt(await rpc(e,"eth_getTransactionCount",[address,"latest"]),16);
+}
+async function getGasPrice(e) {
+  return BigInt(await rpc(e,"eth_gasPrice",[]));
+}
+function eip191Digest(message) {
+  const msgBytes=enc.encode(message);
+  const prefix=enc.encode(`\x19Ethereum Signed Message:\n${msgBytes.length}`);
+  return keccak_256(concatBytes([prefix,msgBytes]));
+}
+function recoveredAddress(signatureHex,message) {
+  const raw=bytes(signatureHex);
+  if(raw.length!==65)throw new Error("invalid_signature");
+  let v=raw[64];
+  if(v>=27)v-=27;
+  if(v>1)throw new Error("invalid_signature");
+  const sig=new Uint8Array(65);
+  sig[0]=v;sig.set(raw.slice(0,64),1);
+  const pub=secp.recoverPublicKey(sig,eip191Digest(message),{prehash:false,isCompressed:false});
+  const uncompressed=pub.length===65?pub.slice(1):pub;
+  const h=keccak_256(uncompressed);
+  return "0x"+[...h.slice(-20)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+async function tokenBalance(e,tokenAddress,account) {
+  const raw=await call(e,tokenAddress,S.balanceOf+pad(account));
+  return BigInt(raw);
+}
+
+async function makeReferralCode(e) {
+  for(let i=0;i<8;i++){
+    const code="GDTY-"+[...crypto.getRandomValues(new Uint8Array(5))].map(b=>b.toString(36)).join("").toUpperCase().slice(0,8);
+    const existing=await e.DB.prepare("SELECT id FROM users WHERE referral_code=?").bind(code).first();
+    if(!existing)return code;
+  }
+  return "GDTY-"+crypto.randomUUID().slice(0,8).toUpperCase();
+}
+
+async function walletChallenge(e,req) {
+  const u=await currentUser(e,req);
+  if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+  const d=await req.json().catch(()=>({})), address=String(d.address||"").toLowerCase();
+  if(!walletRe.test(address))return out({ok:false,error:"invalid_wallet"},400,cors(e));
+  const existing=await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(address).first();
+  if(existing&&existing.user_id!==u.id)return out({ok:false,error:"wallet_already_bound"},409,cors(e));
+  const challengeId=id(), nonce=token();
+  const message=[
+    "GOLDITY wallet verification",
+    `Address: ${address}`,
+    `Nonce: ${nonce}`,
+    "This signature does not authorize any blockchain transaction."
+  ].join("\n");
+  const exp=new Date(Date.now()+10*60*1000).toISOString();
+  await e.DB.prepare("DELETE FROM wallet_challenges WHERE user_id=? AND used_at IS NULL").bind(u.id).run();
+  await e.DB.prepare(`
+    INSERT INTO wallet_challenges(id,user_id,wallet_address,nonce,message,expires_at,created_at)
+    VALUES(?,?,?,?,?,?,?)
+  `).bind(challengeId,u.id,address,nonce,message,exp,nowIso()).run();
+  return out({ok:true,challengeId,message,expiresAt:exp},200,0,cors(e));
+}
+
+async function walletVerify(e,req) {
+  const u=await currentUser(e,req);
+  if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+  const d=await req.json().catch(()=>({}));
+  const ch=await e.DB.prepare("SELECT * FROM wallet_challenges WHERE id=? AND user_id=? AND used_at IS NULL")
+    .bind(d.challengeId,u.id).first();
+  if(!ch||new Date(ch.expires_at)<=new Date())return out({ok:false,error:"challenge_expired"},400,cors(e));
+  let recovered;
+  try{recovered=recoveredAddress(String(d.signature||""),ch.message);}
+  catch{return out({ok:false,error:"invalid_signature"},400,cors(e));}
+  if(recovered!==ch.wallet_address)return out({ok:false,error:"signature_mismatch"},400,cors(e));
+  const existing=await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(ch.wallet_address).first();
+  if(existing&&existing.user_id!==u.id)return out({ok:false,error:"wallet_already_bound"},409,cors(e));
+  const now=nowIso();
+  await e.DB.batch([
+    e.DB.prepare("UPDATE wallet_challenges SET used_at=? WHERE id=?").bind(now,ch.id),
+    e.DB.prepare(`
+      INSERT INTO wallets(id,user_id,address,chain_id,verified,verified_at,created_at,updated_at)
+      VALUES(?,?,?,56,1,?,?,?)
+      ON CONFLICT(address) DO UPDATE SET user_id=excluded.user_id,verified=1,verified_at=excluded.verified_at,updated_at=excluded.updated_at
+    `).bind(id(),u.id,ch.wallet_address,now,now,now),
+    e.DB.prepare("UPDATE users SET wallet_address=?,updated_at=? WHERE id=?").bind(ch.wallet_address,now,u.id)
+  ]);
+  return out({ok:true,walletAddress:ch.wallet_address},200,0,cors(e));
 }
 
 async function registerUser(e,req) {
@@ -292,12 +455,20 @@ async function registerUser(e,req) {
   const salt=crypto.getRandomValues(new Uint8Array(16));
   const hash=await hashPassword(password,salt);
   const uid=id(), now=nowIso();
+  let referredBy=null;
+  const refInput=clean(d.referralCode,32).toUpperCase();
+  if(refInput){
+    const refRow=await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(refInput).first();
+    if(!refRow)return out({ok:false,error:"invalid_referral",message:"The referral code is not valid."},400,cors(e));
+    referredBy=refRow.referral_code;
+  }
+  const myCode=await makeReferralCode(e);
   try{
     await e.DB.prepare(`
       INSERT INTO users(id,email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
       email_verified,terms_version,privacy_version,age_confirmed,marketing_consent,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(uid,email,hash,first,last,country,phone,null,null,0,TERMS_VERSION,PRIVACY_VERSION,1,d.marketingConsent?1:0,now,now).run();
+    `).bind(uid,email,hash,first,last,country,phone,myCode,referredBy,0,TERMS_VERSION,PRIVACY_VERSION,1,d.marketingConsent?1:0,now,now).run();
   }catch{
     return out({ok:false,error:"registration_failed",message:"Account creation failed. Please try again."},500,cors(e));
   }
@@ -340,19 +511,445 @@ async function verifyEmail(e,req) {
   return out({ok:true,message:"Email verified. Your GOLDITY account is now active."},200,0,cors(e));
 }
 
+function parseTransfer(log) {
+  if(String(log.topics?.[0]).toLowerCase()!==TOPIC_TRANSFER)return null;
+  if(!log.topics?.[1]||!log.topics?.[2])return null;
+  return {token:String(log.address).toLowerCase(),from:addr(log.topics[1]),to:addr(log.topics[2]),amount:BigInt(log.data||"0x0").toString()};
+}
+
+async function verifyTrade(e,u,txHash) {
+  if(!u.wallet_address)return {ok:false,error:"wallet_not_connected"};
+  const wallet=u.wallet_address.toLowerCase();
+  const tx=await rpc(e,"eth_getTransactionByHash",[txHash]);
+  const receipt=await rpc(e,"eth_getTransactionReceipt",[txHash]);
+  if(!tx||!receipt)return {ok:false,error:"transaction_not_found"};
+  if(String(tx.from).toLowerCase()!==wallet)return {ok:false,error:"transaction_wallet_mismatch"};
+  if(receipt.status!=="0x1")return {ok:false,error:"transaction_failed"};
+
+  const logs=(receipt.logs||[]).map(parseTransfer).filter(Boolean);
+
+  // Net GDTY movement for this wallet - works for any pool, DEX, aggregator or router, not
+  // just a hardcoded pair address, since we only care about the net result on the wallet.
+  let gdtyIn=0n,gdtyOut=0n;
+  for(const l of logs){
+    if(l.token!==A.G)continue;
+    if(l.to===wallet)gdtyIn+=BigInt(l.amount);
+    if(l.from===wallet)gdtyOut+=BigInt(l.amount);
+  }
+  const gdtyNet=gdtyIn-gdtyOut;
+  if(gdtyNet===0n)return {ok:false,error:"unsupported_trade"};
+  const side=gdtyNet>0n?"buy":"sell";
+
+  let usdtIn=0n,usdtOut=0n;
+  for(const l of logs){
+    if(l.token!==A.U)continue;
+    if(l.to===wallet)usdtIn+=BigInt(l.amount);
+    if(l.from===wallet)usdtOut+=BigInt(l.amount);
+  }
+
+  // Proof real value left/entered the wallet - stops a plain "someone sent me GDTY for free"
+  // transfer from counting as a purchase. Covers USDT, any other ERC20, or native BNB.
+  const otherTokenOut=logs.some(l=>l.token!==A.G&&l.from===wallet);
+  const otherTokenIn=logs.some(l=>l.token!==A.G&&l.to===wallet);
+  const bnbSent=BigInt(tx.value||"0x0")>0n;
+  if(side==="buy"&&!(usdtOut>0n||otherTokenOut||bnbSent))return {ok:false,error:"unsupported_trade"};
+  if(side==="sell"&&!(usdtIn>0n||otherTokenIn))return {ok:false,error:"unsupported_trade"};
+
+  const pp=await pair(e);
+  const dexMap=new Map([[A.UNI,"Uniswap V2"],[pp,"PancakeSwap V2"]]);
+  const dex=dexMap.get(String(tx.to||"").toLowerCase())||"On-chain";
+
+  return {
+    ok:true,side,dex,pair:String(tx.to||"").toLowerCase(),
+    gdty:(side==="buy"?gdtyNet:-gdtyNet).toString(),
+    usdt:(side==="buy"?usdtOut:usdtIn).toString(),
+    block:parseInt(receipt.blockNumber,16)
+  };
+}
+
+const MIN_QUALIFYING_GDTY_WEI = 50n * 10n**18n;
+const REFERRAL_RATE_BPS = 300n; // 3%
+const DAILY_CAP_MILLIGDTY = 200000; // 200 GDTY, in milli-GDTY (GDTY * 1000)
+const PENDING_DAYS = 7;
+const GIVE_UP_AFTER_DAYS = 3; // stop retrying a graduation check this long past its due date
+
+function todayUtc() {
+  return new Date().toISOString().slice(0,10);
+}
+function weiToMilliGdty(wei) {
+  // 1 GDTY = 10^18 wei, 1 milli-GDTY = 10^15 wei. Safe as a plain Number since
+  // realistic reward amounts stay far below Number.MAX_SAFE_INTEGER at this scale.
+  return Number(wei / 10n**15n);
+}
+function milliGdtyToWei(milli) {
+  return BigInt(milli) * 10n**15n;
+}
+
+async function referralCapGroup(e,refUser) {
+  // Normally each referrer has their own cap. But if several "referrer" accounts
+  // were registered from the same IP, fold them into one shared cap group keyed
+  // by that IP hash instead, so the 200 GDTY/day limit cannot be multiplied just
+  // by creating more referrer accounts from the same network.
+  const ipRow=await e.DB.prepare("SELECT ip_hash FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(refUser.id).first();
+  if(!ipRow?.ip_hash)return "user:"+refUser.id;
+  const siblingCount=await e.DB.prepare(`
+    SELECT COUNT(DISTINCT u.id) AS c FROM audit_log a JOIN users u ON u.id=a.user_id
+    WHERE a.event_type='register' AND a.ip_hash=? AND u.id!=?
+  `).bind(ipRow.ip_hash,refUser.id).first();
+  if(Number(siblingCount?.c||0)>0)return "ip:"+ipRow.ip_hash;
+  return "user:"+refUser.id;
+}
+
+// Atomically reserves up to `desiredMilli` milli-GDTY of today's cap for the given
+// group, returning however much was actually reserved (0 if the cap is already
+// full). A single UPDATE...WHERE statement is atomic in SQLite/D1, and the retry
+// loop makes this safe even if two purchases are recorded at almost the same time.
+async function reserveDailyCap(e,capGroup,desiredMilli) {
+  if(desiredMilli<=0)return 0;
+  const day=todayUtc(),now=nowIso();
+  await e.DB.prepare("INSERT INTO referral_daily_caps(cap_group,day,total_milligdty,updated_at) VALUES(?,?,0,?) ON CONFLICT(cap_group,day) DO NOTHING")
+    .bind(capGroup,day,now).run();
+  for(let attempt=0;attempt<4;attempt++){
+    const row=await e.DB.prepare("SELECT total_milligdty FROM referral_daily_caps WHERE cap_group=? AND day=?").bind(capGroup,day).first();
+    const current=Number(row?.total_milligdty||0);
+    const remaining=DAILY_CAP_MILLIGDTY-current;
+    if(remaining<=0)return 0;
+    const grant=Math.min(desiredMilli,remaining);
+    const res=await e.DB.prepare("UPDATE referral_daily_caps SET total_milligdty=total_milligdty+?,updated_at=? WHERE cap_group=? AND day=? AND total_milligdty+?<=?")
+      .bind(grant,now,capGroup,day,grant,DAILY_CAP_MILLIGDTY).run();
+    if(res?.meta?.changes)return grant;
+    // Someone else changed the total between our read and write - retry with fresh data.
+  }
+  return 0;
+}
+
+async function getFundingAddress(e,walletAddress) {
+  const wallet=walletAddress.toLowerCase();
+  const cacheKey="funding:"+wallet;
+  const cached=await e.DB.prepare("SELECT value FROM scanner_state WHERE key=?").bind(cacheKey).first();
+  if(cached)return cached.value||null;
+  if(!e.ETHERSCAN_API_KEY)return null;
+  try{
+    const url=`https://api.etherscan.io/v2/api?chainid=56&module=account&action=txlist&address=${wallet}&startblock=0&endblock=99999999&page=1&offset=10&sort=asc&apikey=${e.ETHERSCAN_API_KEY}`;
+    const res=await fetch(url);
+    if(!res.ok)return null;
+    const data=await res.json().catch(()=>null);
+    const first=(data?.result||[]).find(tx=>String(tx.to).toLowerCase()===wallet);
+    const funder=first?String(first.from).toLowerCase():null;
+    await e.DB.prepare(`
+      INSERT INTO scanner_state(key,value,updated_at) VALUES(?,?,?)
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at
+    `).bind(cacheKey,funder||"",nowIso()).run();
+    return funder;
+  }catch{return null;}
+}
+
+async function fundingClusterRisk(e,walletAddress) {
+  const funder=await getFundingAddress(e,walletAddress);
+  if(!funder)return {hit:false};
+  const ownKey="funding:"+walletAddress.toLowerCase();
+  const siblings=await e.DB.prepare("SELECT key FROM scanner_state WHERE key LIKE 'funding:%' AND value=? AND key!=? LIMIT 1")
+    .bind(funder,ownKey).first();
+  return {hit:!!siblings};
+}
+
+async function computeReferralRisk(e,refUser,referredUser) {
+  let score=0;const reasons=[];
+  const [refIp,ownIp]=await Promise.all([
+    e.DB.prepare("SELECT ip_hash FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(refUser.id).first(),
+    e.DB.prepare("SELECT ip_hash FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(referredUser.id).first()
+  ]);
+  if(refIp?.ip_hash&&ownIp?.ip_hash&&refIp.ip_hash===ownIp.ip_hash){score+=5;reasons.push("same_registration_ip");}
+  if(referredUser.wallet_address){
+    try{
+      const funding=await fundingClusterRisk(e,referredUser.wallet_address);
+      if(funding.hit){score+=5;reasons.push("shared_funding_wallet");}
+    }catch{}
+  }
+  if(refUser.wallet_address){
+    try{
+      const refFunding=await fundingClusterRisk(e,refUser.wallet_address);
+      if(refFunding.hit){score+=5;reasons.push("referrer_shared_funding_wallet");}
+    }catch{}
+  }
+  const dayAgo=new Date(Date.now()-86400000).toISOString();
+  const recentRow=await e.DB.prepare("SELECT COUNT(DISTINCT referred_user_id) AS c FROM referral_rewards WHERE referrer_user_id=? AND created_at>=?")
+    .bind(refUser.id,dayAgo).first();
+  if(Number(recentRow?.c||0)>=3){score+=3;reasons.push("referral_velocity");}
+  return {score,reasons,highRisk:score>=5};
+}
+
+async function maybeCreateReferralReward(e,u,tradeId,trade,gdtyAmount) {
+  if(!u.referred_by)return;
+  if(gdtyAmount<MIN_QUALIFYING_GDTY_WEI)return;
+  const refUser=await e.DB.prepare("SELECT * FROM users WHERE referral_code=?").bind(u.referred_by).first();
+  if(!refUser)return;
+  if(refUser.id===u.id)return;
+  if(refUser.wallet_address&&u.wallet_address&&refUser.wallet_address.toLowerCase()===u.wallet_address.toLowerCase())return;
+
+  const rawReward=gdtyAmount*REFERRAL_RATE_BPS/10000n;
+  if(rawReward<=0n)return;
+
+  const capGroup=await referralCapGroup(e,refUser);
+  const desiredMilli=weiToMilliGdty(rawReward);
+  const grantedMilli=await reserveDailyCap(e,capGroup,desiredMilli);
+  if(grantedMilli<=0)return; // hard cap already hit today for this referrer/IP group - excess is lost
+  const reward=milliGdtyToWei(grantedMilli);
+
+  const risk=await computeReferralRisk(e,refUser,u);
+  const now=nowIso();
+  const pendingUntil=new Date(Date.now()+PENDING_DAYS*86400000).toISOString();
+  const status=risk.highRisk?"frozen":"pending";
+
+  try{
+    await e.DB.prepare(`
+      INSERT INTO referral_rewards(id,referrer_user_id,referred_user_id,trade_id,source_tx_hash,gdty_amount_wei,reward_amount_wei,reward_rate_bps,status,created_at,available_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(id(),refUser.id,u.id,tradeId,trade.txHash,gdtyAmount.toString(),reward.toString(),300,status,now,status==="frozen"?null:pendingUntil).run();
+    await e.DB.prepare(`INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)`).bind(
+      id(),refUser.id,"referral_reward",
+      status==="frozen"?"Referral reward under review":"Referral reward pending",
+      status==="frozen"
+        ?"A referred purchase looked unusual and was flagged for manual review before any reward is paid."
+        :"A verified GOLDITY purchase qualified for a 3% referral reward. It becomes payable in 7 days if the purchase still looks genuine.",
+      now
+    ).run();
+  }catch(err){
+    console.error("GOLDITY referral reward insert error",err);
+  }
+}
+
+async function recordTrade(e,u,trade) {
+  const existing=await e.DB.prepare("SELECT id FROM trades WHERE tx_hash=?").bind(trade.txHash).first();
+  if(existing)return {ok:false,error:"transaction_already_recorded"};
+
+  const latest=parseInt(await rpc(e,"eth_blockNumber"),16);
+  const confirmations=Math.max(0,latest-trade.block);
+  const status=confirmations>=12?"confirmed":"pending";
+  const now=nowIso();
+  const tradeId=id();
+  const g=BigInt(trade.gdty);
+  const uAmt=BigInt(trade.usdt||"0");
+  const price=g>0n&&uAmt>0n?(Number(uAmt)/1e18/(Number(g)/1e18)).toString():"0";
+
+  await e.DB.prepare(`
+    INSERT INTO trades(id,user_id,wallet_address,tx_hash,block_number,block_timestamp,dex,pair_address,side,gdty_amount_wei,usdt_amount_wei,price_usdt_per_gdty,confirmations,status,created_at,verified_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).bind(tradeId,u.id,u.wallet_address,trade.txHash,trade.block,now,trade.dex,trade.pair,trade.side,g.toString(),uAmt.toString(),price,confirmations,status,now,status==="confirmed"?now:null).run();
+
+  if(trade.side==="buy"){
+    await maybeCreateReferralReward(e,u,tradeId,trade,g);
+  }
+
+  return {ok:true,tradeId,status,confirmations};
+}
+
+async function tryPayReferralReward(e,reward) {
+  const referred=await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(reward.referred_user_id).first();
+  const refUser=await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(reward.referrer_user_id).first();
+  if(!referred||!refUser)return false;
+
+  const overdue=Date.now()-new Date(reward.available_at||reward.created_at).getTime() > GIVE_UP_AFTER_DAYS*86400000;
+
+  // Re-evaluate risk right now, combined with a sell-off check - a quick sell is
+  // one signal among several, not an automatic disqualifier by itself.
+  let riskScore=0;
+  try{
+    const base=await computeReferralRisk(e,refUser,referred);
+    riskScore=base.score;
+  }catch{}
+  if(referred.wallet_address){
+    try{
+      const heldWei=await tokenBalance(e,A.G,referred.wallet_address);
+      const purchasedWei=BigInt(reward.gdty_amount_wei||"0");
+      if(heldWei*2n<purchasedWei)riskScore+=3; // sold off more than half - contributes to risk, doesn't freeze alone
+    }catch{
+      if(!overdue)return false; // RPC hiccup - retry later, unless we've already given up too many times
+    }
+  }
+  if(riskScore>=5){
+    await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=?").bind(reward.id).run();
+    return false;
+  }
+  if(overdue){
+    // Couldn't confirm this reward cleanly within a reasonable window - stop
+    // retrying forever and park it for manual review instead.
+    await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=?").bind(reward.id).run();
+    return false;
+  }
+
+  if(!e.REFERRAL_PAYOUT_PRIVATE_KEY)return false;
+  if(String(e.REFERRAL_PAUSED).toLowerCase()==="true")return false;
+  if(!refUser.wallet_address||!walletRe.test(refUser.wallet_address)){
+    await e.DB.prepare("UPDATE referral_rewards SET status='payout_failed' WHERE id=?").bind(reward.id).run();
+    return false;
+  }
+  const amountWei=BigInt(reward.reward_amount_wei||"0");
+  if(amountWei<=0n)return false;
+
+  let payoutAddress;
+  try{payoutAddress=addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);}catch{return false;}
+
+  let gdtyBal,bnbBal;
+  try{
+    const [g,b]=await Promise.all([tokenBalance(e,A.G,payoutAddress),rpc(e,"eth_getBalance",[payoutAddress,"latest"])]);
+    gdtyBal=g;bnbBal=BigInt(b);
+  }catch{return false;}
+  if(gdtyBal<amountWei||bnbBal<2000000000000000n)return false;
+
+  const guard=await e.DB.prepare("UPDATE referral_rewards SET status='processing' WHERE id=? AND status='pending'").bind(reward.id).run();
+  if(!guard?.meta||guard.meta.changes===0)return false;
+
+  const payoutId=id(),now=nowIso();
+  try{
+    await e.DB.prepare("INSERT INTO referral_payouts(id,user_id,wallet_address,amount_wei,status,created_at) VALUES(?,?,?,?,?,?)")
+      .bind(payoutId,refUser.id,refUser.wallet_address,amountWei.toString(),"processing",now).run();
+    const nonce=await getNonce(e,payoutAddress);
+    const gasPrice=await getGasPrice(e);
+    const gasLimit=100000;
+    const data=erc20TransferData(refUser.wallet_address,amountWei);
+    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:A.G,value:0n,data});
+    const txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
+    await e.DB.batch([
+      e.DB.prepare("UPDATE referral_payouts SET status='broadcast',tx_hash=?,nonce=?,gas_price_wei=?,gas_limit=? WHERE id=?")
+        .bind(txHash,nonce,gasPrice.toString(),gasLimit,payoutId),
+      e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now,txHash,reward.id)
+    ]);
+    await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)")
+      .bind(id(),refUser.id,"referral_paid","Referral reward sent","Your 3% referral reward was sent on-chain to your wallet.",now).run();
+    return true;
+  }catch(err){
+    console.error("GOLDITY payout broadcast error",err);
+    await e.DB.prepare("UPDATE referral_rewards SET status='pending' WHERE id=?").bind(reward.id).run();
+    return false;
+  }
+}
+
+async function graduateReferralRewards(e,userId) {
+  // Runs for whichever user is active right now - checks rewards where they are
+  // either the referrer (the one who'll get paid) or the referred buyer (whose
+  // purchase created someone else's reward), so a reward can still progress even
+  // if the referrer themselves rarely logs back in.
+  const now=nowIso();
+  const rows=await e.DB.prepare(`
+    SELECT * FROM referral_rewards
+    WHERE (referrer_user_id=? OR referred_user_id=?) AND status='pending' AND available_at IS NOT NULL AND available_at<=?
+    LIMIT 5
+  `).bind(userId,userId,now).all();
+  for(const reward of (rows.results||[])){
+    await tryPayReferralReward(e,reward);
+  }
+}
+
+async function scanForNewTrades(e) {
+  // Automatically detects GDTY purchases for any bound (signature-verified) wallet,
+  // so users don't have to find and paste a transaction hash themselves. Only scans
+  // up to 12 blocks behind the chain tip, so anything it finds is already safely
+  // confirmed - no separate "pending" reorg-safety window is needed for these.
+  const latest=parseInt(await rpc(e,"eth_blockNumber"),16);
+  const safeBlock=latest-12;
+  if(safeBlock<1)return;
+
+  const stateRow=await e.DB.prepare("SELECT value FROM scanner_state WHERE key='last_block'").first();
+  let fromBlock=stateRow?parseInt(stateRow.value,10)+1:safeBlock;
+  if(fromBlock>safeBlock)return;
+
+  const MAX_RANGE=2000;
+  const toBlock=Math.min(safeBlock,fromBlock+MAX_RANGE);
+
+  const logs=await rpc(e,"eth_getLogs",[{
+    fromBlock:"0x"+fromBlock.toString(16),
+    toBlock:"0x"+toBlock.toString(16),
+    address:A.G,
+    topics:[TOPIC_TRANSFER]
+  }]);
+
+  const txHashes=[...new Set((logs||[]).map(l=>l.transactionHash))];
+
+  for(const txHash of txHashes){
+    try{
+      const existing=await e.DB.prepare("SELECT id FROM trades WHERE tx_hash=?").bind(txHash).first();
+      if(existing)continue;
+      const tx=await rpc(e,"eth_getTransactionByHash",[txHash]);
+      if(!tx)continue;
+      const boundWallet=await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(String(tx.from).toLowerCase()).first();
+      if(!boundWallet)continue;
+      const user=await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(boundWallet.user_id).first();
+      if(!user)continue;
+      const trade=await verifyTrade(e,user,txHash);
+      if(!trade.ok)continue;
+      trade.txHash=txHash;
+      await recordTrade(e,user,trade);
+    }catch(err){
+      console.error("GOLDITY scanner trade error",txHash,err);
+    }
+  }
+
+  await e.DB.prepare(`
+    INSERT INTO scanner_state(key,value,updated_at) VALUES('last_block',?,?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at
+  `).bind(toBlock.toString(),nowIso()).run();
+}
+
 async function dashboard(e,req) {
   const u=await currentUser(e,req);
   if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
+
+  if(!u.referral_code){
+    const newCode=await makeReferralCode(e);
+    await e.DB.prepare("UPDATE users SET referral_code=?,updated_at=? WHERE id=?").bind(newCode,nowIso(),u.id).run();
+    u.referral_code=newCode;
+  }
+
+  await graduateReferralRewards(e,u.id).catch(err=>console.error("GOLDITY graduate error",err));
+
+  const refs=await e.DB.prepare("SELECT COUNT(*) AS count FROM users WHERE referred_by=?").bind(u.referral_code).first();
+  const rewardRows=await e.DB.prepare(`
+    SELECT reward_amount_wei,status FROM referral_rewards WHERE referrer_user_id=?
+  `).bind(u.id).all();
+  let rewardPaid=0n,rewardPending=0n,rewardFrozen=0n,rewardTotal=0n;
+  for(const r of (rewardRows.results||[])){
+    const amount=BigInt(r.reward_amount_wei||"0");
+    if(r.status==="paid"){rewardPaid+=amount;rewardTotal+=amount;}
+    else if(r.status==="frozen"||r.status==="payout_failed"){rewardFrozen+=amount;}
+    else{rewardPending+=amount;rewardTotal+=amount;}
+  }
+
+  let wallet={connected:false};
+  if(u.wallet_address){
+    try{
+      const [g,usdt,bnbRaw]=await Promise.all([
+        tokenBalance(e,A.G,u.wallet_address),
+        tokenBalance(e,A.U,u.wallet_address),
+        rpc(e,"eth_getBalance",[u.wallet_address,"latest"])
+      ]);
+      wallet={connected:true,address:u.wallet_address,gdtyWei:g.toString(),usdtWei:usdt.toString(),bnbWei:BigInt(bnbRaw).toString()};
+    }catch{
+      wallet={connected:true,address:u.wallet_address,gdtyWei:null,usdtWei:null,bnbWei:null};
+    }
+  }
+
+  const trades=await e.DB.prepare(`
+    SELECT tx_hash AS txHash,dex,side,gdty_amount_wei AS gdtyAmountWei,usdt_amount_wei AS usdtAmountWei,
+           status,confirmations,created_at AS createdAt
+    FROM trades WHERE user_id=? ORDER BY created_at DESC LIMIT 50
+  `).bind(u.id).all();
+
   const notifications=await e.DB.prepare(`
     SELECT id,type,title,message,read_at AS readAt,created_at AS createdAt
     FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30
   `).bind(u.id).all();
+
   return out({
     ok:true,
     user:{
       id:u.id,email:u.email,firstName:u.first_name,lastName:u.last_name,country:u.country,
-      phone:u.phone,role:u.role,createdAt:u.created_at
+      phone:u.phone,walletAddress:u.wallet_address,referralCode:u.referral_code,referredBy:u.referred_by,
+      role:u.role,createdAt:u.created_at,referrals:Number(refs?.count||0)
     },
+    wallet,
+    referralRewards:{paidWei:rewardPaid.toString(),pendingWei:rewardPending.toString(),frozenWei:rewardFrozen.toString(),totalWei:rewardTotal.toString()},
+    trades:trades.results||[],
     notifications:notifications.results||[]
   },200,0,cors(e));
 }
@@ -372,7 +969,7 @@ async function createTicket(e,req) {
   if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
   const d=await req.json().catch(()=>({}));
   const category=clean(d.category,40),subject=clean(d.subject,160),message=clean(d.message,4000);
-  const allowed=["Account","Technical","Security","Other"];
+  const allowed=["Account","Wallet","Referral","Purchase","Technical","Security","Other"];
   if(!allowed.includes(category)||!subject||!message)return out({ok:false,error:"validation_failed"},400,cors(e));
   const tid=id(), number=`GDTY-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0,6).toUpperCase()}`,now=nowIso();
   await e.DB.batch([
@@ -411,6 +1008,24 @@ export default {
       if(u.pathname==="/api/verify-email"&&req.method==="GET")return await verifyEmail(e,req);
       if(u.pathname==="/api/logout"&&req.method==="POST")return await logout(e,req);
       if(u.pathname==="/api/me"&&req.method==="GET")return await dashboard(e,req);
+      if(u.pathname==="/api/wallet/challenge"&&req.method==="POST")return await walletChallenge(e,req);
+      if(u.pathname==="/api/wallet/verify"&&req.method==="POST")return await walletVerify(e,req);
+      if(u.pathname==="/api/trade/verify"&&req.method==="POST"){
+        const user=await currentUser(e,req);if(!user)return out({ok:false,error:"unauthorized"},401,baseHeaders);
+        if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,baseHeaders);
+        if(!await rateLimit(e,`trade:${user.id}`,20,60000))return out({ok:false,error:"rate_limited"},429,baseHeaders);
+        const d=await req.json().catch(()=>({})),txHash=String(d.txHash||"").toLowerCase();
+        if(!txRe.test(txHash))return out({ok:false,error:"invalid_tx_hash"},400,baseHeaders);
+        const trade=await verifyTrade(e,user,txHash);
+        if(!trade.ok)return out(trade,400,baseHeaders);
+        trade.txHash=txHash;
+        return out(await recordTrade(e,user,trade),200,0,baseHeaders);
+      }
+      if(u.pathname==="/api/referral/check"&&req.method==="GET"){
+        const code=clean(u.searchParams.get("code"),32).toUpperCase();
+        const row=code&&e.DB?await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(code).first():null;
+        return out({ok:true,valid:!!row,referralCode:row?.referral_code||null},200,30,baseHeaders);
+      }
       if(u.pathname==="/api/support/tickets"&&req.method==="POST")return await createTicket(e,req);
       if(u.pathname==="/api/support/tickets"&&req.method==="GET")return await ticketList(e,req);
       if(u.pathname==="/api/support/messages"&&req.method==="GET")return await ticketMessages(e,req);
@@ -475,5 +1090,10 @@ export default {
       console.error("GOLDITY worker error",err);
       return out({ok:false,error:"internal_error"},500,0,baseHeaders);
     }
+  },
+
+  async scheduled(event,e,ctx) {
+    if(!e.DB)return;
+    try{await scanForNewTrades(e);}catch(err){console.error("GOLDITY scanner error",err);}
   }
 };
