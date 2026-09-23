@@ -742,3 +742,22 @@ header:has(> .brand) > .wallet{margin-left:auto}
 .airdrop-success{margin-top:16px;padding:16px;border:1px solid rgba(157,204,155,.35);border-radius:9px;background:rgba(157,204,155,.05);display:flex;flex-direction:column;gap:8px}
 .airdrop-success strong{color:var(--success)}
 .airdrop-success a{color:var(--gold-light);font-size:13px}
+
+.airdrop-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:38px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:var(--brand-gold-gradient);
+  color:#0b0a08;
+  font-weight:800;
+  font-size:12px;
+  white-space:nowrap;
+  box-shadow:0 4px 16px rgba(217,180,91,.25);
+  transition:.2s ease;
+}
+.airdrop-badge:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(217,180,91,.4)}
+@media(max-width:900px){.airdrop-badge span{display:none}}
+@media(max-width:640px){.airdrop-badge{padding:7px 10px;font-size:11px}}
