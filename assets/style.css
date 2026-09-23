@@ -720,3 +720,25 @@ header:has(> .brand) > .wallet{margin-left:auto}
   header:has(> .brand) > nav{gap:13px;flex-wrap:wrap}
   header:has(> .brand) > nav a{font-size:11px}
 }
+
+/* ===== AIRDROP PAGE ===== */
+.airdrop-page{max-width:720px}
+.airdrop-page .lead{color:var(--text-soft);font-size:16px;line-height:1.6;margin:10px 0 30px}
+.airdrop-counter{margin-bottom:26px}
+.airdrop-counter strong{display:block;font-size:22px;color:var(--gold-light);margin-top:4px}
+.airdrop-progress-track{margin-top:10px;height:8px;border-radius:999px;background:#171612;overflow:hidden}
+.airdrop-progress-fill{height:100%;width:0%;background:var(--brand-gold-gradient);transition:width .4s ease}
+.airdrop-card{padding:28px}
+.airdrop-steps{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:14px}
+.airdrop-steps li{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border:1px solid var(--line-soft);border-radius:9px;opacity:.5;transition:.2s ease}
+.airdrop-steps li.active{opacity:1;border-color:rgba(217,180,91,.35);background:rgba(217,180,91,.03)}
+.airdrop-steps li.done{opacity:.8}
+.airdrop-steps li.done .airdrop-step-num{background:var(--success);color:#0b0a08}
+.airdrop-step-num{flex:none;width:26px;height:26px;border-radius:50%;background:#201d16;color:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.airdrop-steps strong{display:block;color:var(--text);font-size:14px;margin-bottom:2px}
+.airdrop-steps p{margin:0;color:var(--muted);font-size:12px}
+.airdrop-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.airdrop-actions button{flex:1;min-width:160px}
+.airdrop-success{margin-top:16px;padding:16px;border:1px solid rgba(157,204,155,.35);border-radius:9px;background:rgba(157,204,155,.05);display:flex;flex-direction:column;gap:8px}
+.airdrop-success strong{color:var(--success)}
+.airdrop-success a{color:var(--gold-light);font-size:13px}
