@@ -143,7 +143,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     if (!res.ok || !data.ok) {
       const messages = {
         wallet_already_claimed: "This wallet has already claimed the airdrop.",
-        already_claimed: "A claim has already been made from your network. One claim per person.",
+        ip_limit_reached: "You've reached the maximum number of claims allowed from your network (100).",
         airdrop_full: "All 10,000 claims have been taken. Thanks for your interest!",
         airdrop_paused: "The airdrop is currently paused. Please check back later.",
         rate_limited: "Too many attempts. Please wait a moment and try again.",
