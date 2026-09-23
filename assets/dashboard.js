@@ -1482,10 +1482,45 @@ function getEthereum() {
   return activeProvider || window.ethereum || null;
 }
 
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+function showMobileWalletRedirect() {
+  const currentUrl = window.location.href;
+  const bareUrl = currentUrl.replace(/^https?:\/\//, "");
+  const options = [
+    { name: "Trust Wallet", url: `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}` },
+    { name: "MetaMask", url: `https://metamask.app.link/dapp/${bareUrl}` },
+    { name: "Coinbase Wallet", url: `https://go.cb-wallet.com/dapp?cb_url=${encodeURIComponent(currentUrl)}` },
+    { name: "OKX Wallet", url: `https://web3.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + encodeURIComponent(currentUrl))}` }
+  ];
+  const overlay = document.createElement("div");
+  overlay.className = "wallet-picker-overlay";
+  overlay.innerHTML = `
+    <div class="wallet-picker" role="dialog" aria-label="Open in your wallet app">
+      <h3>Open in your wallet app</h3>
+      <p class="wallet-picker-hint">Your wallet app isn't detected in this browser. Tap your wallet below to open this page inside it.</p>
+      <div class="wallet-picker-list">
+        ${options.map(o => `<a class="wallet-picker-item" href="${o.url}">${o.name}</a>`).join("")}
+      </div>
+      <button type="button" class="wallet-picker-cancel">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const cleanup = () => overlay.remove();
+  overlay.querySelector(".wallet-picker-cancel")?.addEventListener("click", cleanup);
+  overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(); });
+}
+
 function pickWalletProvider() {
   return new Promise(resolve => {
     setTimeout(() => {
-      if (discoveredWallets.length === 0) { resolve(window.ethereum || null); return; }
+      if (discoveredWallets.length === 0) {
+        if (!window.ethereum && isMobileDevice()) { showMobileWalletRedirect(); resolve(null); return; }
+        resolve(window.ethereum || null);
+        return;
+      }
       if (discoveredWallets.length === 1) { resolve(discoveredWallets[0].provider); return; }
       showWalletPicker(discoveredWallets, chosen => resolve(chosen ? chosen.provider : null));
     }, 150);
