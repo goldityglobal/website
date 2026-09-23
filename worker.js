@@ -891,6 +891,113 @@ async function scanForNewTrades(e) {
   `).bind(toBlock.toString(),nowIso()).run();
 }
 
+const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
+const AIRDROP_MAX_CLAIMS=10000;
+
+async function airdropIsPaused(e) {
+  const row=await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='paused'").first();
+  return !!row?.value_int;
+}
+
+async function airdropClaimedCount(e) {
+  const row=await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='claimed_count'").first();
+  return Number(row?.value_int||0);
+}
+
+// Atomically reserves one of the 10,000 claim slots. A single UPDATE...WHERE
+// statement is atomic in SQLite/D1, so this is safe even if two claims land
+// at almost the same moment - the count can never be pushed past the cap.
+async function reserveAirdropSlot(e) {
+  const now=nowIso();
+  await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('claimed_count',0,?) ON CONFLICT(key) DO NOTHING").bind(now).run();
+  const res=await e.DB.prepare("UPDATE airdrop_state SET value_int=value_int+1,updated_at=? WHERE key='claimed_count' AND value_int<?")
+    .bind(now,AIRDROP_MAX_CLAIMS).run();
+  return !!res?.meta?.changes;
+}
+async function releaseAirdropSlot(e) {
+  await e.DB.prepare("UPDATE airdrop_state SET value_int=MAX(0,value_int-1) WHERE key='claimed_count'").run();
+}
+
+async function airdropStatus(e) {
+  const claimed=await airdropClaimedCount(e);
+  const paused=await airdropIsPaused(e);
+  return {
+    ok:true,claimed,max:AIRDROP_MAX_CLAIMS,remaining:Math.max(0,AIRDROP_MAX_CLAIMS-claimed),
+    rewardWei:AIRDROP_REWARD_WEI.toString(),paused
+  };
+}
+
+async function claimAirdrop(e,req) {
+  if(!await requireOrigin(e,req))return {ok:false,error:"forbidden"};
+  if(await airdropIsPaused(e))return {ok:false,error:"airdrop_paused"};
+
+  const d=await req.json().catch(()=>({}));
+  const address=String(d.address||"").toLowerCase();
+  if(!walletRe.test(address))return {ok:false,error:"invalid_wallet"};
+
+  const ipHash=await sha256Text(ip(req));
+  if(!await rateLimit(e,`airdrop:${ipHash}`,3,3600000))return {ok:false,error:"rate_limited"};
+
+  const [byWallet,byIp]=await Promise.all([
+    e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first(),
+    e.DB.prepare("SELECT id FROM airdrop_claims WHERE ip_hash=?").bind(ipHash).first()
+  ]);
+  if(byWallet)return {ok:false,error:"wallet_already_claimed"};
+  if(byIp)return {ok:false,error:"already_claimed"};
+
+  if(!await reserveAirdropSlot(e))return {ok:false,error:"airdrop_full"};
+
+  const claimId=id(),now=nowIso();
+  try{
+    await e.DB.prepare(`
+      INSERT INTO airdrop_claims(id,wallet_address,ip_hash,amount_wei,status,created_at)
+      VALUES(?,?,?,?,?,?)
+    `).bind(claimId,address,ipHash,AIRDROP_REWARD_WEI.toString(),"processing",now).run();
+  }catch{
+    await releaseAirdropSlot(e);
+    return {ok:false,error:"wallet_already_claimed"};
+  }
+
+  if(!e.REFERRAL_PAYOUT_PRIVATE_KEY){
+    await releaseAirdropSlot(e);
+    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
+    return {ok:false,error:"airdrop_not_configured"};
+  }
+
+  let payoutAddress;
+  try{payoutAddress=addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);}catch{
+    await releaseAirdropSlot(e);
+    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
+    return {ok:false,error:"airdrop_not_configured"};
+  }
+
+  try{
+    const [gdtyBal,bnbRaw]=await Promise.all([
+      tokenBalance(e,A.G,payoutAddress),
+      rpc(e,"eth_getBalance",[payoutAddress,"latest"])
+    ]);
+    if(BigInt(gdtyBal)<AIRDROP_REWARD_WEI||BigInt(bnbRaw)<2000000000000000n){
+      await releaseAirdropSlot(e);
+      await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
+      return {ok:false,error:"airdrop_treasury_empty"};
+    }
+    const nonce=await getNonce(e,payoutAddress);
+    const gasPrice=await getGasPrice(e);
+    const gasLimit=100000;
+    const data=erc20TransferData(address,AIRDROP_REWARD_WEI);
+    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:A.G,value:0n,data});
+    const txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
+    await e.DB.prepare("UPDATE airdrop_claims SET status='sent',tx_hash=? WHERE id=?").bind(txHash,claimId).run();
+    return {ok:true,txHash,amountWei:AIRDROP_REWARD_WEI.toString()};
+  }catch(err){
+    console.error("GOLDITY airdrop payout error",err);
+    await releaseAirdropSlot(e);
+    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
+    return {ok:false,error:"airdrop_send_failed"};
+  }
+}
+
+
 async function dashboard(e,req) {
   const u=await currentUser(e,req);
   if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
@@ -940,6 +1047,13 @@ async function dashboard(e,req) {
     FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30
   `).bind(u.id).all();
 
+  let airdropAdmin=null;
+  if(u.role==="admin"){
+    const status=await airdropStatus(e);
+    const distributedWei=(BigInt(status.claimed)*AIRDROP_REWARD_WEI).toString();
+    airdropAdmin={...status,distributedWei};
+  }
+
   return out({
     ok:true,
     user:{
@@ -950,7 +1064,8 @@ async function dashboard(e,req) {
     wallet,
     referralRewards:{paidWei:rewardPaid.toString(),pendingWei:rewardPending.toString(),frozenWei:rewardFrozen.toString(),totalWei:rewardTotal.toString()},
     trades:trades.results||[],
-    notifications:notifications.results||[]
+    notifications:notifications.results||[],
+    airdropAdmin
   },200,0,cors(e));
 }
 
@@ -1029,6 +1144,23 @@ export default {
       if(u.pathname==="/api/support/tickets"&&req.method==="POST")return await createTicket(e,req);
       if(u.pathname==="/api/support/tickets"&&req.method==="GET")return await ticketList(e,req);
       if(u.pathname==="/api/support/messages"&&req.method==="GET")return await ticketMessages(e,req);
+      if(u.pathname==="/api/airdrop/status"&&req.method==="GET"){
+        return out(await airdropStatus(e),200,10,baseHeaders);
+      }
+      if(u.pathname==="/api/airdrop/claim"&&req.method==="POST"){
+        const result=await claimAirdrop(e,req);
+        return out(result,result.ok?200:400,0,baseHeaders);
+      }
+      if(u.pathname==="/api/airdrop/toggle-pause"&&req.method==="POST"){
+        const user=await currentUser(e,req);
+        if(!user||user.role!=="admin")return out({ok:false,error:"unauthorized"},401,baseHeaders);
+        const paused=await airdropIsPaused(e);
+        await e.DB.prepare(`
+          INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('paused',?,?)
+          ON CONFLICT(key) DO UPDATE SET value_int=excluded.value_int,updated_at=excluded.updated_at
+        `).bind(paused?0:1,nowIso()).run();
+        return out({ok:true,paused:!paused},200,0,baseHeaders);
+      }
       if(u.pathname==="/api/dexscreener-pair"&&req.method==="GET"){
         try{
           const p=await dexscreenerPair(e);
