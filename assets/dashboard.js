@@ -1610,61 +1610,6 @@ function setupWalletEvents() {
 }
 
 /* =========================================================
-   VERIFY PURCHASE
-========================================================= */
-let verifyPurchaseBusy = false;
-
-function setVerifyPurchaseState(message, error = false) {
-  const el = $("verifyPurchaseState");
-  if (!el) return;
-  el.textContent = message || "";
-  el.classList.toggle("error", error);
-}
-
-function verifyPurchaseErrorMessage(code) {
-  const messages = {
-    wallet_not_connected: "Connect your wallet first.",
-    unauthorized: "Please sign in first.",
-    invalid_tx_hash: "Enter a valid transaction hash (0x followed by 64 hex characters).",
-    transaction_not_found: "That transaction could not be found on-chain yet. Wait a moment and try again.",
-    transaction_wallet_mismatch: "This transaction was sent from a different wallet than the one you connected.",
-    transaction_failed: "This transaction failed on-chain, so it can't be verified as a purchase.",
-    unsupported_trade: "This doesn't look like a GDTY purchase (no real value appears to have left your wallet).",
-    transaction_already_recorded: "This transaction has already been verified and recorded.",
-    rate_limited: "Too many attempts. Please wait a moment and try again."
-  };
-  return messages[code] || "Could not verify this transaction. Please try again.";
-}
-
-async function verifyPurchase(event) {
-  event.preventDefault();
-  if (verifyPurchaseBusy) return;
-  const input = $("verifyPurchaseTxHash");
-  const txHash = (input?.value || "").trim();
-  if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
-    setVerifyPurchaseState(verifyPurchaseErrorMessage("invalid_tx_hash"), true);
-    return;
-  }
-  verifyPurchaseBusy = true;
-  setVerifyPurchaseState("Verifying on-chain…");
-  try {
-    await api("/api/trade/verify", { method: "POST", body: JSON.stringify({ txHash }) });
-    setVerifyPurchaseState("Purchase verified and added to your trade history.");
-    if (input) input.value = "";
-    await load();
-  } catch (error) {
-    if (error.message === "unauthorized") { location.href = "/login.html"; return; }
-    setVerifyPurchaseState(verifyPurchaseErrorMessage(error.message), true);
-  } finally {
-    verifyPurchaseBusy = false;
-  }
-}
-
-function setupVerifyPurchase() {
-  $("verifyPurchaseForm")?.addEventListener("submit", verifyPurchase);
-}
-
-/* =========================================================
    REFERRAL RENDERING
 ========================================================= */
 function renderRewards(user, rewards) {
@@ -1892,8 +1837,6 @@ setupLogout();
 setupWalletEvents();
 
 setupAddToken();
-
-setupVerifyPurchase();
 
 setupCopyButtons();
 
