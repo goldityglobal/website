@@ -761,3 +761,5 @@ header:has(> .brand) > .wallet{margin-left:auto}
 .airdrop-badge:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(217,180,91,.4)}
 @media(max-width:900px){.airdrop-badge span{display:none}}
 @media(max-width:640px){.airdrop-badge{padding:7px 10px;font-size:11px}}
+
+#email{font-size:15px;word-break:break-word;overflow-wrap:break-word}
