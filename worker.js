@@ -936,14 +936,15 @@ async function claimAirdrop(e,req) {
   if(!walletRe.test(address))return {ok:false,error:"invalid_wallet"};
 
   const ipHash=await sha256Text(ip(req));
-  if(!await rateLimit(e,`airdrop:${ipHash}`,3,3600000))return {ok:false,error:"rate_limited"};
+  if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
 
-  const [byWallet,byIp]=await Promise.all([
+  const MAX_CLAIMS_PER_IP=100;
+  const [byWallet,ipCountRow]=await Promise.all([
     e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first(),
-    e.DB.prepare("SELECT id FROM airdrop_claims WHERE ip_hash=?").bind(ipHash).first()
+    e.DB.prepare("SELECT COUNT(*) AS c FROM airdrop_claims WHERE ip_hash=?").bind(ipHash).first()
   ]);
   if(byWallet)return {ok:false,error:"wallet_already_claimed"};
-  if(byIp)return {ok:false,error:"already_claimed"};
+  if(Number(ipCountRow?.c||0)>=MAX_CLAIMS_PER_IP)return {ok:false,error:"ip_limit_reached"};
 
   if(!await reserveAirdropSlot(e))return {ok:false,error:"airdrop_full"};
 
