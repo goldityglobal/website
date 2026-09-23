@@ -511,6 +511,64 @@ async function verifyEmail(e,req) {
   return out({ok:true,message:"Email verified. Your GOLDITY account is now active."},200,0,cors(e));
 }
 
+async function requestPasswordReset(e,req) {
+  if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+  if(!await rateLimit(e,`forgot:${ip(req)}`,5,3600000))return out({ok:false,error:"rate_limited"},429,cors(e));
+
+  const d=await req.json().catch(()=>({}));
+  const email=normalizeEmail(d.email);
+  // Always respond the same way whether or not the account exists, so this
+  // endpoint can't be used to discover which emails have a GOLDITY account.
+  const genericResponse={ok:true,message:"If that email has a GOLDITY account, a reset link has been sent."};
+
+  const row=await e.DB.prepare("SELECT * FROM users WHERE email=?").bind(email).first();
+  if(!row)return out(genericResponse,200,0,cors(e));
+
+  const raw=token(),tokenHash=await sha256Text(raw),now=nowIso(),exp=new Date(Date.now()+3600000).toISOString();
+  await e.DB.prepare("DELETE FROM password_reset_tokens WHERE user_id=? AND used_at IS NULL").bind(row.id).run();
+  await e.DB.prepare("INSERT INTO password_reset_tokens(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)")
+    .bind(tokenHash,row.id,exp,now).run();
+
+  if(e.RESEND_API_KEY&&e.FROM_EMAIL){
+    const link=`${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}/reset-password.html?token=${encodeURIComponent(raw)}`;
+    await fetch("https://api.resend.com/emails",{
+      method:"POST",
+      headers:{authorization:`Bearer ${e.RESEND_API_KEY}`,"content-type":"application/json"},
+      body:JSON.stringify({
+        from:e.FROM_EMAIL,to:[email],subject:"Reset your GOLDITY password",
+        html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Reset your password</h2><p>Hello ${htmlEscape(row.first_name||"")},</p><p>Click the link below to set a new password. This link expires in 1 hour and can only be used once.</p><p><a href="${htmlEscape(link)}">Reset Password</a></p><p>If you didn't request this, you can safely ignore this email.</p></div>`
+      })
+    }).catch(()=>null);
+  }
+  return out(genericResponse,200,0,cors(e));
+}
+
+async function resetPassword(e,req) {
+  if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+
+  const d=await req.json().catch(()=>({}));
+  const raw=String(d.token||""),password=String(d.password||"");
+  if(password.length<10)return out({ok:false,error:"weak_password",message:"Password must be at least 10 characters."},400,cors(e));
+
+  const tokenHash=await sha256Text(raw);
+  const row=await e.DB.prepare("SELECT * FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL").bind(tokenHash).first();
+  if(!row||new Date(row.expires_at)<=new Date())return out({ok:false,error:"expired_or_invalid_token",message:"This reset link is invalid or expired."},400,cors(e));
+
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const hash=await hashPassword(password,salt);
+  const now=nowIso();
+  await e.DB.batch([
+    e.DB.prepare("UPDATE users SET password_hash=?,updated_at=? WHERE id=?").bind(hash,now,row.user_id),
+    e.DB.prepare("UPDATE password_reset_tokens SET used_at=? WHERE token_hash=?").bind(now,tokenHash),
+    // Invalidate every existing session, in case the account (not just the
+    // password) was compromised - this signs the person out everywhere.
+    e.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(row.user_id)
+  ]);
+  return out({ok:true,message:"Password updated. You can now sign in with your new password."},200,0,cors(e));
+}
+
 function parseTransfer(log) {
   if(String(log.topics?.[0]).toLowerCase()!==TOPIC_TRANSFER)return null;
   if(!log.topics?.[1]||!log.topics?.[2])return null;
@@ -1122,6 +1180,8 @@ export default {
       if(u.pathname==="/api/register"&&req.method==="POST")return await registerUser(e,req);
       if(u.pathname==="/api/login"&&req.method==="POST")return await loginUser(e,req);
       if(u.pathname==="/api/verify-email"&&req.method==="GET")return await verifyEmail(e,req);
+      if(u.pathname==="/api/forgot-password"&&req.method==="POST")return await requestPasswordReset(e,req);
+      if(u.pathname==="/api/reset-password"&&req.method==="POST")return await resetPassword(e,req);
       if(u.pathname==="/api/logout"&&req.method==="POST")return await logout(e,req);
       if(u.pathname==="/api/me"&&req.method==="GET")return await dashboard(e,req);
       if(u.pathname==="/api/wallet/challenge"&&req.method==="POST")return await walletChallenge(e,req);
