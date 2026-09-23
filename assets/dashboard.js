@@ -1,163 +1,1290 @@
-<!doctype html>
+const API_BASE = "";
 
  
 
-<html lang="en">
+ 
+
+ 
+
+
+ 
+
+
+ 
+
+ 
+
+ 
+
+
+ 
+
+
+ 
+
+
+
+ 
+
+
+ 
+
+
+ 
+
+ 
+
+ 
+
+const $ = id => document.getElementById(id);
+
+ 
+
+ 
+
+ 
+
+const fmt = (value, digits = 4) => {
+
+ 
+
+  const n = Number(value || 0);
+
+ 
+
+  if (!Number.isFinite(n)) return "—";
+
+ 
+
+  return n.toLocaleString("en-US", {
+
+ 
+
+    maximumFractionDigits: digits
+
+ 
+
+  });
+
+ 
+
+};
+
+ 
+
+ 
+
+ 
+
+const fmtGdty = wei => {
+
+ 
+
+  try {
+
+ 
+
+    return `${fmt(Number(BigInt(wei || "0")) / 1e18, 4)} GDTY`;
+
+ 
+
+  } catch {
+
+ 
+
+    return "0 GDTY";
+
+ 
+
+  }
+
+ 
+
+};
+
+ 
+
+ 
+
+ 
+
+const fmtUsdt = wei => {
+
+ 
+
+  try {
+
+ 
+
+    return `$${fmt(Number(BigInt(wei || "0")) / 1e18, 4)}`;
+
+ 
+
+  } catch {
+
+ 
+
+    return "$0";
+
+ 
+
+  }
+
+ 
+
+};
+
+ 
+
+ 
+
+ 
+
+const shortAddress = address => {
+
+ 
+
+  if (!address) return "—";
+
+ 
+
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+
+ 
+
+};
+
+ 
+
+ 
+
+ 
+
+const shortTx = tx => {
+
+ 
+
+  if (!tx) return "—";
+
+ 
+
+  return `${tx.slice(0, 8)}…${tx.slice(-6)}`;
+
+ 
+
+};
+
+ 
+
+ 
+
+ 
+
+const setText = (id, value) => {
+
+ 
+
+  const el = $(id);
+
+ 
+
+  if (el) el.textContent = value;
+
+ 
+
+};
+
+ 
+
+ 
+
+ 
+
+function setState(message, error = false) {
+
+ 
+
+  const el = $("accountState");
+
+ 
+
+  if (!el) return;
+
+ 
+
+ 
+
+ 
+
+  el.textContent = message;
+
+ 
+
+  el.classList.toggle("error", error);
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+async function api(path, options = {}) {
+
+ 
+
+  const response = await fetch(API_BASE + path, {
+
+ 
+
+    credentials: "include",
+
+ 
+
+    ...options,
+
+ 
+
+    headers: {
+
+ 
+
+      "content-type": "application/json",
+
+ 
+
+      ...(options.headers || {})
+
+ 
+
+    }
+
+ 
+
+  });
+
+ 
+
+ 
+
+ 
+
+  const data = await response.json().catch(() => ({}));
+
+ 
+
+ 
+
+ 
+
+  if (!response.ok) {
+
+ 
+
+    throw new Error(
+
+ 
+
+      data.message ||
+
+ 
+
+      data.error ||
+
+ 
+
+      "Request failed."
+
+ 
+
+    );
+
+ 
+
+  }
+
+ 
+
+ 
+
+ 
+
+  return data;
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+/* =========================
+
+ 
+
+   ACCOUNT
+
+ 
+
+========================= */
+
+ 
+
+ 
+
+ 
+
+function renderAccount(data) {
+
+ 
+
+  const user = data.user;
+
+ 
+
+ 
+
+ 
+
+  setText(
+
+ 
+
+    "name",
+
+ 
+
+    `${user.firstName || ""} ${user.lastName || ""}`.trim() || "—"
+
+ 
+
+  );
+
+ 
+
+ 
+
+ 
+
+  setText("email", user.email || "—");
+
+ 
+
+  setText("country", user.country || "—");
+
+ 
+
+  setText(
+
+ 
+
+    "accountStatus",
+
+ 
+
+    user.emailVerified === false ? "Pending" : "Active"
+
+ 
+
+  );
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+/* =========================
+
+ 
+
+   WALLET
+
+ 
+
+========================= */
+
+ 
+
+ 
+
+ 
+
+function renderNotifications(items) {
+
+ 
+
+  const container = $("notifications");
+
+ 
+
+ 
+
+ 
+
+  if (!container) return;
+
+ 
+
+ 
+
+ 
+
+  container.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+  if (!items || !items.length) {
+
+ 
+
+    const card = document.createElement("div");
+
+ 
+
+ 
+
+ 
+
+    card.className = "dashboard-card";
+
+ 
+
+    card.textContent = "No notifications.";
+
+ 
+
+ 
+
+ 
+
+    container.appendChild(card);
+
+ 
+
+    return;
+
+ 
+
+  }
+
+ 
+
+ 
+
+ 
+
+  for (const item of items) {
+
+ 
+
+    const card = document.createElement("div");
+
+ 
+
+ 
+
+ 
+
+    card.className =
+
+ 
+
+      "dashboard-card notification-item";
+
+ 
+
+ 
+
+ 
+
+    const title = document.createElement("strong");
+
+ 
+
+    title.textContent = item.title || "Notification";
+
+ 
+
+ 
+
+ 
+
+    const message = document.createElement("p");
+
+ 
+
+    message.textContent = item.message || "";
+
+ 
+
+ 
+
+ 
+
+    const date = document.createElement("small");
+
+ 
+
+    date.textContent = item.createdAt
+
+ 
+
+      ? new Date(item.createdAt).toLocaleString()
+
+ 
+
+      : "";
+
+ 
+
+ 
+
+ 
+
+    card.appendChild(title);
+
+ 
+
+    card.appendChild(message);
+
+ 
+
+    card.appendChild(date);
+
+ 
+
+ 
+
+ 
+
+    container.appendChild(card);
+
+ 
+
+  }
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+/* =========================
+
+ 
+
+   SUPPORT
+
+ 
+
+========================= */
+
+ 
+
+ 
+
+ 
+
+function renderTickets(tickets) {
+
+ 
+
+  const container = $("ticketList");
+
+ 
+
+ 
+
+ 
+
+  if (!container) return;
+
+ 
+
+ 
+
+ 
+
+  container.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+  if (!tickets || !tickets.length) {
+
+ 
+
+    const card = document.createElement("div");
+
+ 
+
+ 
+
+ 
+
+    card.className = "dashboard-card";
+
+ 
+
+    card.textContent = "No support tickets.";
+
+ 
+
+ 
+
+ 
+
+    container.appendChild(card);
+
+ 
+
+    return;
+
+ 
+
+  }
+
+ 
+
+ 
+
+ 
+
+  for (const ticket of tickets) {
+
+ 
+
+    const card = document.createElement("div");
+
+ 
+
+ 
+
+ 
+
+    card.className = "dashboard-card ticket-card";
+
+ 
+
+ 
+
+ 
+
+    const title = document.createElement("strong");
+
+ 
+
+    title.textContent =
+
+ 
+
+      `${ticket.ticketNumber || "Ticket"} — ${ticket.subject || ""}`;
+
+ 
+
+ 
+
+ 
+
+    const meta = document.createElement("p");
+
+ 
+
+ 
+
+ 
+
+    meta.textContent =
+
+ 
+
+      `${ticket.category || "Other"} · ${ticket.status || "open"}`;
+
+ 
+
+ 
+
+ 
+
+    card.appendChild(title);
+
+ 
+
+    card.appendChild(meta);
+
+ 
+
+ 
+
+ 
+
+    container.appendChild(card);
+
+ 
+
+  }
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+async function loadTickets() {
+
+ 
+
+  try {
+
+ 
+
+    const data = await api(
+
+ 
+
+      "/api/support/tickets"
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+    renderTickets(data.tickets || []);
+
+ 
+
+ 
+
+ 
+
+  } catch {
+
+ 
+
+    renderTickets([]);
+
+ 
+
+  }
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+/* =========================
+
+ 
+
+   COPY BUTTONS
+
+ 
+
+========================= */
+
+ 
+
+ 
+
+ 
+
+async function copyText(text, button) {
+
+ 
+
+  if (!text) return;
+
+ 
+
+ 
+
+ 
 
+  try {
+
+ 
+
+    await navigator.clipboard.writeText(text);
+
+ 
+
+ 
+
+ 
+
+    if (button) {
+
+ 
+
+      const old = button.textContent;
+
+ 
+
+ 
+
+ 
+
+      button.textContent = "Copied";
+
+ 
+
+ 
+
+ 
+
+      setTimeout(() => {
+
+ 
+
+        button.textContent = old;
+
+ 
+
+      }, 1500);
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+  } catch {
+
+ 
+
+    window.prompt(
+
+ 
+
+      "Copy this value:",
+
+ 
+
+      text
+
+ 
+
+    );
+
+ 
+
+  }
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+function setupTicketForm() {
+
+ 
+
+ 
+
+ 
+
+  $("newTicket")?.addEventListener(
+
+ 
+
+    "click",
+
+ 
+
+    () => {
+
+ 
+
+ 
+
+ 
+
+      const section =
+
+ 
+
+        $("ticketFormSection");
+
+ 
+
+ 
+
+ 
+
+      if (!section) return;
+
+ 
+
+ 
+
+ 
+
+      section.classList.remove(
+
+ 
+
+        "hidden"
+
+ 
+
+      );
+
+ 
+
+ 
+
+ 
+
+      section.scrollIntoView({
+
+ 
+
+        behavior:"smooth",
+
+ 
+
+        block:"start"
+
+ 
+
+      });
+
  
 
-<head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NJNREX2QJM"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-NJNREX2QJM');
-</script>
+    }
 
+ 
+
+  );
+
+ 
+
+ 
+
+ 
+
+  $("cancelTicket")?.addEventListener(
+
+ 
+
+    "click",
+
+ 
+
+    () => {
+
+ 
+
+ 
+
+ 
+
+      $("ticketFormSection")
+
+ 
+
+        ?.classList.add("hidden");
+
+ 
+
+ 
+
+ 
+
+      $("ticketForm")?.reset();
+
+ 
+
+    }
+
+ 
+
+  );
+
+ 
+
+ 
+
+ 
+
+  $("ticketForm")?.addEventListener(
+
+ 
+
+    "submit",
+
+ 
+
+    async event => {
+
+ 
+
+ 
+
+ 
+
+      event.preventDefault();
+
+ 
+
+ 
+
+ 
 
+      const category =
+
+ 
+
+        $("ticketCategory")?.value || "";
+
+ 
+
+ 
+
+ 
+
+      const subject =
+
+ 
+
+        $("ticketSubject")?.value.trim() || "";
+
+ 
+
  
 
-  <meta charset="utf-8">
+ 
+
+      const message =
+
+ 
 
+        $("ticketMessage")?.value.trim() || "";
+
  
 
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+ 
 
  
 
-  <title>GOLDITY — Dashboard</title>
+      if (!category || !subject || !message) {
 
  
 
-  <meta name="description" content="Your GOLDITY account and support dashboard.">
+        setText(
 
  
 
-<link rel="stylesheet" href="/style.css">
+          "supportState",
+
+ 
 
-</head>
+          "Please complete all ticket fields."
 
  
 
+        );
+
  
+
+        return;
 
  
 
-<body>
+      }
+
+ 
 
  
 
  
 
+      try {
+
  
 
-<header class="site-header">
+ 
 
  
 
-  <div class="header-inner">
+        setText(
 
  
 
-    <a class="brand" href="/">GOLDITY</a>
+          "supportState",
 
  
 
+          "Submitting ticket…"
+
  
+
+        );
 
  
 
-    <nav class="main-nav">
+ 
 
  
 
-      <a href="/">Home</a>
+        const data =
 
  
 
-      <a href="/market.html">Market</a>
+          await api(
 
  
 
-      <a href="/contract.html">Contract</a>
+            "/api/support/tickets",
 
  
 
-      <a href="/whitepaper.html">Whitepaper</a>
+            {
 
  
 
-    </nav>
+              method:"POST",
 
  
+
+              body:JSON.stringify({
 
  
 
+                category,
+
  
 
-    <button id="logout" class="btn btn-outline" type="button">
+                subject,
 
  
 
-      Sign out
+                message
 
  
 
-    </button>
+              })
 
  
 
-  </div>
+            }
 
  
 
-</header>
+          );
 
  
 
  
 
  
+
+        $("ticketForm")?.reset();
 
-<main class="dashboard-page">
+ 
 
  
 
  
+
+        $("ticketFormSection")
 
  
 
-  <section class="dashboard-hero">
+          ?.classList.add("hidden");
 
  
 
-    <div>
+ 
 
  
 
-      <span class="eyebrow">GOLDITY ACCOUNT</span>
+        setText(
 
  
 
-      <h1>Dashboard</h1>
+          "supportState",
 
  
 
-      <p>
+          `Ticket created: ${data.ticket.ticketNumber}`
 
  
 
-        Manage your account and support requests.
+        );
 
  
 
-      </p>
+ 
 
  
 
-    </div>
+        await loadTickets();
 
  
 
@@ -165,71 +1292,91 @@
 
  
 
-    <div id="accountState" class="status-text"></div>
+      } catch (error) {
 
  
 
-  </section>
+ 
 
  
+
+        setText(
 
  
 
+          "supportState",
+
  
+
+          error.message ||
 
  
 
+          "Unable to create ticket."
+
  
 
-  <!-- ACCOUNT -->
+        );
 
  
 
-  <section class="dashboard-section">
+      }
 
  
+
+    }
 
  
 
+  );
+
  
 
-    <div class="section-heading">
+}
 
  
 
-      <h2>Account</h2>
+ 
 
  
 
-    </div>
+ 
 
  
+
+/* =========================
 
  
 
+   LOGOUT
+
  
+
+========================= */
 
-    <div class="dashboard-grid account-grid">
+ 
 
  
 
  
+
+function setupLogout() {
 
  
 
-      <article class="dashboard-card">
+ 
 
  
 
-        <span class="card-label">Name</span>
+  $("logout")?.addEventListener(
 
  
 
-        <strong id="name">—</strong>
+    "click",
 
  
 
-      </article>
+    async () => {
 
  
 
@@ -237,609 +1384,326 @@
 
  
 
-      <article class="dashboard-card">
+      try {
 
  
 
-        <span class="card-label">Email</span>
+        await fetch(
 
  
 
-        <strong id="email">—</strong>
+          API_BASE + "/api/logout",
 
  
 
-      </article>
+          {
 
  
+
+            method:"POST",
 
  
 
+            credentials:"include"
+
  
 
-      <article class="dashboard-card">
+          }
 
  
 
-        <span class="card-label">Country</span>
+        );
 
  
 
-        <strong id="country">—</strong>
+      } finally {
 
  
 
-      </article>
+        location.href = "/";
 
  
+
+      }
 
  
 
+    }
+
  
 
-      <article class="dashboard-card">
+  );
 
  
 
-        <span class="card-label">Account Status</span>
+}
 
  
 
-        <strong id="accountStatus">Active</strong>
+ 
 
  
 
-      </article>
+ 
 
  
+
+/* =========================
 
  
 
+   WALLET EVENTS
+
  
 
-    </div>
+========================= */
 
  
 
  
 
  
+
+/* =========================================================
+   WALLET PROVIDER DISCOVERY (EIP-6963)
+========================================================= */
+let activeProvider = null;
+const discoveredWallets = [];
+
+window.addEventListener("eip6963:announceProvider", event => {
+  const detail = event.detail;
+  if (!detail?.info?.uuid) return;
+  if (discoveredWallets.some(w => w.info.uuid === detail.info.uuid)) return;
+  discoveredWallets.push(detail);
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-  </section>
+function getEthereum() {
+  return activeProvider || window.ethereum || null;
+}
 
-  <section class="dashboard-section" id="walletSection">
-    <div class="section-heading">
-      <h2>Wallet</h2>
-      <button id="connectWallet" class="btn btn-gold" type="button">
-        Connect Wallet
-      </button>
-    </div>
+function pickWalletProvider() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      if (discoveredWallets.length === 0) { resolve(window.ethereum || null); return; }
+      if (discoveredWallets.length === 1) { resolve(discoveredWallets[0].provider); return; }
+      showWalletPicker(discoveredWallets, chosen => resolve(chosen ? chosen.provider : null));
+    }, 150);
+  });
+}
 
-    <div class="dashboard-card">
-      <div class="wallet-status">
-        <span id="walletStatus">Not connected</span>
+function showWalletPicker(wallets, onChoose) {
+  const overlay = document.createElement("div");
+  overlay.className = "wallet-picker-overlay";
+  overlay.innerHTML = `
+    <div class="wallet-picker" role="dialog" aria-label="Choose a wallet">
+      <h3>Choose a wallet</h3>
+      <div class="wallet-picker-list">
+        ${wallets.map((w, i) => `
+          <button type="button" class="wallet-picker-item" data-idx="${i}">
+            <img src="${w.info.icon}" alt="" width="26" height="26">
+            <span>${w.info.name}</span>
+          </button>
+        `).join("")}
       </div>
-      <div class="wallet-address-wrap">
-        <span class="card-label">Wallet Address</span>
-        <code id="walletAddress">—</code>
-      </div>
-      <button id="addGdtyToken" class="btn btn-outline" type="button">
-        Add GDTY to Wallet
-      </button>
+      <button type="button" class="wallet-picker-cancel">Cancel</button>
     </div>
-  </section>
-
-  <section class="dashboard-section">
-    <div class="section-heading">
-      <h2>Purchase &amp; Trade History</h2>
-    </div>
-
-    <div class="dashboard-card verify-purchase-card">
-      <p class="card-note">
-        Purchases made from your connected wallet on any DEX are detected automatically within a few minutes — nothing to paste or submit. Your trade history and any referral reward appear here on their own.
-      </p>
-    </div>
-
-    <div class="table-wrap">
-      <table class="dashboard-table">
-        <thead>
-          <tr>
-            <th>DATE</th><th>DEX</th><th>SIDE</th><th>GDTY</th><th>USDT</th><th>STATUS</th><th>TX</th>
-          </tr>
-        </thead>
-        <tbody id="tradesBody">
-          <tr><td colspan="7">No verified trades yet.</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  `;
+  document.body.appendChild(overlay);
+  const cleanup = result => { overlay.remove(); onChoose(result); };
+  overlay.querySelectorAll(".wallet-picker-item").forEach(btn => {
+    btn.addEventListener("click", () => cleanup(wallets[Number(btn.dataset.idx)]));
+  });
+  overlay.querySelector(".wallet-picker-cancel")?.addEventListener("click", () => cleanup(null));
+  overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(null); });
+}
+
+function bindWalletEvents(eth) {
+  if (!eth || eth.__gdtyBound) return;
+  eth.__gdtyBound = true;
+  eth.on?.("accountsChanged", () => load());
+  eth.on?.("chainChanged", () => load());
+}
+
+async function connectWallet() {
+  const provider = await pickWalletProvider();
+  if (!provider) {
+    setState("MetaMask or a compatible Web3 wallet is required.", true);
+    return;
+  }
+  activeProvider = provider;
+  bindWalletEvents(provider);
+  try {
+    await provider.request({ method: "eth_requestAccounts" });
+    const chainId = await provider.request({ method: "eth_chainId" });
+    if (chainId !== "0x38") {
+      setState("Please switch your wallet network to BNB Smart Chain.", true);
+      return;
+    }
+    const accounts = await provider.request({ method: "eth_accounts" });
+    const address = accounts?.[0];
+    if (!address) { setState("No wallet account available.", true); return; }
+
+    setState("Requesting verification message…");
+    const challenge = await api("/api/wallet/challenge", {
+      method: "POST",
+      body: JSON.stringify({ address })
+    });
+
+    setState("Please sign the message in your wallet…");
+    const signature = await provider.request({
+      method: "personal_sign",
+      params: [challenge.message, address]
+    });
+
+    setState("Verifying signature…");
+    await api("/api/wallet/verify", {
+      method: "POST",
+      body: JSON.stringify({ challengeId: challenge.challengeId, signature })
+    });
+
+    setState("Wallet connected.");
+    await load();
+  } catch (err) {
+    setState(err.message || "Could not connect wallet.", true);
+  }
+}
+
+function renderWallet(wallet) {
+  const statusEl = $("walletStatus");
+  if (statusEl) statusEl.textContent = wallet?.connected ? "Connected" : "Not connected";
+  setText("walletAddress", wallet?.connected ? wallet.address : "—");
+}
+
+/* =========================================================
+   ADD TOKEN TO WALLET
+========================================================= */
+function setupAddToken() {
+  $("addGdtyToken")?.addEventListener("click", async () => {
+    const eth = getEthereum();
+    if (!eth) {
+      alert("No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first.");
+      return;
+    }
+    try {
+      await eth.request({
+        method: "wallet_watchAsset",
+        params: {
+          type: "ERC20",
+          options: {
+            address: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801",
+            symbol: "GDTY",
+            decimals: 18,
+            image: `${window.location.origin}/favicon.png`
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Add to wallet:", error);
+    }
+  });
+}
+
+function setupWalletEvents() {
+  $("connectWallet")?.addEventListener("click", connectWallet);
+  bindWalletEvents(getEthereum());
+}
+
+/* =========================================================
+   REFERRAL RENDERING
+========================================================= */
+function renderRewards(user, rewards) {
+  setText("ref", user?.referralCode || "—");
+  setText("refs", String(user?.referrals || 0));
+  const link = user?.referralCode ? `${location.origin}/register.html?ref=${encodeURIComponent(user.referralCode)}` : "";
+  const linkInput = $("referralLink");
+  if (linkInput) linkInput.value = link;
 
-  <section class="dashboard-section hidden" id="airdropAdminSection">
-    <div class="section-heading">
-      <h2>Airdrop (Admin)</h2>
-      <button id="toggleAirdropPause" class="btn btn-outline btn-small" type="button">Pause</button>
-    </div>
-    <div class="dashboard-grid">
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Claimed</span>
-        <strong id="airdropAdminClaimed">0 / 10,000</strong>
-      </article>
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Distributed</span>
-        <strong id="airdropAdminDistributed">0 GDTY</strong>
-      </article>
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Remaining</span>
-        <strong id="airdropAdminRemaining">10,000</strong>
-      </article>
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Status</span>
-        <strong id="airdropAdminStatus">Active</strong>
-      </article>
-    </div>
-  </section>
+  setText("rewardPaid", fmtGdty(rewards?.paidWei || "0"));
+  setText("rewardPending", fmtGdty(rewards?.pendingWei || "0"));
+  setText("rewardFrozen", fmtGdty(rewards?.frozenWei || "0"));
+}
 
-  <section class="dashboard-section" id="referralProgramSection">
-    <div class="section-heading">
-      <h2>Referral Program</h2>
-    </div>
+function setupCopyButtons() {
+  $("copyReferralCode")?.addEventListener("click", () => copyText($("ref")?.textContent || "", $("copyReferralCode")));
+  $("copyReferralLink")?.addEventListener("click", () => copyText($("referralLink")?.value || "", $("copyReferralLink")));
+}
 
-    <p class="card-note">
-      Earn a 3% reward when someone you refer makes a qualifying GDTY purchase (50 GDTY minimum per purchase). Rewards go through a 7-day anti-fraud review, then pay out automatically, capped at 200 GDTY/day per referrer.
-    </p>
+/* =========================================================
+   TRADE HISTORY RENDERING
+========================================================= */
+function renderTrades(trades) {
+  const body = $("tradesBody");
+  if (!body) return;
+  if (!trades || !trades.length) {
+    body.innerHTML = `<tr><td colspan="7">No verified trades yet.</td></tr>`;
+    return;
+  }
+  body.innerHTML = trades.map(t => `
+    <tr>
+      <td>${new Date(t.createdAt).toLocaleDateString()}</td>
+      <td>${t.dex || "—"}</td>
+      <td>${t.side === "buy" ? "Buy" : "Sell"}</td>
+      <td>${fmtGdty(t.gdtyAmountWei)}</td>
+      <td>${fmtGdty(t.usdtAmountWei).replace("GDTY", "USDT")}</td>
+      <td>${t.status}</td>
+      <td><a href="https://bscscan.com/tx/${encodeURIComponent(t.txHash)}" target="_blank" rel="noopener noreferrer">${shortTx(t.txHash)}</a></td>
+    </tr>
+  `).join("");
+}
 
-    <div class="dashboard-grid">
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Referrals</span>
-        <strong id="refs">0</strong>
-      </article>
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Rewards Paid</span>
-        <strong id="rewardPaid">0 GDTY</strong>
-      </article>
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Pending Review</span>
-        <strong id="rewardPending">0 GDTY</strong>
-      </article>
-      <article class="dashboard-card referral-stat-card">
-        <span class="card-label">Under Review</span>
-        <strong id="rewardFrozen">0 GDTY</strong>
-      </article>
-    </div>
+/* =========================================================
+   AIRDROP ADMIN
+========================================================= */
+function renderAirdropAdmin(stats) {
+  const section = $("airdropAdminSection");
+  if (!section) return;
+  if (!stats) { section.classList.add("hidden"); return; }
+  section.classList.remove("hidden");
+  setText("airdropAdminClaimed", `${stats.claimed.toLocaleString()} / ${stats.max.toLocaleString()}`);
+  setText("airdropAdminDistributed", fmtGdty(stats.distributedWei));
+  setText("airdropAdminRemaining", stats.remaining.toLocaleString());
+  setText("airdropAdminStatus", stats.paused ? "Paused" : "Active");
+  const btn = $("toggleAirdropPause");
+  if (btn) btn.textContent = stats.paused ? "Resume" : "Pause";
+}
 
-    <div class="dashboard-card">
-      <span class="card-label">Your Referral Code</span>
-      <div class="copy-row">
-        <code id="ref">—</code>
-        <button id="copyReferralCode" class="btn btn-small btn-outline" type="button">Copy</button>
-      </div>
-      <span class="card-label" style="margin-top:14px;display:block">Your Referral Link</span>
-      <div class="copy-row">
-        <input id="referralLink" type="text" readonly>
-        <button id="copyReferralLink" class="btn btn-small btn-outline" type="button">Copy</button>
-      </div>
-    </div>
-  </section>
+function setupAirdropAdmin() {
+  $("toggleAirdropPause")?.addEventListener("click", async () => {
+    try {
+      await api("/api/airdrop/toggle-pause", { method: "POST" });
+      await load();
+    } catch (error) {
+      console.error("Toggle airdrop pause:", error);
+    }
+  });
+}
 
-  <section class="dashboard-section">
+async function load() {
 
-    <div class="section-heading">
-
- 
-
-      <h2>Notifications</h2>
-
- 
-
-    </div>
-
- 
-
- 
-
- 
-
-    <div id="notifications" class="notification-list">
-
- 
-
-      <div class="dashboard-card">
-
- 
-
-        No notifications.
-
- 
-
-      </div>
-
- 
-
-    </div>
-
- 
-
- 
-
- 
-
-  </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
-  <!-- SUPPORT -->
-
- 
-
-  <section class="dashboard-section">
-
- 
-
- 
-
- 
-
-    <div class="section-heading">
-
- 
-
-      <h2>Support</h2>
-
- 
-
- 
-
- 
-
-      <button
-
- 
-
-        id="newTicket"
-
- 
-
-        class="btn btn-gold"
-
- 
-
-        type="button"
-
- 
-
-      >
-
- 
-
-        New Ticket
-
- 
-
-      </button>
-
- 
-
-    </div>
-
- 
-
- 
-
- 
-
-    <div id="supportState" class="status-text"></div>
-
- 
-
- 
-
- 
-
-    <div id="ticketList" class="ticket-list">
-
- 
-
-      <div class="dashboard-card">
-
- 
-
-        Loading support tickets…
-
- 
-
-      </div>
-
- 
-
-    </div>
-
- 
-
- 
-
- 
-
-  </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
-  <!-- NEW TICKET -->
-
- 
-
-  <section
-
- 
-
-    id="ticketFormSection"
-
- 
-
-    class="dashboard-section hidden"
-
- 
-
-  >
-
- 
-
- 
-
- 
-
-    <div class="section-heading">
-
- 
-
-      <h2>Contact Support</h2>
-
- 
-
-    </div>
-
- 
-
- 
-
- 
-
-    <form id="ticketForm" class="dashboard-form">
-
- 
-
- 
-
- 
-
-      <label>
-
  
 
-        Category
-
- 
-
- 
-
- 
-
-        <select id="ticketCategory" required>
-
- 
-
-          <option value="">Select category</option>
-
- 
-
-          <option value="Account">Account</option>
-          <option value="Wallet">Wallet</option>
-          <option value="Referral">Referral</option>
-          <option value="Purchase">Purchase</option>
-          <option value="Technical">Technical</option>
-
- 
-
-          <option value="Security">Security</option>
-
- 
-
-          <option value="Other">Other</option>
-
- 
-
-        </select>
-
- 
-
-      </label>
-
- 
-
- 
-
- 
-
-      <label>
-
- 
-
-        Subject
-
- 
-
- 
-
- 
-
-        <input
-
- 
-
-          id="ticketSubject"
-
- 
-
-          type="text"
-
- 
-
-          maxlength="160"
-
- 
-
-          required
-
- 
-
-        >
-
- 
-
-      </label>
-
- 
-
- 
-
- 
-
-      <label>
-
- 
-
-        Message
-
- 
-
- 
-
- 
-
-        <textarea
-
- 
-
-          id="ticketMessage"
-
- 
-
-          maxlength="4000"
-
  
 
-          rows="7"
-
- 
-
-          required
-
- 
-
-        ></textarea>
-
- 
-
-      </label>
-
- 
-
- 
-
- 
-
-      <div class="form-actions">
-
- 
-
- 
-
- 
-
-        <button
-
- 
-
-          type="submit"
-
- 
-
-          class="btn btn-gold"
-
- 
-
-        >
-
- 
-
-          Submit Ticket
-
- 
-
-        </button>
-
- 
-
- 
-
- 
-
-        <button
-
- 
-
-          id="cancelTicket"
-
- 
-
-          type="button"
-
  
 
-          class="btn btn-outline"
+  try {
 
  
 
-        >
-
- 
-
-          Cancel
-
- 
-
-        </button>
-
- 
-
  
 
  
 
-      </div>
+    setState(
 
  
 
- 
+      "Loading dashboard…"
 
  
 
-    </form>
+    );
 
  
 
@@ -847,11 +1711,11 @@
 
  
 
-  </section>
+    const data =
 
  
 
- 
+      await api("/api/me");
 
  
 
@@ -859,19 +1723,19 @@
 
  
 
-  <!-- SECURITY NOTICE -->
+    renderAccount(data);
 
- 
+    renderWallet(data.wallet);
 
-  <section class="dashboard-section">
+    renderRewards(data.user, data.referralRewards);
 
- 
+    renderAirdropAdmin(data.airdropAdmin);
 
- 
+    renderTrades(data.trades);
 
- 
+    renderNotifications(data.notifications);
 
-    <div class="dashboard-card security-note">
+    await loadTickets();
 
  
 
@@ -879,17 +1743,15 @@
 
  
 
-      <h3>Security</h3>
+    setState(
 
  
 
- 
+      "Dashboard updated."
 
  
 
-      <p>
-        GOLDITY support will never ask for your password or email verification code.
-      </p>
+    );
 
  
 
@@ -897,7 +1759,7 @@
 
  
 
-    </div>
+  } catch (error) {
 
  
 
@@ -905,99 +1767,91 @@
 
  
 
-  </section>
+    if (
 
  
 
- 
+      error.message === "unauthorized" ||
 
  
 
-</main>
+      error.message ===
 
  
 
- 
+        "Please sign in first."
 
  
 
- 
+    ) {
 
  
 
-<footer class="site-footer">
+      location.href =
 
  
 
- 
+        "/login.html";
 
  
 
-  <div class="footer-inner">
+      return;
 
  
 
- 
+    }
 
  
-
-    <div>
 
  
 
-      <strong>GOLDITY</strong>
-
  
 
-      <p>Digital asset ecosystem on BNB Smart Chain.</p>
+    setState(
 
  
 
-    </div>
+      error.message ||
 
  
 
- 
+      "Unable to load dashboard.",
 
  
 
-    <div class="footer-links">
+      true
 
  
 
-      <a href="/privacy.html">Privacy</a>
+    );
 
  
 
-      <a href="/terms.html">Terms</a>
+  }
 
  
 
-      <a href="/whitepaper.html">Whitepaper</a>
+}
 
  
 
-      <a href="mailto:info@goldityglobal.com">Contact</a>
-
  
 
-    </div>
-
  
 
  
 
  
 
-  </div>
+/* =========================
 
  
 
- 
+   INIT
 
  
 
-</footer>
+========================= */
 
  
 
@@ -1005,18 +1859,16 @@
 
  
 
- 
-
- 
+setupTicketForm();
 
-<script src="/dashboard.js"></script>
+setupLogout();
 
- 
+setupWalletEvents();
 
- 
+setupAddToken();
 
-</body>
+setupCopyButtons();
 
- 
+setupAirdropAdmin();
 
-</html>
+load();
