@@ -143,9 +143,31 @@ $("connectWallet")?.addEventListener("click", async () => {
   }
 });
 
+async function ensureBscNetwork(provider) {
+  try {
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
+  } catch (switchError) {
+    if (switchError?.code === 4902) {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: "0x38",
+          chainName: "BNB Smart Chain",
+          nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+          rpcUrls: ["https://bsc-dataseed.binance.org/"],
+          blockExplorerUrls: ["https://bscscan.com"]
+        }]
+      });
+    } else {
+      throw switchError;
+    }
+  }
+}
+
 $("addGdtyToken")?.addEventListener("click", async () => {
   if (!activeProvider) return;
   try {
+    await ensureBscNetwork(activeProvider);
     await activeProvider.request({
       method: "wallet_watchAsset",
       params: {
@@ -161,6 +183,7 @@ $("addGdtyToken")?.addEventListener("click", async () => {
     markStep("stepClaim");
   } catch (err) {
     console.error("Add to wallet:", err);
+    setState("Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.", true);
   }
 });
 
