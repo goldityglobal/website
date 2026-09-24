@@ -827,6 +827,42 @@ if ($("addToMetaMask")) {
 
         });
 
+        try {
+
+          await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
+
+        } catch (switchError) {
+
+          if (switchError?.code === 4902) {
+
+            await provider.request({
+
+              method: "wallet_addEthereumChain",
+
+              params: [{
+
+                chainId: "0x38",
+
+                chainName: "BNB Smart Chain",
+
+                nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+
+                rpcUrls: ["https://bsc-dataseed.binance.org/"],
+
+                blockExplorerUrls: ["https://bscscan.com"]
+
+              }]
+
+            });
+
+          } else {
+
+            throw switchError;
+
+          }
+
+        }
+
         await provider.request({
 
           method: "wallet_watchAsset",
@@ -854,6 +890,8 @@ if ($("addToMetaMask")) {
       } catch (error) {
 
         console.error("Add to wallet:", error);
+
+        alert("Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.");
 
       }
 
