@@ -483,15 +483,23 @@ async function registerUser(e,req) {
   let emailSent=false;
   if(e.RESEND_API_KEY&&e.FROM_EMAIL){
     const link=`${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}/verify-email.html?token=${encodeURIComponent(raw)}`;
-    const r=await fetch("https://api.resend.com/emails",{
-      method:"POST",
-      headers:{authorization:`Bearer ${e.RESEND_API_KEY}`,"content-type":"application/json"},
-      body:JSON.stringify({
-        from:e.FROM_EMAIL,to:[email],subject:"Verify your GOLDITY account",
-        html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Welcome to GOLDITY</h2><p>Hello ${htmlEscape(first)},</p><p>Verify your email to activate your account.</p><p><a href="${htmlEscape(link)}">Verify Email</a></p></div>`
-      })
-    }).catch(()=>null);
-    emailSent=!!r?.ok;
+    try{
+      const r=await fetch("https://api.resend.com/emails",{
+        method:"POST",
+        headers:{authorization:`Bearer ${e.RESEND_API_KEY}`,"content-type":"application/json"},
+        signal:AbortSignal.timeout(8000),
+        body:JSON.stringify({
+          from:e.FROM_EMAIL,to:[email],subject:"Verify your GOLDITY account",
+          html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Welcome to GOLDITY</h2><p>Hello ${htmlEscape(first)},</p><p>Verify your email to activate your account.</p><p><a href="${htmlEscape(link)}">Verify Email</a></p></div>`
+        })
+      });
+      emailSent=r.ok;
+      if(!r.ok)console.error("GOLDITY Resend error (verify-email)",r.status,await r.text().catch(()=>""));
+    }catch(err){
+      console.error("GOLDITY Resend request failed (verify-email)",err);
+    }
+  }else{
+    console.error("GOLDITY email not configured: RESEND_API_KEY or FROM_EMAIL missing");
   }
   return out({ok:true,status:"pending_email_verification",emailSent,user:{id:uid,email,firstName:first,lastName:last,country,createdAt:now}},201,cors(e));
 }
@@ -532,14 +540,22 @@ async function requestPasswordReset(e,req) {
 
   if(e.RESEND_API_KEY&&e.FROM_EMAIL){
     const link=`${e.PUBLIC_ORIGIN||"https://goldityglobal.com"}/reset-password.html?token=${encodeURIComponent(raw)}`;
-    await fetch("https://api.resend.com/emails",{
-      method:"POST",
-      headers:{authorization:`Bearer ${e.RESEND_API_KEY}`,"content-type":"application/json"},
-      body:JSON.stringify({
-        from:e.FROM_EMAIL,to:[email],subject:"Reset your GOLDITY password",
-        html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Reset your password</h2><p>Hello ${htmlEscape(row.first_name||"")},</p><p>Click the link below to set a new password. This link expires in 1 hour and can only be used once.</p><p><a href="${htmlEscape(link)}">Reset Password</a></p><p>If you didn't request this, you can safely ignore this email.</p></div>`
-      })
-    }).catch(()=>null);
+    try{
+      const r=await fetch("https://api.resend.com/emails",{
+        method:"POST",
+        headers:{authorization:`Bearer ${e.RESEND_API_KEY}`,"content-type":"application/json"},
+        signal:AbortSignal.timeout(8000),
+        body:JSON.stringify({
+          from:e.FROM_EMAIL,to:[email],subject:"Reset your GOLDITY password",
+          html:`<div style="font-family:Arial;background:#080808;color:#f5f0e6;padding:32px"><h2>Reset your password</h2><p>Hello ${htmlEscape(row.first_name||"")},</p><p>Click the link below to set a new password. This link expires in 1 hour and can only be used once.</p><p><a href="${htmlEscape(link)}">Reset Password</a></p><p>If you didn't request this, you can safely ignore this email.</p></div>`
+        })
+      });
+      if(!r.ok)console.error("GOLDITY Resend error (reset-password)",r.status,await r.text().catch(()=>""));
+    }catch(err){
+      console.error("GOLDITY Resend request failed (reset-password)",err);
+    }
+  }else{
+    console.error("GOLDITY email not configured: RESEND_API_KEY or FROM_EMAIL missing (reset-password)");
   }
   return out(genericResponse,200,0,cors(e));
 }
