@@ -967,6 +967,13 @@ async function scanForNewTrades(e) {
 
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
+const AIRDROP_CONTRACT="0x34b0a10386b559093a0324bfd2c401e0063d4d5";
+const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
+
+// selector for singleAirdrop(address,uint256) = 0x95647ebd
+function singleAirdropData(recipient,amountWei) {
+  return "0x95647ebd"+pad(recipient)+bigIntToBytes(amountWei).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),"").padStart(64,"0");
+}
 
 async function airdropIsPaused(e) {
   const row=await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='paused'").first();
@@ -1045,10 +1052,16 @@ async function claimAirdrop(e,req) {
     await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
     return {ok:false,error:"airdrop_not_configured"};
   }
+  if(payoutAddress.toLowerCase()!==AIRDROP_CONTRACT_OWNER){
+    console.error("GOLDITY airdrop owner mismatch - configured key does not control the airdrop contract");
+    await releaseAirdropSlot(e);
+    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
+    return {ok:false,error:"airdrop_not_configured"};
+  }
 
   try{
     const [gdtyBal,bnbRaw]=await Promise.all([
-      tokenBalance(e,A.G,payoutAddress),
+      tokenBalance(e,A.G,AIRDROP_CONTRACT),
       rpc(e,"eth_getBalance",[payoutAddress,"latest"])
     ]);
     if(BigInt(gdtyBal)<AIRDROP_REWARD_WEI||BigInt(bnbRaw)<2000000000000000n){
@@ -1058,9 +1071,9 @@ async function claimAirdrop(e,req) {
     }
     const nonce=await getNonce(e,payoutAddress);
     const gasPrice=await getGasPrice(e);
-    const gasLimit=100000;
-    const data=erc20TransferData(address,AIRDROP_REWARD_WEI);
-    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:A.G,value:0n,data});
+    const gasLimit=150000;
+    const data=singleAirdropData(address,AIRDROP_REWARD_WEI);
+    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
     const txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
     await e.DB.prepare("UPDATE airdrop_claims SET status='sent',tx_hash=? WHERE id=?").bind(txHash,claimId).run();
     return {ok:true,txHash,amountWei:AIRDROP_REWARD_WEI.toString()};
