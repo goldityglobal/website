@@ -50,8 +50,11 @@ async function getWalletConnectProvider() {
   return wcProvider;
 }
 
+// Wallet logos, served from our own domain (see /api/wallet-icon in worker.js).
+const walletIcon = domain => `/api/wallet-icon?d=${encodeURIComponent(domain)}`;
+
 const WALLETCONNECT_ENTRY = {
-  info: { name: "Other Wallets (WalletConnect)", icon: "" },
+  info: { name: "Other Wallets (WalletConnect)", icon: walletIcon("walletconnect.com") },
   special: "walletconnect"
 };
 
@@ -69,17 +72,17 @@ function buildNamedDeepLinkWallets() {
   const bareUrl = currentUrl.replace(/^https?:\/\//, "");
   return [
     {
-      info: { name: "Trust Wallet", icon: "" },
+      info: { name: "Trust Wallet", icon: walletIcon("trustwallet.com") },
       special: "deeplink",
       url: `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}`
     },
     {
-      info: { name: "MetaMask", icon: "" },
+      info: { name: "MetaMask", icon: walletIcon("metamask.io") },
       special: "deeplink",
       url: `https://metamask.app.link/dapp/${bareUrl}`
     },
     {
-      info: { name: "OKX Wallet", icon: "" },
+      info: { name: "OKX Wallet", icon: walletIcon("okx.com") },
       special: "deeplink",
       url: `https://web3.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + encodeURIComponent(currentUrl))}`
     }
@@ -145,7 +148,7 @@ function showWalletPicker(wallets, onChoose) {
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
-            ${w.info.icon ? `<img src="${escHtml(w.info.icon)}" alt="" width="26" height="26">` : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`}
+            ${w.info.icon ? `<img src="${escHtml(w.info.icon)}" alt="" width="26" height="26" onerror="this.outerHTML='<span class=&quot;wallet-picker-icon-fallback&quot; aria-hidden=&quot;true&quot;>🔗</span>'">` : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`}
             <span>${escHtml(w.info.name)}</span>
           </button>
         `).join("")}
@@ -321,7 +324,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         validation_failed: "Could not read a valid wallet address.",
         captcha_failed: "Verification failed. Please complete the check below and try again.",
         ip_attempts_exhausted: "Your network has used all 5 claim attempts allowed. No more claims can be made from this connection.",
-        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet must hold at least $1 in total on BNB Smart Chain (BNB, USDT, USDC, ETH, BTCB, CAKE, XRP and other popular tokens all count together).",
+        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet must have made at least 2 transactions on BNB Smart Chain and hold at least $1 in total (BNB, USDT, USDC, ETH, BTCB, CAKE, XRP and other popular tokens all count together).",
         eligibility_check_failed: "We couldn't check your wallet on BNB Smart Chain right now. Please try again in a moment.",
         airdrop_busy: "Lots of people are claiming right now. Please wait a minute and try again.",
         claim_pending_check: "Your claim is being processed by the network. Please don't claim again - check your wallet in a few minutes.",
