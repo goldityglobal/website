@@ -1261,14 +1261,18 @@ const AIRDROP_MIN_WALLET_TXS=2;
 // transaction, so this also proves received transactions.
 const AIRDROP_MIN_ASSET_TYPES=2;
 const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
-const AIRDROP_STABLE_TOKENS=[
+// Tokens counted for the airdrop wallet check (BNB itself is always counted).
+// Every address below was verified on DexScreener (BNB Smart Chain) on
+// 2026-09-26. Only this fixed list is counted - never "any token" - so a bot
+// can't make its wallets look valuable with a worthless token it created.
+const AIRDROP_STABLE_TOKENS=[ // counted at $1
   "0x55d398326f99059ff775485246999027b3197955", // USDT
   "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // USDC
   "0xe9e7cea3dedca5984780bafc599bd69add087d56", // BUSD
   "0xc5f0f7b66764f6ec8c8dff7ba683102295e16409", // FDUSD
   "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3"  // DAI
 ];
-const AIRDROP_PRICED_TOKENS=[
+const AIRDROP_PRICED_TOKENS=[ // priced live (DexScreener, fallback PancakeSwap V2)
   "0x76d89e26502d0aa9bf83da222cfcf12a27ead801", // GDTY
   WBNB_ADDR,                                    // WBNB
   "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c", // BTCB
@@ -1278,8 +1282,50 @@ const AIRDROP_PRICED_TOKENS=[
   "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47", // ADA
   "0xba2ae424d960c26247dd6c32edc70b295c744c43", // DOGE
   "0xf8a0bf9cf54bb92f17374d9e9a321e6a111a51bd", // LINK
-  "0x7083609fce4d1d8dc0c979aab8c869ea2c873402"  // DOT
+  "0x7083609fce4d1d8dc0c979aab8c869ea2c873402", // DOT
+  "0x4338665cbb7b2485a8855a139b75d5e34ab0db94", // LTC
+  "0x8ff795a6f4d97e7887c79bea79aba5cc76444adf", // BCH
+  "0xbf5140a22578168fd562dccf235e5d43a02ce9b1", // UNI
+  "0x1ce0c2827e2ef14d5c4f29a091d735a204794041", // AVAX
+  "0x0eb3a705fc54725037cc9e008bdede697f62f335", // ATOM
+  "0xcc42724c6683b7e57334c4e856f4c9965ed682bd", // MATIC
+  "0x2859e4544c4bb03966803b044a93563bd2d0dd4d", // SHIB
+  "0xce7de646e7208a4ef112cb6ed5038fa6cc6b12e3", // TRX
+  "0x0d8ce2a99bb6e3b7db580ed848240e4a0f9ae153", // FIL
+  "0x3d6545b08693dae087e957cb1180ee38b9e3c25e", // ETC
+  "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63", // XVS
+  "0x4b0f1812e5df2a09796481ff14017e6005508003", // TWT
+  "0xd41fdb03ba84762dd66a0af1a6c8540ff1ba5dfb", // SFP
+  "0xfb6115445bff7b52feb98650c87f44907e58f802", // AAVE
+  "0x52ce071bd9b1c4b00a0b92d298c512478cad67e8", // COMP
+  "0x88f1a5ae2a3bf98aeaf342d26b30a79438c9142e", // YFI
+  "0x947950bcc74888a40ffa2593c5798f11fc9124c4", // SUSHI
+  "0x111111111117dc0aa78b770fa6a738034120c302", // 1INCH
+  "0x101d82428437127bf1608f699cd651e6abf9766e", // BAT
+  "0xb86abcb37c3a4b64f74f59301aff131a1becc787", // ZIL
+  "0x56b6fb708fc5732dec1afc8d8556423a2edccbd6", // EOS
+  "0x16939ef78684453bfdfb47825f8a5f714f12623a", // XTZ
+  "0x1fa4a73a3f0133f0025378af00236f3abdee5d63", // NEAR
+  "0x76a797a59ba2c17726896976b7b3747bfd1d220f", // TON
+  "0x25d887ce7a35172c62febfd67a1856f20faebb00", // PEPE
+  "0xfb5b838b6cfeedc2873ab27866079ac55363d37e", // FLOKI
+  "0xc748673057861a797275cd8a068abb95a902e8de", // BABYDOGE
+  "0x570a5d26f7765ecb712c0924e4de545b89fd43df", // SOL
+  "0x40af3827f39d0eacbf4a168f8d4ee67c121d11c9", // TUSD
+  "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d", // USD1
+  "0x031b41e504677879370e9dbcf937283a8691fa7f", // FET
+  "0xa2b726b1145a4773f68593cf171187d8ebe4d495", // INJ
+  "0x715d400f88c167884bbcc41c5fea407ed4d2f8a0", // AXS
+  "0x3203c9e46ca618c8c1ce5dc67e7e9d75f5da2377", // MBOX
+  "0xaec945e04baf28b135fa7c640f624f8d90f1c3a6", // C98
+  "0xa2e3356610840701bdf5611a53974510ae27e2e1", // wBETH
+  "0xb0b84d294e0c75a6abe60171b70edeb2efd14a1b", // slisBNB
+  "0xa1faa113cbe53436df28ff0aee54275c13b40975", // ALPHA
+  "0xe02df9e3e622debdd69fb838bb799e3f168902c5"  // BAKE
 ];
+// A DexScreener price is only used from a pool with at least this much
+// liquidity, so a thin pool can't be used to fake a price.
+const AIRDROP_MIN_DEX_LIQ_USD=10000;
 // A pool must hold at least this much (in USD) on its quote side for its
 // price to be trusted - stops a tiny fake pool from inflating a price.
 const AIRDROP_MIN_POOL_LIQ_USD=500;
@@ -1347,32 +1393,103 @@ async function poolPrice(e,token,quote){
   return {price:qRes/tRes,quoteLiq:qRes};
 }
 
-// Live USD prices, cached for 5 minutes per Worker instance.
-// FIX: a token whose price lookup FAILED (RPC error) is now reported in
-// `failed` instead of being silently dropped - before, the user's holdings
-// in that token counted as $0 and a real user could be wrongly rejected.
-// Results with failures are not cached, so one hiccup can't stick for 5 min.
-// (A token with no pool / too little liquidity is not a failure: it's just
-// left unpriced, as before.)
-let airdropPriceCache={at:0,data:null};
-async function airdropUsdPrices(e){
-  if(airdropPriceCache.data&&Date.now()-airdropPriceCache.at<300000)return airdropPriceCache.data;
+// --- Multicall3 (verified deployed on BNB Smart Chain at this address,
+// github.com/mds1/multicall3 deployments.json). Lets the check read every
+// token balance in ONE request instead of one request per token.
+const MULTICALL3="0xca11bde05977b3631167028862be2a173976ca11";
+const hexWord=n=>BigInt(n).toString(16).padStart(64,"0");
+// aggregate3((address target,bool allowFailure,bytes callData)[]), allowFailure=true
+function encodeAggregate3(calls){
+  const n=calls.length;
+  const elems=calls.map(({target,data})=>{
+    const d=String(data).replace(/^0x/,"");
+    const len=d.length/2;
+    const padded=d.padEnd(Math.ceil(len/32)*64,"0");
+    return hexWord(BigInt(target))+hexWord(1)+hexWord(0x60)+hexWord(len)+padded;
+  });
+  let offsets="",off=32*n;
+  for(const el of elems){offsets+=hexWord(off);off+=el.length/2;}
+  return "0x82ad56cb"+hexWord(0x20)+hexWord(n)+offsets+elems.join("");
+}
+// returns [{success:boolean, data:"0x..."}] from Result[] (bool success, bytes returnData)
+function decodeAggregate3(ret){
+  const h=String(ret).replace(/^0x/,"");
+  const word=pos=>BigInt("0x"+(h.slice(pos*2,pos*2+64)||"0"));
+  const arr=Number(word(0));
+  const n=Number(word(arr));
+  const base=arr+32;
+  const out=[];
+  for(let i=0;i<n;i++){
+    const el=base+Number(word(base+32*i));
+    const success=word(el)!==0n;
+    const b=el+Number(word(el+32));
+    const len=Number(word(b));
+    out.push({success,data:"0x"+h.slice((b+32)*2,(b+32+len)*2)});
+  }
+  return out;
+}
+async function multicall(e,calls){
+  const res=decodeAggregate3(await call(e,MULTICALL3,encodeAggregate3(calls)));
+  if(res.length!==calls.length)throw new Error("multicall_bad_response");
+  return res;
+}
+
+// --- Prices. BNB: PancakeSwap V2 WBNB/USDT pool (deep, reliable). Other
+// tokens: DexScreener (all pools, V2 + V3) using only pools with enough
+// liquidity; if DexScreener has no usable price, PancakeSwap V2 on-chain.
+// Only tokens the wallet actually holds are priced. Successful prices are
+// cached 10 minutes; failures are never cached.
+const airdropPriceCache=new Map(); // token -> {at, price|null}
+let airdropBnbPrice={at:0,price:0};
+async function airdropBnbUsd(e){
+  if(airdropBnbPrice.price&&Date.now()-airdropBnbPrice.at<600000)return airdropBnbPrice.price;
   const bnb=await poolPrice(e,WBNB_ADDR,A.U);
   if(!bnb||bnb.quoteLiq<AIRDROP_MIN_POOL_LIQ_USD)throw new Error("bnb_price_unavailable");
-  const prices={bnb:bnb.price,[WBNB_ADDR]:bnb.price};
-  const failed=new Set();
-  await Promise.all(AIRDROP_PRICED_TOKENS.filter(t=>t!==WBNB_ADDR).map(async t=>{
+  airdropBnbPrice={at:Date.now(),price:bnb.price};
+  return bnb.price;
+}
+// returns a USD price, null if the token has no usable market, or throws if
+// the price sources can't be reached right now
+async function airdropTokenUsd(e,t,bnbUsd){
+  if(t===WBNB_ADDR)return bnbUsd;
+  const c=airdropPriceCache.get(t);
+  if(c&&Date.now()-c.at<600000)return c.price;
+  let price=null,dexOk=false;
+  try{
+    const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${t}`,{signal:AbortSignal.timeout(6000)});
+    if(r.ok){
+      const j=await r.json();
+      dexOk=true;
+      let best=null;
+      for(const p of (j?.pairs||[])){
+        if(p?.chainId!=="bsc"||String(p?.baseToken?.address||"").toLowerCase()!==t)continue;
+        const liq=Number(p?.liquidity?.usd),px=Number(p?.priceUsd);
+        if(!(liq>=AIRDROP_MIN_DEX_LIQ_USD)||!(px>0)||!Number.isFinite(px))continue;
+        if(!best||liq>best.liq)best={liq,px};
+      }
+      if(best)price=best.px;
+    }
+  }catch{}
+  if(price===null){
     try{
       const viaUsdt=await poolPrice(e,t,A.U);
-      if(viaUsdt&&viaUsdt.quoteLiq>=AIRDROP_MIN_POOL_LIQ_USD){prices[t]=viaUsdt.price;return;}
-      const viaBnb=await poolPrice(e,t,WBNB_ADDR);
-      if(viaBnb&&viaBnb.quoteLiq*bnb.price>=AIRDROP_MIN_POOL_LIQ_USD)prices[t]=viaBnb.price*bnb.price;
-    }catch{failed.add(t);}
-  }));
-  const data={prices,failed};
-  if(!failed.size)airdropPriceCache={at:Date.now(),data};
-  return data;
+      if(viaUsdt&&viaUsdt.quoteLiq>=AIRDROP_MIN_POOL_LIQ_USD)price=viaUsdt.price;
+      else{
+        const viaBnb=await poolPrice(e,t,WBNB_ADDR);
+        if(viaBnb&&viaBnb.quoteLiq*bnbUsd>=AIRDROP_MIN_POOL_LIQ_USD)price=viaBnb.price*bnbUsd;
+      }
+    }catch(err){
+      if(!dexOk)throw err; // neither source reachable -> caller says "try again"
+    }
+    // DexScreener didn't answer and PancakeSwap V2 has no usable pool: the
+    // value is UNKNOWN, not zero - say "try again" and don't cache anything.
+    if(price===null&&!dexOk)throw new Error("price_unavailable");
+  }
+  airdropPriceCache.set(t,{at:Date.now(),price});
+  return price;
 }
+
+const airdropDecimalsCache=new Map();
 
 // A wallet qualifies only if ALL of these are true:
 //  - total value >= AIRDROP_MIN_WALLET_USD
@@ -1386,32 +1503,50 @@ async function airdropWalletEligible(e,address){
   // delegated normal wallet (e.g. MetaMask smart account) - allowed.
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
 
-  const [sentHex,bnbHex,{prices,failed}]=await Promise.all([
+  const tokens=[...AIRDROP_STABLE_TOKENS,...AIRDROP_PRICED_TOKENS];
+  const needDec=tokens.filter(t=>!airdropDecimalsCache.has(t));
+  const calls=[
+    ...tokens.map(t=>({target:t,data:S.balanceOf+pad(address)})),
+    ...needDec.map(t=>({target:t,data:S.dec}))
+  ];
+  const [sentHex,bnbHex,results]=await Promise.all([
     rpc(e,"eth_getTransactionCount",[address,"latest"]),
     rpc(e,"eth_getBalance",[address,"latest"]),
-    airdropUsdPrices(e)
+    multicall(e,calls) // one request for every token; throws -> "try again"
   ]);
+  needDec.forEach((t,i)=>{
+    const r=results[tokens.length+i];
+    if(r.success&&r.data.length>=66){const d=Number(BigInt(r.data.slice(0,66)));if(d>=0&&d<=36)airdropDecimalsCache.set(t,d);}
+  });
+
   const sentTxs=parseInt(sentHex,16)||0;
   const bnbWei=BigInt(bnbHex);
-  let usd=Number(bnbWei)/1e18*prices.bnb;
   let assetsHeld=bnbWei>0n?1:0;
-  let uncertain=false;
+  let usd=0,uncertain=false;
+  const bnbUsd=await airdropBnbUsd(e);
+  usd+=Number(bnbWei)/1e18*bnbUsd;
 
-  const tokens=[...AIRDROP_STABLE_TOKENS,...AIRDROP_PRICED_TOKENS];
-  const results=await Promise.allSettled(tokens.map(async t=>{
-    const bal=await tokenBalance(e,t,address);
-    if(bal===0n)return {held:false,usd:0};
-    const amount=Number(bal)/10**(await tokenDecimals(e,t));
-    if(AIRDROP_STABLE_TOKENS.includes(t))return {held:true,usd:amount};
-    if(prices[t])return {held:true,usd:amount*prices[t]};
-    if(failed.has(t))uncertain=true; // holds it, but its price couldn't be read
-    return {held:true,usd:0};
+  const held=[];
+  tokens.forEach((t,i)=>{
+    const r=results[i];
+    // A token call that fails inside the multicall = that contract didn't
+    // answer balanceOf normally: treat as not held (the network itself answered).
+    if(!r.success||r.data.length<66)return;
+    const bal=BigInt(r.data.slice(0,66));
+    if(bal>0n)held.push({t,bal});
+  });
+  assetsHeld+=held.length;
+
+  await Promise.all(held.map(async({t,bal})=>{
+    const dec=airdropDecimalsCache.get(t);
+    if(dec===undefined){uncertain=true;return;}
+    const amount=Number(bal)/10**dec;
+    if(AIRDROP_STABLE_TOKENS.includes(t)){usd+=amount;return;}
+    try{
+      const px=await airdropTokenUsd(e,t,bnbUsd);
+      if(px)usd+=amount*px;
+    }catch{uncertain=true;}
   }));
-  for(const r of results){
-    if(r.status==="rejected"){uncertain=true;continue;}
-    if(r.value.held)assetsHeld++;
-    usd+=r.value.usd;
-  }
 
   const txs=sentTxs+assetsHeld;
   const ok=usd>=AIRDROP_MIN_WALLET_USD&&assetsHeld>=AIRDROP_MIN_ASSET_TYPES&&txs>=AIRDROP_MIN_WALLET_TXS;
