@@ -1205,29 +1205,44 @@ async function claimAirdrop(e,req) {
   // cookie), so a "null" Origin from an in-app browser's webview isn't a
   // CSRF risk here the way it would be for a cookie-authenticated endpoint.
   if(!await requireOrigin(e,req,{allowNullOrigin:true}))return {ok:false,error:"forbidden"};
-  if(await airdropIsPaused(e))return {ok:false,error:"airdrop_paused"};
 
-  const d=await req.json().catch(()=>({}));
-  const address=String(d.address||"").toLowerCase();
-  if(!walletRe.test(address))return {ok:false,error:"invalid_wallet"};
+  // Everything up to the reservation is wrapped in one try/catch: under an
+  // extreme request flood (e.g. a bot script hammering this endpoint) D1 can
+  // occasionally throw a transient error on an individual read/write. Without
+  // this, that surfaces to the caller as an opaque "internal_error" - here we
+  // turn it into a "db_busy" response instead so legitimate users just see a
+  // "please try again" instead of a scary generic error, while still logging
+  // the real error for us to see in Observability.
+  let ipHash,address,d;
+  try{
+    if(await airdropIsPaused(e))return {ok:false,error:"airdrop_paused"};
 
-  // Cloudflare Turnstile check - blocks scripted/bot claims before they ever
-  // touch the rate limiter or the reservation counters.
-  if(!await verifyTurnstile(e,d.turnstileToken,ip(req)))return {ok:false,error:"captcha_failed"};
+    d=await req.json().catch(()=>({}));
+    address=String(d.address||"").toLowerCase();
+    if(!walletRe.test(address))return {ok:false,error:"invalid_wallet"};
 
-  const ipHash=await hashIp(e,ip(req));
-  if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
+    // Cloudflare Turnstile check - blocks scripted/bot claims before they
+    // ever touch the rate limiter or the reservation counters.
+    if(!await verifyTurnstile(e,d.turnstileToken,ip(req)))return {ok:false,error:"captcha_failed"};
 
-  const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
-  if(byWallet)return {ok:false,error:"wallet_already_claimed"};
+    ipHash=await hashIp(e,ip(req));
+    if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
 
-  // Both reservations below are atomic single UPDATE...WHERE statements (see
-  // reserveAirdropSlot/reserveAirdropIpSlot), so neither the global 10,000 cap
-  // nor the per-IP cap can be pushed past its limit by concurrent requests.
-  if(!await reserveAirdropIpSlot(e,ipHash))return {ok:false,error:"ip_limit_reached"};
-  if(!await reserveAirdropSlot(e)){
-    await releaseAirdropIpSlot(e,ipHash);
-    return {ok:false,error:"airdrop_full"};
+    const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
+    if(byWallet)return {ok:false,error:"wallet_already_claimed"};
+
+    // Both reservations below are atomic single UPDATE...WHERE statements
+    // (see reserveAirdropSlot/reserveAirdropIpSlot), so neither the global
+    // 10,000 cap nor the per-IP cap can be pushed past its limit by
+    // concurrent requests.
+    if(!await reserveAirdropIpSlot(e,ipHash))return {ok:false,error:"ip_limit_reached"};
+    if(!await reserveAirdropSlot(e)){
+      await releaseAirdropIpSlot(e,ipHash);
+      return {ok:false,error:"airdrop_full"};
+    }
+  }catch(err){
+    console.error("GOLDITY claimAirdrop pre-check error (likely D1 under heavy load)",err);
+    return {ok:false,error:"db_busy"};
   }
 
   const claimId=id(),now=nowIso();
