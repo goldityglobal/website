@@ -460,6 +460,10 @@ img{max-width:100%}
 .dashboard-card::after{content:"";position:absolute;inset:auto 18px 0;height:1px;background:linear-gradient(90deg,transparent,rgba(217,180,91,.14),transparent);pointer-events:none}
 .dashboard-card:hover{border-color:#393226}
 .account-grid .dashboard-card{grid-column:span 3}
+.account-grid .account-name-card{grid-column:span 4}
+.account-grid .account-email-card{grid-column:span 8}
+.account-grid .account-country-card{grid-column:span 6}
+.account-grid .account-status-card{grid-column:span 6}
 .dashboard-card h3{margin:0 0 7px;color:#ece6da;font-size:14px}.dashboard-card p{margin:0;color:var(--muted);font-size:12px}
 .featured-card{border-color:#3b3323;background:radial-gradient(circle at 100% 0,rgba(217,180,91,.075),transparent 34%),linear-gradient(145deg,#12110d,#090909 65%)}
 .card-label{display:block;margin-bottom:7px;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
@@ -520,7 +524,7 @@ img{max-width:100%}
   .why-grid{grid-template-columns:1fr 1fr}.why-grid article{padding:24px 13px;border-bottom:1px solid var(--line)}.why-grid article:nth-child(2){border-right:0}.why-grid article:nth-child(3),.why-grid article:nth-child(4){border-bottom:0}.why-grid h3{font-size:15px}.why-grid p{font-size:10px}
   .community{padding:62px 0}.community h2{font-size:29px}.community-links{gap:7px}.social-pill{width:39px;height:39px}
   .page{width:calc(100% - 28px);padding:55px 0}.grid2,.paper-grid{grid-template-columns:1fr}
-  .dashboard-page{width:calc(100% - 28px);padding:28px 0 55px}.dashboard-hero{padding:24px 20px;border-radius:14px}.dashboard-hero h1{font-size:30px}.dashboard-grid{grid-template-columns:1fr;gap:12px}.dashboard-card,.wallet-card,.referral-code-card,.referral-link-card,.referral-withdraw-card,.security-note{grid-column:span 1}.balance-grid,.portfolio-grid{grid-template-columns:1fr}.balance-grid .dashboard-card{min-height:100px}.dashboard-section>.section-heading{align-items:flex-start;flex-direction:column}.section-heading strong{font-size:25px}.referral-withdraw-card .btn-gold,#refreshWithdrawStatus{width:100%;min-width:0}.form-actions{flex-direction:column;align-items:stretch}.form-actions .btn,.form-actions .cta{width:100%}.dashboard-table{min-width:600px}
+  .dashboard-page{width:calc(100% - 28px);padding:28px 0 55px}.dashboard-hero{padding:24px 20px;border-radius:14px}.dashboard-hero h1{font-size:30px}.dashboard-grid{grid-template-columns:1fr;gap:12px}.dashboard-card,.wallet-card,.referral-code-card,.referral-link-card,.referral-withdraw-card,.security-note{grid-column:span 1}.account-grid .account-name-card,.account-grid .account-email-card,.account-grid .account-country-card,.account-grid .account-status-card{grid-column:span 1}.balance-grid,.portfolio-grid{grid-template-columns:1fr}.balance-grid .dashboard-card{min-height:100px}.dashboard-section>.section-heading{align-items:flex-start;flex-direction:column}.section-heading strong{font-size:25px}.referral-withdraw-card .btn-gold,#refreshWithdrawStatus{width:100%;min-width:0}.form-actions{flex-direction:column;align-items:stretch}.form-actions .btn,.form-actions .cta{width:100%}.dashboard-table{min-width:600px}
   .footer-inner{width:calc(100% - 28px);display:flex;flex-direction:column;text-align:center;gap:13px}.footer-links{margin-top:0}.footer-contact{justify-self:auto}
 }
 
