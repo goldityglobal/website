@@ -78,7 +78,16 @@
     <button id="claimAirdrop" class="btn btn-gold" type="button" disabled>Claim 0.03 GDTY</button>
   </div>
 
-  <div class="cf-turnstile" id="turnstileWidget" data-sitekey="0x4AAAAAAFDd1tjIVJmAL4yl" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileExpired" data-theme="dark"></div>
+  <details id="manualAddressBox" style="margin:0 0 18px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:9px">
+    <summary style="cursor:pointer;color:var(--gold-light);font-size:13px;font-weight:700">Wallet won't connect? Paste your BSC wallet address instead</summary>
+    <p style="margin:10px 0 8px;color:var(--muted);font-size:12px">Copy your BNB Smart Chain (BEP-20) receiving address from your wallet app and paste it here. Never share your seed phrase or private key.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <input id="manualAddress" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x…" style="flex:1;min-width:220px;padding:10px 12px;border-radius:8px;border:1px solid var(--line-soft);background:#0f0e0b;color:var(--text);font-family:monospace;font-size:13px">
+      <button id="useManualAddress" class="btn btn-outline" type="button">Use this address</button>
+    </div>
+  </details>
+
+  <div class="cf-turnstile" id="turnstileWidget" data-sitekey="0x4AAAAAAFDd1tjIVJmAL4yl" data-action="airdrop" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileExpired" data-theme="dark"></div>
 
   <div class="wallet-address-wrap" id="airdropWalletWrap" style="display:none">
     <span class="card-label">Connected Wallet</span>
