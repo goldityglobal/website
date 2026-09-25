@@ -37,7 +37,7 @@
 
 <link rel="stylesheet" href="/style.css">
 
-</head>
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon.png"></head>
 
  
 
@@ -870,12 +870,33 @@
 
     </form>
 
- 
 
- 
 
- 
 
+
+
+
+  </section>
+
+  <!-- TICKET DETAIL / MESSAGE THREAD -->
+  <section id="ticketDetailSection" class="dashboard-section hidden">
+    <div class="section-heading">
+      <h2 id="ticketDetailTitle">Ticket</h2>
+      <button id="closeTicketDetail" class="btn btn-outline btn-small" type="button">Back to tickets</button>
+    </div>
+    <div class="dashboard-card">
+      <div id="ticketMessages" class="ticket-messages"></div>
+    </div>
+    <form id="ticketReplyForm" class="dashboard-form">
+      <label>
+        Reply
+        <textarea id="ticketReplyMessage" rows="3" maxlength="4000" required placeholder="Type your message…"></textarea>
+      </label>
+      <div class="form-actions">
+        <button id="sendTicketReply" class="btn btn-gold" type="submit">Send Reply</button>
+      </div>
+      <p id="ticketReplyState" class="status-text"></p>
+    </form>
   </section>
 
  
