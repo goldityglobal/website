@@ -708,6 +708,23 @@ function weiToMilliGdty(wei) {
 function milliGdtyToWei(milli) {
   return BigInt(milli) * 10n**15n;
 }
+function formatMilliGdty(milli) {
+  return (milli/1000).toLocaleString("en-US",{maximumFractionDigits:3});
+}
+
+// Tells a referrer when part (or all) of a qualifying reward could not be
+// granted because the DAILY_CAP_MILLIGDTY ceiling was already reached that
+// day. The cap policy itself is intentional (see maybeCreateReferralReward),
+// but silently dropping the difference with no record at all would leave the
+// referrer thinking they always get the full 3% when they may not have.
+async function notifyCapForfeited(e,referrerId,forfeitedMilli) {
+  if(forfeitedMilli<=0)return;
+  await e.DB.prepare(`INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)`).bind(
+    id(),referrerId,"referral_cap_forfeited","Part of a referral reward was forfeited",
+    `The daily referral reward cap (200 GDTY) had already been reached, so ${formatMilliGdty(forfeitedMilli)} GDTY of a qualifying referral reward could not be granted. This amount is forfeited and will not be paid later.`,
+    nowIso()
+  ).run().catch(err=>console.error("GOLDITY cap-forfeited notification error",err));
+}
 
 async function referralCapGroup(e,refUser) {
   // Normally each referrer has their own cap. But if several "referrer" accounts
@@ -824,13 +841,22 @@ async function maybeCreateReferralReward(e,u,tradeId,trade,gdtyAmount) {
   const capGroup=await referralCapGroup(e,refUser);
   const desiredMilli=weiToMilliGdty(rawReward);
   const grantedMilli=await reserveDailyCap(e,capGroup,desiredMilli);
+  const forfeitedMilli=desiredMilli-grantedMilli;
   // Deliberate policy (confirmed): DAILY_CAP_MILLIGDTY is a hard ceiling on
   // total daily distribution, not a queue. A qualifying purchase that lands
-  // after the cap is already exhausted gets NO reward at all - it is not
-  // deferred to the next day's cap. This is intentional, not a bug: do not
-  // "fix" this into a pending/carry-over queue without an explicit product
-  // decision to change the policy.
-  if(grantedMilli<=0)return;
+  // after the cap is already exhausted - or only partially fits under it -
+  // does not get the missing amount deferred to the next day's cap. This is
+  // intentional, not a bug: do not "fix" this into a pending/carry-over
+  // queue without an explicit product decision to change the policy.
+  // What WAS a bug: the forfeited amount used to vanish with no record at
+  // all, so the referrer had no way to know they got less than 3%. Now the
+  // referrer is notified whenever any part of a qualifying reward is lost to
+  // the cap, whether that's the whole thing (grantedMilli<=0) or a partial
+  // truncation (0<grantedMilli<desiredMilli).
+  if(grantedMilli<=0){
+    await notifyCapForfeited(e,refUser.id,forfeitedMilli);
+    return;
+  }
   const reward=milliGdtyToWei(grantedMilli);
 
   const risk=await computeReferralRisk(e,refUser,u);
@@ -854,6 +880,7 @@ async function maybeCreateReferralReward(e,u,tradeId,trade,gdtyAmount) {
   }catch(err){
     console.error("GOLDITY referral reward insert error",err);
   }
+  if(forfeitedMilli>0)await notifyCapForfeited(e,refUser.id,forfeitedMilli);
 }
 
 async function recordTrade(e,u,trade) {
