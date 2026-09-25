@@ -14,10 +14,6 @@ GOLDITY is built and deployed on **BNB Smart Chain** and uses BSC-compatible sma
 
 https://goldityglobal.com/
 
-### Official X
-
-https://x.com/Goldityglobal
-
 ### Official Telegram
 
 https://t.me/goldityglobal
