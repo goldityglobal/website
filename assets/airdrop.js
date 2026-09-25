@@ -166,9 +166,18 @@ async function ensureBscNetwork(provider) {
 
 $("addGdtyToken")?.addEventListener("click", async () => {
   if (!activeProvider) return;
+  const btn = $("addGdtyToken");
+  if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
   try {
     await ensureBscNetwork(activeProvider);
-    await activeProvider.request({
+  } catch (err) {
+    console.error("Switch network:", err);
+    setState(err?.message || "Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.", true);
+    if (btn) { btn.disabled = false; btn.textContent = "Add GDTY to Wallet"; }
+    return;
+  }
+  try {
+    const added = await activeProvider.request({
       method: "wallet_watchAsset",
       params: {
         type: "ERC20",
@@ -180,10 +189,24 @@ $("addGdtyToken")?.addEventListener("click", async () => {
         }
       }
     });
+    if (btn) { btn.textContent = "Added ✓"; }
+    setState(added === false
+      ? "You can still claim below - GDTY just wasn't added to your wallet's token list."
+      : "GDTY added to your wallet. Now click \"Claim 0.03 GDTY\" below.");
     markStep("stepClaim");
   } catch (err) {
+    // Some wallets (mobile wallets in particular) don't support
+    // wallet_watchAsset at all and reject/throw here even though the network
+    // switch above succeeded - that's why the button looked like it did
+    // nothing. Claiming doesn't actually require this step to succeed (the
+    // Claim button is already enabled once the wallet is connected), so we
+    // tell the user that plainly instead of leaving them stuck.
     console.error("Add to wallet:", err);
-    setState("Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.", true);
+    setState(err?.message
+      ? `Couldn't add GDTY automatically (${err.message}). You can add it manually in your wallet later - your claim below will still work.`
+      : "Couldn't add GDTY automatically. You can add it manually in your wallet later - your claim below will still work.", true);
+    if (btn) { btn.disabled = false; btn.textContent = "Add GDTY to Wallet"; }
+    markStep("stepClaim");
   }
 });
 
