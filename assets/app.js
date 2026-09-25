@@ -771,6 +771,11 @@ function pickHomeWalletProvider() {
   });
 }
 
+// SECURITY: escape text before putting it into innerHTML templates.
+function escHtml(v) {
+  return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function showHomeWalletPicker(wallets, onChoose) {
   const overlay = document.createElement("div");
   overlay.className = "wallet-picker-overlay";
@@ -780,8 +785,8 @@ function showHomeWalletPicker(wallets, onChoose) {
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
-            <img src="${w.info.icon}" alt="" width="26" height="26">
-            <span>${w.info.name}</span>
+            <img src="${escHtml(w.info.icon)}" alt="" width="26" height="26">
+            <span>${escHtml(w.info.name)}</span>
           </button>
         `).join("")}
       </div>
