@@ -1362,6 +1362,25 @@ async function ticketMessages(e,req) {
   return out({ok:true,messages:rows.results||[]},200,0,cors(e));
 }
 
+// Lets a user post a follow-up message on their own existing ticket
+// (creating a ticket already inserts the first message; this is for replies).
+async function sendTicketMessage(e,req) {
+  const u=await currentUser(e,req);if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+  if(!await rateLimit(e,`ticketmsg:${u.id}`,20,3600000))return out({ok:false,error:"rate_limited"},429,cors(e));
+  const d=await req.json().catch(()=>({}));
+  const ticketId=clean(d.ticketId,80),message=clean(d.message,4000);
+  if(!ticketId||!message)return out({ok:false,error:"validation_failed"},400,cors(e));
+  const t=await e.DB.prepare("SELECT id FROM support_tickets WHERE id=? AND user_id=?").bind(ticketId,u.id).first();
+  if(!t)return out({ok:false,error:"not_found"},404,cors(e));
+  const now=nowIso();
+  await e.DB.batch([
+    e.DB.prepare("INSERT INTO support_messages(id,ticket_id,sender_user_id,sender_role,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(),ticketId,u.id,"user",message,now),
+    e.DB.prepare("UPDATE support_tickets SET updated_at=? WHERE id=?").bind(now,ticketId)
+  ]);
+  return out({ok:true},201,cors(e));
+}
+
 // Admin-only: list referral rewards stuck in 'frozen' (flagged as high-risk)
 // or 'payout_failed' (referrer had no valid wallet at payout time), so a
 // human can review and decide whether to release one back into the normal
@@ -1437,6 +1456,7 @@ export default {
       if(u.pathname==="/api/support/tickets"&&req.method==="POST")return await createTicket(e,req);
       if(u.pathname==="/api/support/tickets"&&req.method==="GET")return await ticketList(e,req);
       if(u.pathname==="/api/support/messages"&&req.method==="GET")return await ticketMessages(e,req);
+      if(u.pathname==="/api/support/messages"&&req.method==="POST")return await sendTicketMessage(e,req);
       if(u.pathname==="/api/admin/referral-rewards"&&req.method==="GET")return await adminListFlaggedRewards(e,req);
       if(u.pathname==="/api/admin/referral-rewards/release"&&req.method==="POST")return await adminReleaseReward(e,req);
       if(u.pathname==="/api/airdrop/status"&&req.method==="GET"){
