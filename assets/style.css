@@ -472,7 +472,7 @@ img{max-width:100%}
 .portfolio-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .wallet-card,.referral-code-card,.referral-link-card{grid-column:span 6}
 .referral-code-card{grid-column:span 12}
-.referral-stat-card{grid-column:span 4}.security-note{grid-column:span 12;padding:15px 18px;border:1px solid #29251d;border-radius:10px;background:rgba(217,180,91,.025);color:var(--muted);font-size:11px}
+.referral-stat-card{grid-column:span 3}.security-note{grid-column:span 12;padding:15px 18px;border:1px solid #29251d;border-radius:10px;background:rgba(217,180,91,.025);color:var(--muted);font-size:11px}
 .wallet-address-wrap,.copy-row{display:flex;align-items:center;gap:8px}.wallet-address-wrap{margin-top:10px;padding:11px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#080807}.wallet-address-wrap code{min-width:0;flex:1;overflow-wrap:anywhere;white-space:normal;color:var(--gold-light);font-size:11px}.wallet-status{display:inline-flex;align-items:center;gap:6px;margin-top:10px;color:var(--muted);font-size:10px}.wallet-status::before{content:"";width:6px;height:6px;border-radius:50%;background:#6e6a61}
 .copy-row{margin-top:10px}.copy-row input,.copy-row code{min-width:0;flex:1}.copy-row input{width:100%;padding:10px 11px;border:1px solid var(--line-soft);border-radius:8px;background:#080807;color:var(--text-soft)}
 .badge{display:inline-flex;align-items:center;min-height:24px;padding:4px 9px;border:1px solid #383227;border-radius:999px;color:var(--gold-light);background:rgba(217,180,91,.045);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
