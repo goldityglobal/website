@@ -72,11 +72,32 @@ async function getWalletConnectProvider() {
       icons: [`${window.location.origin}/favicon.png`]
     }
   });
-  provider.on("display_uri", uri => showWalletConnectPanel(uri));
+  provider.on("display_uri", uri => {
+    const app = pendingWcApp && WC_APPS[pendingWcApp];
+    if (app) openWalletAppDirect(app, uri);
+    else showWalletConnectPanel(uri);
+  });
   provider.on("connect", () => closeWalletConnectPanel());
   wcProvider = provider;
   return wcProvider;
 }
+
+// UPDATED: mobile wallet apps that connect DIRECTLY over WalletConnect.
+// Tapping one keeps the user in Chrome/Safari: the wallet app opens only to
+// approve the connection, then the user comes back to this same page,
+// already connected. (Previously these buttons re-opened the whole site
+// inside the wallet's own browser.)
+const WC_APPS = {
+  trust:   { name: "Trust Wallet",  icon: walletIcon("trustwallet.com"),  link: u => `https://link.trustwallet.com/wc?uri=${encodeURIComponent(u)}` },
+  metamask:{ name: "MetaMask",      icon: walletIcon("metamask.io"),      link: u => `https://metamask.app.link/wc?uri=${encodeURIComponent(u)}` },
+  okx:     { name: "OKX Wallet",    icon: walletIcon("okx.com"),          link: u => `okx://main/wc?uri=${encodeURIComponent(u)}` },
+  bitget:  { name: "Bitget Wallet", icon: walletIcon("web3.bitget.com"),  link: u => `bitkeep://wc?uri=${encodeURIComponent(u)}` },
+  tp:      { name: "TokenPocket",   icon: walletIcon("tokenpocket.pro"),  link: u => `tpoutside://wc?uri=${encodeURIComponent(u)}` },
+  safepal: { name: "SafePal",       icon: walletIcon("safepal.com"),      link: u => `safepalwallet://wc?uri=${encodeURIComponent(u)}` }
+};
+// Which wallet app the user picked, so the WalletConnect link is sent
+// straight to that app instead of showing a generic list first.
+let pendingWcApp = null;
 
 let wcPanel = null;
 function closeWalletConnectPanel() {
@@ -103,13 +124,9 @@ function iconHtml(src) {
 
 function showWalletConnectPanel(uri) {
   closeWalletConnectPanel();
-  const enc = encodeURIComponent(uri);
   const mobile = isMobileDevice();
   const apps = [
-    { name: "Trust Wallet", icon: walletIcon("trustwallet.com"), href: `https://link.trustwallet.com/wc?uri=${enc}` },
-    { name: "MetaMask", icon: walletIcon("metamask.io"), href: `https://metamask.app.link/wc?uri=${enc}` },
-    { name: "OKX Wallet", icon: walletIcon("okx.com"), href: `okex://main/wc?uri=${enc}` },
-    { name: "Bitget Wallet", icon: walletIcon("web3.bitget.com"), href: `bitkeep://wc?uri=${enc}` },
+    ...Object.values(WC_APPS).map(a => ({ name: a.name, icon: a.icon, href: a.link(uri) })),
     { name: "Other wallet app", icon: walletIcon("walletconnect.com"), href: uri }
   ];
   wcPanel = document.createElement("div");
@@ -148,6 +165,33 @@ function showWalletConnectPanel(uri) {
   }
 }
 
+// Opens the chosen wallet app to approve the connection. The automatic
+// redirect can be blocked by some browsers (it isn't a direct tap), so a
+// big "Open <wallet>" button is shown as well - one tap always works.
+function openWalletAppDirect(app, uri) {
+  closeWalletConnectPanel();
+  const href = app.link(uri);
+  wcPanel = document.createElement("div");
+  wcPanel.className = "wallet-picker-overlay";
+  wcPanel.innerHTML = `
+    <div class="wallet-picker" role="dialog" aria-label="Approve in ${app.name}">
+      <h3>Approve in ${app.name}</h3>
+      <p class="wallet-picker-hint">${app.name} is opening. Approve the connection there, then come back to this page - it will connect automatically.</p>
+      <div class="wallet-picker-list">
+        <a class="wallet-picker-item" href="${href}" rel="noopener">${iconHtml(app.icon)}<span>Open ${app.name}</span></a>
+      </div>
+      <button type="button" class="wallet-picker-cancel" id="wcClose">Cancel</button>
+    </div>`;
+  document.body.appendChild(wcPanel);
+  wcPanel.querySelector("#wcClose").addEventListener("click", () => {
+    closeWalletConnectPanel();
+    resetConnectButton();
+    setState("Connection cancelled. You can try again or paste your address below.");
+  });
+  setState(`Opening ${app.name}… Approve the connection, then return here.`);
+  try { window.location.href = href; } catch {}
+}
+
 function resetConnectButton() {
   const btn = $("connectWallet");
   if (btn && !connectedAddress) { btn.disabled = false; btn.textContent = "Connect Wallet"; }
@@ -162,31 +206,15 @@ function isMobileDevice() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-// Named quick-access entries for the most commonly requested wallet apps.
-// On mobile, tapping one opens this page inside that wallet's own in-app
-// browser (which then injects its provider so Connect Wallet works
-// normally on the reload). This is in addition to - not instead of - the
-// generic WalletConnect option, which still covers every other wallet.
-function buildNamedDeepLinkWallets() {
-  const currentUrl = window.location.href;
-  const bareUrl = currentUrl.replace(/^https?:\/\//, "");
-  return [
-    {
-      info: { name: "Trust Wallet", icon: walletIcon("trustwallet.com") },
-      special: "deeplink",
-      url: `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}`
-    },
-    {
-      info: { name: "MetaMask", icon: walletIcon("metamask.io") },
-      special: "deeplink",
-      url: `https://metamask.app.link/dapp/${bareUrl}`
-    },
-    {
-      info: { name: "OKX Wallet", icon: walletIcon("okx.com") },
-      special: "deeplink",
-      url: `https://web3.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + encodeURIComponent(currentUrl))}`
-    }
-  ];
+// Named wallet-app entries for mobile. Each one connects through
+// WalletConnect directly to that app (see WC_APPS above) - the site stays
+// open in the user's normal browser.
+function buildNamedWalletApps() {
+  return Object.entries(WC_APPS).map(([key, a]) => ({
+    info: { name: a.name, icon: a.icon },
+    special: "wcapp",
+    key
+  }));
 }
 
 // UPDATED: resolves { provider } or { reason } so a cancelled picker, a
@@ -194,14 +222,9 @@ function buildNamedDeepLinkWallets() {
 // of all ending in "No wallet detected".
 async function connectViaOption(chosen, resolve) {
   if (!chosen) { resolve({ reason: "cancelled" }); return; }
-  if (chosen.special === "deeplink") {
-    setState(`Opening ${chosen.info.name}… If nothing happens, make sure the app is installed.`);
-    window.location.href = chosen.url;
-    resolve({ reason: "redirect" });
-    return;
-  }
-  if (chosen.special === "walletconnect") {
-    setState("Starting WalletConnect…");
+  if (chosen.special === "wcapp" || chosen.special === "walletconnect") {
+    pendingWcApp = chosen.special === "wcapp" ? chosen.key : null;
+    setState(pendingWcApp ? `Connecting to ${chosen.info.name}…` : "Starting WalletConnect…");
     try {
       resolve({ provider: await getWalletConnectProvider() });
     } catch (err) {
@@ -221,11 +244,10 @@ function pickWalletProvider() {
       if (window.ethereum && !options.length) {
         options.push({ info: { name: "Browser Wallet", icon: "" }, provider: window.ethereum });
       }
-      // Only offer "open in wallet app" links when we're NOT already inside
-      // a wallet browser - tapping them from inside Trust/MetaMask just
-      // reloaded the page and looked like an error.
+      // Only offer wallet-app buttons when we're NOT already inside a
+      // wallet's own browser (there the injected wallet above is used).
       if (isMobileDevice() && !window.ethereum && !discoveredWallets.length) {
-        options.push(...buildNamedDeepLinkWallets());
+        options.push(...buildNamedWalletApps());
       }
       options.push(WALLETCONNECT_ENTRY);
 
@@ -247,7 +269,7 @@ function showWalletPicker(wallets, onChoose) {
   overlay.innerHTML = `
     <div class="wallet-picker" role="dialog" aria-label="Choose a wallet">
       <h3>Choose a wallet</h3>
-      <p class="wallet-picker-hint">Don't see your wallet listed? Choose "Other Wallets (WalletConnect)" to connect with any wallet app via QR code or deep link.</p>
+      <p class="wallet-picker-hint">${isMobileDevice() && !window.ethereum ? "Tap your wallet app: it opens to approve the connection, then you come back here." : "Don't see your wallet listed? Choose \"Other Wallets (WalletConnect)\" to connect with any wallet app via QR code or deep link."}</p>
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
@@ -326,6 +348,7 @@ $("connectWallet")?.addEventListener("click", async () => {
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     connectedAddress = accounts?.[0];
     closeWalletConnectPanel();
+    pendingWcApp = null;
     if (!connectedAddress) { resetConnectButton(); setState("Your wallet didn't share an address. Unlock it and try again, or paste your address below.", true); openManualBox(); return; }
     $("airdropWalletWrap").style.display = "";
     $("airdropWalletAddress").textContent = connectedAddress;
