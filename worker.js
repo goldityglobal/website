@@ -1253,6 +1253,9 @@ const AIRDROP_GLOBAL_PER_MINUTE=20;
 // GDTY also counts, at its real market price (0.03 GDTY from a previous
 // claim is not enough on its own unless GDTY is worth > ~33$).
 const AIRDROP_MIN_WALLET_USD=1;
+// ...AND the wallet must have sent at least this many transactions on BSC
+// (a freshly made bot wallet has 0). Only sent transactions can be counted.
+const AIRDROP_MIN_WALLET_TXS=2;
 const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
 const AIRDROP_STABLE_TOKENS=[
   "0x55d398326f99059ff775485246999027b3197955", // USDT
@@ -1371,6 +1374,9 @@ async function airdropWalletEligible(e,address){
   // Contracts can't be a personal wallet. "0xef0100..." is an EIP-7702
   // delegated normal wallet (e.g. MetaMask smart account) - allowed.
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
+
+  const sentTxs=parseInt(await rpc(e,"eth_getTransactionCount",[address,"latest"]),16);
+  if(!(sentTxs>=AIRDROP_MIN_WALLET_TXS))return false;
 
   const prices=await airdropUsdPrices(e);
   const bnbWei=BigInt(await rpc(e,"eth_getBalance",[address,"latest"]));
@@ -1754,6 +1760,17 @@ export default {
       if(u.pathname==="/api/support/messages"&&req.method==="POST")return await sendTicketMessage(e,req);
       if(u.pathname==="/api/admin/referral-rewards"&&req.method==="GET")return await adminListFlaggedRewards(e,req);
       if(u.pathname==="/api/admin/referral-rewards/release"&&req.method==="POST")return await adminReleaseReward(e,req);
+      if(u.pathname==="/api/wallet-icon"&&req.method==="GET"){
+        const allowed=["trustwallet.com","metamask.io","okx.com","walletconnect.com"];
+        const d=u.searchParams.get("d")||"";
+        if(!allowed.includes(d))return new Response("not found",{status:404});
+        try{
+          const r=await fetch(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`,{cf:{cacheTtl:604800,cacheEverything:true}});
+          const type=r.headers.get("content-type")||"";
+          if(!r.ok||!type.startsWith("image/"))return new Response("not found",{status:404});
+          return new Response(r.body,{status:200,headers:{"content-type":type,"cache-control":"public, max-age=604800"}});
+        }catch{return new Response("not found",{status:404});}
+      }
       if(u.pathname==="/api/airdrop/status"&&req.method==="GET"){
         return out(await airdropStatus(e),200,10,baseHeaders);
       }
