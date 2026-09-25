@@ -240,22 +240,36 @@ async function requireOrigin(e,req) {
   return true;
 }
 
+// Atomic fixed-window rate limiter. The previous version was
+// check-then-write (SELECT, then a separate INSERT/UPDATE), so two
+// near-simultaneous requests for the same key could both read "under the
+// limit" before either write landed, letting both through. The increment
+// below is a single UPDATE...WHERE (same reservation pattern used for the
+// airdrop/referral caps elsewhere in this file), so the limit itself can
+// never be exceeded by concurrent callers. A short retry loop only handles
+// legitimate window-rollover races (this key's window just expired and needs
+// resetting), not the limit check itself.
 async function rateLimit(e,key,limit=12,windowMs=60000) {
   if(!e.DB)return true;
-  const now=Math.floor(Date.now()/1000);
-  const start=now-Math.floor(windowMs/1000);
-  const row=await e.DB.prepare("SELECT attempts,window_start FROM rate_limits WHERE key=?").bind(key).first();
-  if(!row || Number(row.window_start)<start) {
-    await e.DB.prepare(`
-      INSERT INTO rate_limits(key,attempts,window_start,updated_at)
-      VALUES(?,?,?,?)
-      ON CONFLICT(key) DO UPDATE SET attempts=1,window_start=excluded.window_start,updated_at=excluded.updated_at
-    `).bind(key,1,now,now).run();
-    return true;
+  const windowSec=Math.max(1,Math.floor(windowMs/1000));
+  for(let attempt=0;attempt<3;attempt++){
+    const now=Math.floor(Date.now()/1000);
+    const start=now-windowSec;
+    await e.DB.prepare("INSERT INTO rate_limits(key,attempts,window_start,updated_at) VALUES(?,0,?,?) ON CONFLICT(key) DO NOTHING")
+      .bind(key,now,now).run();
+    const inc=await e.DB.prepare("UPDATE rate_limits SET attempts=attempts+1,updated_at=? WHERE key=? AND window_start>=? AND attempts<?")
+      .bind(now,key,start,limit).run();
+    if(inc?.meta?.changes)return true;
+    const row=await e.DB.prepare("SELECT attempts,window_start FROM rate_limits WHERE key=?").bind(key).first();
+    if(!row)continue; // raced with another reset - retry against fresh state
+    if(Number(row.window_start)>=start)return false; // fresh window, limit already reached
+    // Window is stale - atomically reset it, but only if no one beat us to it.
+    const reset=await e.DB.prepare("UPDATE rate_limits SET attempts=1,window_start=?,updated_at=? WHERE key=? AND window_start<?")
+      .bind(now,now,key,start).run();
+    if(reset?.meta?.changes)return true;
+    // Someone else reset it concurrently - loop and increment against their fresh window.
   }
-  if(Number(row.attempts)>=limit)return false;
-  await e.DB.prepare("UPDATE rate_limits SET attempts=attempts+1,updated_at=? WHERE key=?").bind(now,key).run();
-  return true;
+  return false; // exhausted retries - fail closed (deny) rather than let a caller bypass the limit
 }
 
 function ip(req){return req.headers.get("CF-Connecting-IP")||"unknown";}
@@ -733,16 +747,23 @@ async function reserveDailyCap(e,capGroup,desiredMilli) {
   return 0;
 }
 
+const FUNDING_CACHE_TTL_MS = 30*86400000; // 30 days
+
 async function getFundingAddress(e,walletAddress) {
   const wallet=walletAddress.toLowerCase();
   const cacheKey="funding:"+wallet;
-  const cached=await e.DB.prepare("SELECT value FROM scanner_state WHERE key=?").bind(cacheKey).first();
-  if(cached)return cached.value||null;
-  if(!e.ETHERSCAN_API_KEY)return null;
+  const cached=await e.DB.prepare("SELECT value,updated_at FROM scanner_state WHERE key=?").bind(cacheKey).first();
+  // Only trust the cache while it's fresh - a wallet's very first incoming
+  // transfer never changes, so this mainly matters for entries cached back
+  // when the wallet had no history yet (funder null/""), which should get
+  // another chance to resolve once real history exists, rather than staying
+  // wrong forever.
+  if(cached && Date.now()-new Date(cached.updated_at).getTime()<FUNDING_CACHE_TTL_MS)return cached.value||null;
+  if(!e.ETHERSCAN_API_KEY)return cached?cached.value||null:null;
   try{
     const url=`https://api.etherscan.io/v2/api?chainid=56&module=account&action=txlist&address=${wallet}&startblock=0&endblock=99999999&page=1&offset=10&sort=asc&apikey=${e.ETHERSCAN_API_KEY}`;
     const res=await fetch(url);
-    if(!res.ok)return null;
+    if(!res.ok)return cached?cached.value||null:null;
     const data=await res.json().catch(()=>null);
     const first=(data?.result||[]).find(tx=>String(tx.to).toLowerCase()===wallet);
     const funder=first?String(first.from).toLowerCase():null;
@@ -751,7 +772,7 @@ async function getFundingAddress(e,walletAddress) {
       ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at
     `).bind(cacheKey,funder||"",nowIso()).run();
     return funder;
-  }catch{return null;}
+  }catch{return cached?cached.value||null:null;}
 }
 
 async function fundingClusterRisk(e,walletAddress) {
@@ -803,7 +824,13 @@ async function maybeCreateReferralReward(e,u,tradeId,trade,gdtyAmount) {
   const capGroup=await referralCapGroup(e,refUser);
   const desiredMilli=weiToMilliGdty(rawReward);
   const grantedMilli=await reserveDailyCap(e,capGroup,desiredMilli);
-  if(grantedMilli<=0)return; // hard cap already hit today for this referrer/IP group - excess is lost
+  // Deliberate policy (confirmed): DAILY_CAP_MILLIGDTY is a hard ceiling on
+  // total daily distribution, not a queue. A qualifying purchase that lands
+  // after the cap is already exhausted gets NO reward at all - it is not
+  // deferred to the next day's cap. This is intentional, not a bug: do not
+  // "fix" this into a pending/carry-over queue without an explicit product
+  // decision to change the policy.
+  if(grantedMilli<=0)return;
   const reward=milliGdtyToWei(grantedMilli);
 
   const risk=await computeReferralRisk(e,refUser,u);
