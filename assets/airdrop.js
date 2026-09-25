@@ -13,47 +13,70 @@ window.addEventListener("eip6963:announceProvider", event => {
 });
 window.dispatchEvent(new Event("eip6963:requestProvider"));
 
-function isMobileDevice() {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// TODO: replace with your own free Project ID from https://cloud.reown.com
+// (formerly WalletConnect Cloud). Required for the "Other Wallets
+// (WalletConnect)" option to work - without a real Project ID that option
+// will show an error when chosen, but every other wallet-connect path is
+// unaffected.
+const WALLETCONNECT_PROJECT_ID = "0a0744ab9912dfdd69a3e184f20403b2";
+
+let wcProvider = null;
+async function getWalletConnectProvider() {
+  if (wcProvider) return wcProvider;
+  if (!window.EthereumProvider) {
+    throw new Error("WalletConnect failed to load. Please check your connection and try again.");
+  }
+  wcProvider = await window.EthereumProvider.init({
+    projectId: WALLETCONNECT_PROJECT_ID,
+    chains: [56],
+    optionalChains: [56],
+    showQrModal: true,
+    metadata: {
+      name: "GOLDITY",
+      description: "GOLDITY (GDTY) 10K Airdrop",
+      url: window.location.origin,
+      icons: [`${window.location.origin}/favicon.png`]
+    }
+  });
+  return wcProvider;
 }
 
-function showMobileWalletRedirect() {
-  const currentUrl = window.location.href;
-  const bareUrl = currentUrl.replace(/^https?:\/\//, "");
-  const options = [
-    { name: "Trust Wallet", url: `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}` },
-    { name: "MetaMask", url: `https://metamask.app.link/dapp/${bareUrl}` },
-    { name: "Coinbase Wallet", url: `https://go.cb-wallet.com/dapp?cb_url=${encodeURIComponent(currentUrl)}` },
-    { name: "OKX Wallet", url: `https://web3.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + encodeURIComponent(currentUrl))}` }
-  ];
-  const overlay = document.createElement("div");
-  overlay.className = "wallet-picker-overlay";
-  overlay.innerHTML = `
-    <div class="wallet-picker" role="dialog" aria-label="Open in your wallet app">
-      <h3>Open in your wallet app</h3>
-      <p class="wallet-picker-hint">Your wallet app isn't detected in this browser. Tap your wallet below to open this page inside it.</p>
-      <div class="wallet-picker-list">
-        ${options.map(o => `<a class="wallet-picker-item" href="${o.url}">${o.name}</a>`).join("")}
-      </div>
-      <button type="button" class="wallet-picker-cancel">Cancel</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  const cleanup = () => overlay.remove();
-  overlay.querySelector(".wallet-picker-cancel")?.addEventListener("click", cleanup);
-  overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(); });
+const WALLETCONNECT_ENTRY = {
+  info: { name: "Other Wallets (WalletConnect)", icon: "" },
+  special: "walletconnect"
+};
+
+async function connectViaOption(chosen, resolve) {
+  if (!chosen) { resolve(null); return; }
+  if (chosen.special === "walletconnect") {
+    try {
+      const p = await getWalletConnectProvider();
+      resolve(p);
+    } catch (err) {
+      setState(err?.message || "Could not start WalletConnect. Please refresh the page and try again.", true);
+      resolve(null);
+    }
+    return;
+  }
+  resolve(chosen.provider);
 }
 
 function pickWalletProvider() {
   return new Promise(resolve => {
     setTimeout(() => {
-      if (discoveredWallets.length === 0) {
-        if (!window.ethereum && isMobileDevice()) { showMobileWalletRedirect(); resolve(null); return; }
-        resolve(window.ethereum || null);
+      const options = [...discoveredWallets];
+      if (window.ethereum && !options.length) {
+        options.push({ info: { name: "Browser Wallet", icon: "" }, provider: window.ethereum });
+      }
+      options.push(WALLETCONNECT_ENTRY);
+
+      if (options.length === 1) {
+        // Nothing injected/discovered - go straight to WalletConnect
+        // (its own modal offers a QR code plus deep links to hundreds of wallets).
+        connectViaOption(WALLETCONNECT_ENTRY, resolve);
         return;
       }
-      if (discoveredWallets.length === 1) { resolve(discoveredWallets[0].provider); return; }
-      showWalletPicker(discoveredWallets, chosen => resolve(chosen ? chosen.provider : null));
+      showWalletPicker(options, chosen => connectViaOption(chosen, resolve));
     }, 150);
   });
 }
@@ -64,10 +87,11 @@ function showWalletPicker(wallets, onChoose) {
   overlay.innerHTML = `
     <div class="wallet-picker" role="dialog" aria-label="Choose a wallet">
       <h3>Choose a wallet</h3>
+      <p class="wallet-picker-hint">Don't see your wallet listed? Choose "Other Wallets (WalletConnect)" to connect with any wallet app via QR code or deep link.</p>
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
-            <img src="${w.info.icon}" alt="" width="26" height="26">
+            ${w.info.icon ? `<img src="${w.info.icon}" alt="" width="26" height="26">` : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`}
             <span>${w.info.name}</span>
           </button>
         `).join("")}
