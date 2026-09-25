@@ -31,9 +31,10 @@ const WALLETCONNECT_PROJECT_ID = "0a0744ab9912dfdd69a3e184f20403b2";
 
 let wcProvider = null;
 
-// Wallet logos: loaded at runtime from each wallet's own website icon.
-// If an icon can't load, a 🔗 placeholder is shown instead.
-const walletIcon = domain => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+// Wallet logos: served through our own Worker (/api/wallet-icon), which
+// fetches each wallet's official site icon once and caches it. If an icon
+// can't load, a 🔗 placeholder is shown instead.
+const walletIcon = domain => `/api/wallet-icon?d=${encodeURIComponent(domain)}`;
 
 // UPDATED: WalletConnect is now loaded as an ES module (with a second CDN as
 // backup) instead of the old UMD <script>. The UMD build couldn't load
@@ -88,13 +89,25 @@ async function getWalletConnectProvider() {
 // already connected. (Previously these buttons re-opened the whole site
 // inside the wallet's own browser.)
 const WC_APPS = {
-  trust:   { name: "Trust Wallet",  icon: walletIcon("trustwallet.com"),  link: u => `https://link.trustwallet.com/wc?uri=${encodeURIComponent(u)}` },
-  metamask:{ name: "MetaMask",      icon: walletIcon("metamask.io"),      link: u => `https://metamask.app.link/wc?uri=${encodeURIComponent(u)}` },
-  okx:     { name: "OKX Wallet",    icon: walletIcon("okx.com"),          link: u => `okx://main/wc?uri=${encodeURIComponent(u)}` },
-  bitget:  { name: "Bitget Wallet", icon: walletIcon("web3.bitget.com"),  link: u => `bitkeep://wc?uri=${encodeURIComponent(u)}` },
-  tp:      { name: "TokenPocket",   icon: walletIcon("tokenpocket.pro"),  link: u => `tpoutside://wc?uri=${encodeURIComponent(u)}` },
-  safepal: { name: "SafePal",       icon: walletIcon("safepal.com"),      link: u => `safepalwallet://wc?uri=${encodeURIComponent(u)}` }
+  trust:   { name: "Trust Wallet",  icon: walletIcon("trustwallet.com"),  open: "https://link.trustwallet.com/wc", link: u => `https://link.trustwallet.com/wc?uri=${encodeURIComponent(u)}` },
+  metamask:{ name: "MetaMask",      icon: walletIcon("metamask.io"),      open: "https://metamask.app.link/",     link: u => `https://metamask.app.link/wc?uri=${encodeURIComponent(u)}` },
+  okx:     { name: "OKX Wallet",    icon: walletIcon("okx.com"),          open: "okx://main",                     link: u => `okx://main/wc?uri=${encodeURIComponent(u)}` },
+  bitget:  { name: "Bitget Wallet", icon: walletIcon("web3.bitget.com"),  open: "bitkeep://",                     link: u => `bitkeep://wc?uri=${encodeURIComponent(u)}` },
+  tp:      { name: "TokenPocket",   icon: walletIcon("tokenpocket.pro"),  open: "tpoutside://",                   link: u => `tpoutside://wc?uri=${encodeURIComponent(u)}` },
+  safepal: { name: "SafePal",       icon: walletIcon("safepal.com"),      open: "safepalwallet://",               link: u => `safepalwallet://wc?uri=${encodeURIComponent(u)}` }
 };
+// The wallet app the current WalletConnect session was made with (so later
+// requests like "Add GDTY" can bring that app to the front on mobile).
+let connectedWcApp = null;
+// Increases on every connect attempt / cancel, so a late answer from an
+// abandoned attempt can't suddenly change the page.
+let connectAttempt = 0;
+
+// Rejects if a wallet never answers (some ignore unsupported requests),
+// so buttons can't stay stuck on "Connecting…" / "Adding…" forever.
+function withTimeout(promise, ms, message) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(message)), ms))]);
+}
 // Which wallet app the user picked, so the WalletConnect link is sent
 // straight to that app instead of showing a generic list first.
 let pendingWcApp = null;
@@ -146,9 +159,7 @@ function showWalletConnectPanel(uri) {
     </div>`;
   document.body.appendChild(wcPanel);
   wcPanel.querySelector("#wcClose").addEventListener("click", () => {
-    closeWalletConnectPanel();
-    resetConnectButton();
-    setState("Connection cancelled. You can try again or paste your address below.");
+    cancelWalletConnect();
   });
   wcPanel.querySelector("#wcCopy").addEventListener("click", async e => {
     try { await navigator.clipboard.writeText(uri); e.target.textContent = "Copied ✓"; }
@@ -184,12 +195,22 @@ function openWalletAppDirect(app, uri) {
     </div>`;
   document.body.appendChild(wcPanel);
   wcPanel.querySelector("#wcClose").addEventListener("click", () => {
-    closeWalletConnectPanel();
-    resetConnectButton();
-    setState("Connection cancelled. You can try again or paste your address below.");
+    cancelWalletConnect();
   });
   setState(`Opening ${app.name}… Approve the connection, then return here.`);
   try { window.location.href = href; } catch {}
+}
+
+function cancelWalletConnect() {
+  connectAttempt++;
+  pendingWcApp = null;
+  closeWalletConnectPanel();
+  // Start a clean WalletConnect session next time instead of reusing a
+  // half-finished pairing.
+  try { Promise.resolve(wcProvider?.disconnect?.()).catch(() => {}); } catch {}
+  wcProvider = null;
+  resetConnectButton();
+  setState("Connection cancelled. You can try again or paste your address below.");
 }
 
 function resetConnectButton() {
@@ -290,12 +311,12 @@ function showWalletPicker(wallets, onChoose) {
   overlay.addEventListener("click", e => { if (e.target === overlay) cleanup(null); });
 }
 
-function setState(message, error = false) {
+function setState(message, error = false, scroll = true) {
   const el = $("airdropState");
   if (!el) return;
   el.textContent = message || "";
   el.classList.toggle("error", error);
-  if (message) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (message && scroll) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function markStep(id) {
@@ -317,10 +338,10 @@ async function loadStatus() {
     const pct = Math.min(100, (data.claimed / data.max) * 100);
     $("airdropProgressFill").style.width = pct + "%";
     if (data.paused) {
-      setState("The airdrop is currently paused. Please check back later.", true);
+      setState("The airdrop is currently paused. Please check back later.", true, false);
       $("connectWallet").disabled = true;
     } else if (data.remaining <= 0) {
-      setState("All 10,000 claims have been taken. Thanks for your interest!", true);
+      setState("All 10,000 claims have been taken. Thanks for your interest!", true, false);
       $("connectWallet").disabled = true;
     }
   } catch {}
@@ -330,6 +351,7 @@ $("connectWallet")?.addEventListener("click", async () => {
   const btn = $("connectWallet");
   btn.disabled = true;
   btn.textContent = "Connecting…";
+  const attempt = ++connectAttempt;
   const picked = await pickWalletProvider();
   if (!picked?.provider) {
     resetConnectButton();
@@ -345,9 +367,12 @@ $("connectWallet")?.addEventListener("click", async () => {
   const provider = picked.provider;
   activeProvider = provider;
   try {
+    const wcApp = pendingWcApp;
     const accounts = await provider.request({ method: "eth_requestAccounts" });
+    if (attempt !== connectAttempt) return; // user cancelled this attempt
     connectedAddress = accounts?.[0];
     closeWalletConnectPanel();
+    connectedWcApp = provider === wcProvider ? wcApp : null;
     pendingWcApp = null;
     if (!connectedAddress) { resetConnectButton(); setState("Your wallet didn't share an address. Unlock it and try again, or paste your address below.", true); openManualBox(); return; }
     $("airdropWalletWrap").style.display = "";
@@ -359,7 +384,9 @@ $("connectWallet")?.addEventListener("click", async () => {
     setState("Wallet connected. Add GDTY to your wallet, then claim.");
     markStep("stepAdd");
   } catch (err) {
+    if (attempt !== connectAttempt) return;
     closeWalletConnectPanel();
+    pendingWcApp = null;
     resetConnectButton();
     setState(err?.code === 4001
       ? "Connection request was rejected in your wallet. Try again, or paste your address below."
@@ -416,8 +443,16 @@ $("addGdtyToken")?.addEventListener("click", async () => {
   if (!activeProvider) return;
   const btn = $("addGdtyToken");
   if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
+  const viaWc = activeProvider === wcProvider;
+  // Over WalletConnect the request is answered inside the wallet app, so on
+  // mobile bring that app to the front - otherwise nothing visibly happens.
+  const bringWalletForward = () => {
+    const app = connectedWcApp && WC_APPS[connectedWcApp];
+    if (viaWc && app && isMobileDevice()) setTimeout(() => { try { window.location.href = app.open; } catch {} }, 300);
+  };
   try {
-    await ensureBscNetwork(activeProvider);
+    // A WalletConnect session is already on BNB Smart Chain (chain 56).
+    if (!viaWc) await withTimeout(ensureBscNetwork(activeProvider), 60000, "Your wallet didn't respond.");
   } catch (err) {
     console.error("Switch network:", err);
     setState(err?.message || "Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.", true);
@@ -425,7 +460,7 @@ $("addGdtyToken")?.addEventListener("click", async () => {
     return;
   }
   try {
-    const added = await activeProvider.request({
+    const request = activeProvider.request({
       method: "wallet_watchAsset",
       params: {
         type: "ERC20",
@@ -437,6 +472,9 @@ $("addGdtyToken")?.addEventListener("click", async () => {
         }
       }
     });
+    if (viaWc) setState("Approve adding GDTY in your wallet app, then come back here.");
+    bringWalletForward();
+    const added = await withTimeout(request, 60000, "Your wallet didn't respond");
     if (btn) { btn.textContent = "Added ✓"; }
     setState(added === false
       ? "You can still claim below - GDTY just wasn't added to your wallet's token list."
@@ -494,10 +532,12 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         validation_failed: "Could not read a valid wallet address.",
         captcha_failed: "Verification failed. Please complete the check above and try again.",
         airdrop_send_failed: "The network was busy and your claim wasn't sent. Nothing was used up - please try again.",
+        claim_pending_check: "Your claim is being processed by the network. Please don't claim again - check your wallet in a few minutes. If GDTY doesn't arrive, contact support with your wallet address.",
         db_busy: "The airdrop is experiencing very high traffic right now. Please wait a moment and try again."
       };
       setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
-      $("claimAirdrop").disabled = false;
+      // Don't invite a retry while the network may still deliver this claim.
+      $("claimAirdrop").disabled = data.error === "claim_pending_check";
       return;
     }
     setState("");
