@@ -1142,7 +1142,7 @@ async function scanForNewTrades(e) {
 
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
-const AIRDROP_MAX_CLAIMS_PER_IP=100;
+const AIRDROP_MAX_CLAIMS_PER_IP=10;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1226,7 +1226,7 @@ async function claimAirdrop(e,req) {
     if(!await verifyTurnstile(e,d.turnstileToken,ip(req)))return {ok:false,error:"captcha_failed"};
 
     ipHash=await hashIp(e,ip(req));
-    if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
+    if(!await rateLimit(e,`airdrop:${ipHash}`,3,3600000))return {ok:false,error:"rate_limited"};
 
     const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
     if(byWallet)return {ok:false,error:"wallet_already_claimed"};
