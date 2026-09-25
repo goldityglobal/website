@@ -334,6 +334,8 @@ function ip(req){return req.headers.get("CF-Connecting-IP")||"unknown";}
 // the per-IP limit. IPv4 is left as-is.
 function ipBucket(rawIp){
   if(!rawIp||!rawIp.includes(":"))return rawIp||"unknown";
+  const mapped=rawIp.match(/(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if(mapped)return mapped[1];
   let parts=rawIp.toLowerCase().split("%")[0].split(":");
   const gap=parts.indexOf("");
   if(gap!==-1){
@@ -1328,10 +1330,20 @@ async function airdropWalletEligible(e,address){
   return false;
 }
 
+// Errors where the node definitely did NOT accept our transaction because
+// another transaction already uses that nonce - safe to re-sign and retry.
 function isNonceCollision(err){
   const m=String(err?.rpcMessage||"").toLowerCase();
-  return m.includes("nonce too low")||m.includes("already known")||
-         m.includes("replacement transaction underpriced")||m.includes("nonce has already been used");
+  return m.includes("nonce too low")||m.includes("replacement transaction underpriced")||m.includes("nonce has already been used");
+}
+// "already known" means this exact signed transaction is already in the
+// node's pool - i.e. it WAS sent. It must be treated as success, never
+// retried with a new nonce (that would pay the same wallet twice).
+function isAlreadyKnown(err){
+  return String(err?.rpcMessage||"").toLowerCase().includes("already known");
+}
+function localTxHash(signedTx){
+  return "0x"+[...keccak_256(bytes(signedTx))].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
 
 async function airdropStatus(e) {
@@ -1450,10 +1462,29 @@ async function claimAirdrop(e,req) {
     for(let attempt=0;;attempt++){
       const nonce=await getNonce(e,payoutAddress);
       const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
+      const expectedHash=localTxHash(signedTx);
       try{
         txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
         break;
       }catch(err){
+        if(isAlreadyKnown(err)){txHash=expectedHash;break;}
+        if(!err?.rpcMessage&&err?.message!=="rpc_error"){
+          // Network/HTTP failure: we don't know whether the node got the
+          // transaction. Check the network before deciding - releasing the
+          // claim when the tx actually went out would allow a double payment.
+          await new Promise(r=>setTimeout(r,2500));
+          const seen=await rpc(e,"eth_getTransactionByHash",[expectedHash]).catch(()=>undefined);
+          if(seen){txHash=expectedHash;break;}
+          if(seen===undefined){
+            // Still can't tell: keep the slot and the claim row reserved
+            // (status stays "processing") so this wallet can't claim again,
+            // and record the hash for manual checking on BscScan.
+            await e.DB.prepare("UPDATE airdrop_claims SET status='processing',tx_hash=? WHERE id=?").bind(expectedHash,claimId).run().catch(()=>{});
+            console.error("GOLDITY airdrop broadcast outcome unknown - check on BscScan",expectedHash,claimId);
+            return {ok:false,error:"claim_pending_check"};
+          }
+          throw err; // node confirms it never saw the tx - safe to release
+        }
         if(attempt>=4||!isNonceCollision(err))throw err;
         await new Promise(r=>setTimeout(r,400+Math.floor(Math.random()*900)));
       }
@@ -1685,6 +1716,23 @@ export default {
       if(u.pathname==="/api/support/messages"&&req.method==="POST")return await sendTicketMessage(e,req);
       if(u.pathname==="/api/admin/referral-rewards"&&req.method==="GET")return await adminListFlaggedRewards(e,req);
       if(u.pathname==="/api/admin/referral-rewards/release"&&req.method==="POST")return await adminReleaseReward(e,req);
+      // Wallet logos for the airdrop wallet list, fetched once by the Worker
+      // and cached at Cloudflare's edge, so visitors only ever load them
+      // from our own domain (third-party icon hosts can be blocked or slow
+      // in some countries). Only these wallet domains are allowed.
+      if(u.pathname==="/api/wallet-icon"&&req.method==="GET"){
+        const allowed=["trustwallet.com","metamask.io","okx.com","web3.bitget.com","tokenpocket.pro","safepal.com","walletconnect.com"];
+        const d=u.searchParams.get("d")||"";
+        if(!allowed.includes(d))return new Response("not found",{status:404});
+        try{
+          const r=await fetch(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`,{cf:{cacheTtl:604800,cacheEverything:true}});
+          const type=r.headers.get("content-type")||"";
+          if(!r.ok||!type.startsWith("image/"))return new Response("not found",{status:404});
+          return new Response(r.body,{status:200,headers:{"content-type":type,"cache-control":"public, max-age=604800"}});
+        }catch{
+          return new Response("not found",{status:404});
+        }
+      }
       if(u.pathname==="/api/airdrop/status"&&req.method==="GET"){
         return out(await airdropStatus(e),200,10,baseHeaders);
       }
