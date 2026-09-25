@@ -1638,8 +1638,8 @@ function showWalletPicker(wallets, onChoose) {
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
-            <img src="${w.info.icon}" alt="" width="26" height="26">
-            <span>${w.info.name}</span>
+            <img src="${escHtml(w.info.icon)}" alt="" width="26" height="26">
+            <span>${escHtml(w.info.name)}</span>
           </button>
         `).join("")}
       </div>
@@ -1870,6 +1870,11 @@ async function loadReferralAdmin() {
   }
 }
 
+// SECURITY: escape text before putting it into innerHTML templates.
+function escHtml(v) {
+  return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function renderReferralAdmin(rewards) {
   const body = $("referralAdminBody");
   if (!body) return;
@@ -1880,12 +1885,12 @@ function renderReferralAdmin(rewards) {
   body.innerHTML = rewards.map(r => `
     <tr>
       <td>${r.status === "frozen" ? "Under Review" : "Payout Failed"}</td>
-      <td>${r.referrerEmail || "—"}<br><small>${shortAddr(r.referrerWallet)}</small></td>
-      <td>${r.referredEmail || "—"}</td>
+      <td>${escHtml(r.referrerEmail || "—")}<br><small>${escHtml(shortAddr(r.referrerWallet))}</small></td>
+      <td>${escHtml(r.referredEmail || "—")}</td>
       <td>${fmtGdty(r.rewardAmountWei)}</td>
       <td>${r.sourceTxHash ? `<a href="https://bscscan.com/tx/${encodeURIComponent(r.sourceTxHash)}" target="_blank" rel="noopener noreferrer">${shortTx(r.sourceTxHash)}</a>` : "—"}</td>
       <td>${new Date(r.createdAt).toLocaleDateString()}</td>
-      <td><button class="btn btn-small btn-outline" type="button" data-release="${r.id}">Release</button></td>
+      <td><button class="btn btn-small btn-outline" type="button" data-release="${escHtml(r.id)}">Release</button></td>
     </tr>
   `).join("");
 }
