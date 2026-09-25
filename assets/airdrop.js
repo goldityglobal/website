@@ -5,6 +5,15 @@ let activeProvider = null;
 let connectedAddress = null;
 const discoveredWallets = [];
 
+// Cloudflare Turnstile (bot-check) token, set by the widget's callback in
+// airdrop.html once the visitor passes the check. Turnstile tokens are
+// single-use and expire after a few minutes, so we clear this on
+// expiry/error and after every claim attempt, and re-request it via
+// window.turnstile.reset() so a fresh token is ready for the next try.
+let turnstileToken = null;
+window.onTurnstileSuccess = token => { turnstileToken = token; };
+window.onTurnstileExpired = () => { turnstileToken = null; };
+
 window.addEventListener("eip6963:announceProvider", event => {
   const detail = event.detail;
   if (!detail?.info?.uuid) return;
@@ -276,15 +285,23 @@ $("addGdtyToken")?.addEventListener("click", async () => {
 
 $("claimAirdrop")?.addEventListener("click", async () => {
   if (!connectedAddress) return;
+  if (!turnstileToken) {
+    setState("Please complete the verification check below, then try again.", true);
+    return;
+  }
   $("claimAirdrop").disabled = true;
   setState("Sending your claim…");
   try {
     const res = await fetch(API_BASE + "/api/airdrop/claim", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address: connectedAddress })
+      body: JSON.stringify({ address: connectedAddress, turnstileToken })
     });
     const data = await res.json().catch(() => ({}));
+    // Turnstile tokens are single-use - reset the widget so a fresh one is
+    // requested for the next attempt, whether this one succeeded or not.
+    turnstileToken = null;
+    window.turnstile?.reset("#turnstileWidget");
     if (!res.ok || !data.ok) {
       const messages = {
         wallet_already_claimed: "This wallet has already claimed the airdrop.",
@@ -296,7 +313,8 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         airdrop_treasury_empty: "The airdrop pool is temporarily unavailable. Please try again later.",
         airdrop_not_configured: "The airdrop isn't fully set up yet. Please check back soon.",
         forbidden: "Your browser blocked this request. If you're in an app's built-in browser (Instagram, Facebook, etc.), try opening this page in Chrome or Safari instead, then try again.",
-        validation_failed: "Could not read a valid wallet address."
+        validation_failed: "Could not read a valid wallet address.",
+        captcha_failed: "Verification failed. Please complete the check below and try again."
       };
       setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
       $("claimAirdrop").disabled = false;
@@ -308,6 +326,8 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     $("claimAirdrop").style.display = "none";
     loadStatus();
   } catch {
+    turnstileToken = null;
+    window.turnstile?.reset("#turnstileWidget");
     setState("Could not process your claim. Please try again.", true);
     $("claimAirdrop").disabled = false;
   }
