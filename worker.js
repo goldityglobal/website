@@ -1178,11 +1178,26 @@ const AIRDROP_MAX_CLAIMS_PER_IP=10;
 // never come close; a bot farm hits it immediately, which turns a drain of
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
-// A wallet qualifies if it has sent at least this many transactions on BSC...
+// A wallet qualifies if ANY of these is true (UPDATED - relaxed so normal
+// wallets that only hold tokens and no BNB can still claim):
+//   - it has sent at least AIRDROP_MIN_WALLET_TXS transactions on BSC, or
+//   - it holds any BNB at all, or
+//   - it holds any amount of one of the common BSC tokens below.
+// A freshly generated, never-used bot wallet has none of these.
 const AIRDROP_MIN_WALLET_TXS=1;
-// ...OR currently holds at least this much BNB (0.0005 BNB). Freshly
-// generated bot wallets have neither, so each one would have to be funded.
-const AIRDROP_MIN_WALLET_BNB_WEI=5n*10n**14n;
+const AIRDROP_MIN_WALLET_BNB_WEI=1n;
+const AIRDROP_ELIGIBLE_TOKENS=[
+  "0x76d89e26502d0aa9bf83da222cfcf12a27ead801", // GDTY
+  "0x55d398326f99059ff775485246999027b3197955", // USDT
+  "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // USDC
+  "0xe9e7cea3dedca5984780bafc599bd69add087d56", // BUSD
+  "0xc5f0f7b66764f6ec8c8dff7ba683102295e16409", // FDUSD
+  "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3", // DAI
+  "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", // WBNB
+  "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c", // BTCB
+  "0x2170ed0880ac9a755fd29b2688956bd959f933f8", // ETH (BEP-20)
+  "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82"  // CAKE
+];
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1242,7 +1257,14 @@ async function airdropWalletEligible(e,address){
   // Contracts can't be a personal wallet. "0xef0100..." is an EIP-7702
   // delegated normal wallet (e.g. MetaMask smart account) - allowed.
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
-  return parseInt(txCountHex,16)>=AIRDROP_MIN_WALLET_TXS||BigInt(balHex)>=AIRDROP_MIN_WALLET_BNB_WEI;
+  if(parseInt(txCountHex,16)>=AIRDROP_MIN_WALLET_TXS||BigInt(balHex)>=AIRDROP_MIN_WALLET_BNB_WEI)return true;
+  // No BNB and never sent anything - accept it if it holds any common token.
+  const results=await Promise.allSettled(AIRDROP_ELIGIBLE_TOKENS.map(t=>tokenBalance(e,t,address)));
+  if(results.some(r=>r.status==="fulfilled"&&r.value>0n))return true;
+  // Every lookup failed = RPC problem, not an ineligible wallet: let the
+  // caller show "try again" instead of wrongly rejecting the user.
+  if(results.every(r=>r.status==="rejected"))throw new Error("token_balance_lookup_failed");
+  return false;
 }
 
 function isNonceCollision(err){
