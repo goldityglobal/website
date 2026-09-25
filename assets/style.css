@@ -481,6 +481,13 @@ img{max-width:100%}
 #withdrawRewards[data-state="processing"]{position:relative}#withdrawRewards[data-state="processing"]::after{content:"";width:10px;height:10px;margin-left:3px;border:1px solid rgba(0,0,0,.25);border-top-color:#090806;border-radius:50%;animation:goldity-spin .7s linear infinite}@keyframes goldity-spin{to{transform:rotate(360deg)}}
 .table-wrap{width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:#080807}.dashboard-table{width:100%;border-collapse:collapse;min-width:650px}.dashboard-table th{padding:13px 14px;border-bottom:1px solid #302b22;color:#8f887c;background:#0a0a09;font-size:9px;font-weight:800;letter-spacing:.11em;text-align:left;text-transform:uppercase;white-space:nowrap}.dashboard-table td{padding:14px;border-bottom:1px solid #171612;color:#d4cec2;font-size:11px;vertical-align:middle}.dashboard-table tr:last-child td{border-bottom:0}.dashboard-table tbody tr:hover{background:rgba(217,180,91,.028)}.dashboard-table code{color:var(--gold-light);font-size:10px}.dashboard-table .positive{color:var(--success)}.dashboard-table .negative{color:var(--danger)}
 .notification-list,.ticket-list{display:grid;gap:10px}.notification-list>*,.ticket-list>*{padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#0a0a09}.notification-list strong,.ticket-list strong{color:#e9e1d2;font-size:12px}.notification-list p,.ticket-list p{margin:5px 0 0;color:var(--muted);font-size:11px}#accountState,#supportState{min-height:22px;color:var(--muted);font-size:11px}#accountStatus{color:var(--gold-light)}
+.ticket-card{cursor:pointer;transition:border-color .15s}.ticket-card:hover{border-color:var(--gold)}
+.ticket-messages{display:grid;gap:10px;max-height:420px;overflow-y:auto}
+.ticket-message{padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:#0a0a09;max-width:80%}
+.ticket-message.from-user{margin-left:auto;background:rgba(217,180,91,.07);border-color:rgba(217,180,91,.25)}
+.ticket-message.from-admin{margin-right:auto}
+.ticket-message .ticket-message-meta{display:block;margin-bottom:4px;color:var(--muted-2);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.ticket-message p{margin:0;color:var(--text);font-size:12px;white-space:pre-wrap;word-break:break-word}
 
 /* =========================================================
    FOOTER
@@ -763,7 +770,7 @@ header:has(> .brand) > .wallet{margin-left:auto}
 @media(max-width:900px){.airdrop-badge span{display:none}}
 @media(max-width:640px){.airdrop-badge{padding:7px 10px;font-size:11px}}
 
-#email{font-size:16px;word-break:break-word;overflow-wrap:break-word}
+#email{word-break:break-word;overflow-wrap:break-word}
 
 .wallet-picker-item{text-decoration:none}
 .wallet-picker-hint{margin:0 0 14px;color:var(--muted);font-size:12px;line-height:1.5}
