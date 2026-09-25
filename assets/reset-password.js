@@ -2,6 +2,8 @@ const API_BASE = "";
 const form = document.getElementById("resetForm");
 const state = document.getElementById("resetState");
 const token = new URLSearchParams(location.search).get("token") || "";
+// SECURITY: remove the secret token from the address bar/history once read.
+if (token) { try { history.replaceState(null, "", location.pathname); } catch {} }
 
 function setState(message, error = false) {
   if (!state) return;
