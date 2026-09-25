@@ -620,9 +620,13 @@ function renderNotifications(items) {
 
  
 
+let currentTickets = [];
+
 function renderTickets(tickets) {
 
- 
+
+
+  currentTickets = tickets || [];
 
   const container = $("ticketList");
 
@@ -746,15 +750,15 @@ function renderTickets(tickets) {
 
     card.appendChild(title);
 
- 
+
 
     card.appendChild(meta);
 
- 
 
- 
 
- 
+    card.addEventListener("click", () => openTicketDetail(ticket));
+
+
 
     container.appendChild(card);
 
@@ -806,19 +810,113 @@ async function loadTickets() {
 
   } catch {
 
- 
+
 
     renderTickets([]);
 
- 
+
 
   }
 
- 
+
 
 }
 
- 
+/* =========================================================
+   TICKET DETAIL / MESSAGE THREAD
+========================================================= */
+let currentTicketId = null;
+
+function openTicketDetail(ticket) {
+  currentTicketId = ticket.id;
+  const titleEl = $("ticketDetailTitle");
+  if (titleEl) titleEl.textContent = `${ticket.ticketNumber || "Ticket"} — ${ticket.subject || ""}`;
+  $("ticketDetailSection")?.classList.remove("hidden");
+  $("ticketFormSection")?.classList.add("hidden");
+  loadTicketMessages(ticket.id);
+}
+
+function closeTicketDetail() {
+  currentTicketId = null;
+  $("ticketDetailSection")?.classList.add("hidden");
+  const reply = $("ticketReplyMessage");
+  if (reply) reply.value = "";
+  setText("ticketReplyState", "");
+}
+
+async function loadTicketMessages(ticketId) {
+  const container = $("ticketMessages");
+  if (container) container.textContent = "Loading…";
+  try {
+    const data = await api(`/api/support/messages?ticket=${encodeURIComponent(ticketId)}`);
+    renderTicketMessages(data.messages || []);
+  } catch (error) {
+    console.error("Load ticket messages:", error);
+    if (container) container.textContent = "Couldn't load this conversation. Please try again.";
+  }
+}
+
+function renderTicketMessages(messages) {
+  const container = $("ticketMessages");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!messages.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No messages yet.";
+    container.appendChild(empty);
+    return;
+  }
+  for (const msg of messages) {
+    const isUser = msg.senderRole === "user";
+    const bubble = document.createElement("div");
+    bubble.className = `ticket-message ${isUser ? "from-user" : "from-admin"}`;
+
+    const meta = document.createElement("span");
+    meta.className = "ticket-message-meta";
+    meta.textContent = `${isUser ? "You" : "GOLDITY Support"} · ${new Date(msg.createdAt).toLocaleString()}`;
+
+    const body = document.createElement("p");
+    body.textContent = msg.message;
+
+    bubble.appendChild(meta);
+    bubble.appendChild(body);
+    container.appendChild(bubble);
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+function setupTicketDetail() {
+  $("closeTicketDetail")?.addEventListener("click", closeTicketDetail);
+
+  $("ticketReplyForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!currentTicketId) return;
+    const textarea = $("ticketReplyMessage");
+    const message = textarea?.value.trim() || "";
+    if (!message) return;
+    const btn = $("sendTicketReply");
+    if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+    setText("ticketReplyState", "Sending…");
+    try {
+      await api("/api/support/messages", {
+        method: "POST",
+        body: JSON.stringify({ ticketId: currentTicketId, message })
+      });
+      if (textarea) textarea.value = "";
+      setText("ticketReplyState", "Message sent.");
+      await loadTicketMessages(currentTicketId);
+      await loadTickets();
+    } catch (error) {
+      console.error("Send ticket reply:", error);
+      setText("ticketReplyState", "Couldn't send your message. Please try again.");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Send Reply"; }
+    }
+  });
+}
+
+
 
  
 
@@ -978,27 +1076,31 @@ function setupTicketForm() {
 
       if (!section) return;
 
- 
 
- 
 
- 
+
+
+
+
+      $("ticketDetailSection")?.classList.add("hidden");
+
+
 
       section.classList.remove(
 
- 
+
 
         "hidden"
 
- 
+
 
       );
 
- 
 
- 
 
- 
+
+
+
 
       section.scrollIntoView({
 
@@ -1989,6 +2091,8 @@ async function load() {
  
 
 setupTicketForm();
+
+setupTicketDetail();
 
 setupLogout();
 
