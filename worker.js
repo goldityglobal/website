@@ -1178,28 +1178,38 @@ const AIRDROP_MAX_CLAIMS_PER_IP=10;
 // never come close; a bot farm hits it immediately, which turns a drain of
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
-// A wallet qualifies if it holds at least ~1 USD worth of BNB or of one of
-// the common tokens below (UPDATED).
-// - GDTY is deliberately NOT on this list: bots already received it free
-//   from the airdrop and could split it into dust to "qualify" new wallets.
-// - "Any amount" was dropped for the same reason: a bot can put 0.000001
-//   of a token into thousands of wallets for almost nothing. A ~1 USD
-//   minimum means real money has to sit in every bot wallet.
-// - "Has sent 1 transaction" was dropped too: a bot can create that for a
-//   fraction of a cent by sending a 0-value transaction to itself.
-// Amounts are in wei (all tokens below use 18 decimals on BSC).
-const AIRDROP_MIN_WALLET_BNB_WEI=10n**15n; // 0.001 BNB
-const AIRDROP_ELIGIBLE_TOKENS=[
-  ["0x55d398326f99059ff775485246999027b3197955",10n**18n],        // USDT  >= 1
-  ["0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",10n**18n],        // USDC  >= 1
-  ["0xe9e7cea3dedca5984780bafc599bd69add087d56",10n**18n],        // BUSD  >= 1
-  ["0xc5f0f7b66764f6ec8c8dff7ba683102295e16409",10n**18n],        // FDUSD >= 1
-  ["0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",10n**18n],        // DAI   >= 1
-  ["0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",10n**15n],        // WBNB  >= 0.001
-  ["0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",10n**13n],        // BTCB  >= 0.00001
-  ["0x2170ed0880ac9a755fd29b2688956bd959f933f8",3n*10n**14n],     // ETH   >= 0.0003
-  ["0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",5n*10n**17n]      // CAKE  >= 0.5
+// A wallet qualifies if the TOTAL value of what it holds is at least
+// AIRDROP_MIN_WALLET_USD (UPDATED). Everything below is added together:
+// BNB + stablecoins + the popular tokens list, each priced live from its
+// PancakeSwap pool. So 0.4$ of BNB + 0.7$ of USDT = 1.1$ -> eligible.
+// Dust (0.000001 of a token) is worth ~0$, so splitting tokens into
+// thousands of bot wallets no longer works - each wallet needs real value.
+// GDTY also counts, at its real market price (0.03 GDTY from a previous
+// claim is not enough on its own unless GDTY is worth > ~33$).
+const AIRDROP_MIN_WALLET_USD=1;
+const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
+const AIRDROP_STABLE_TOKENS=[
+  "0x55d398326f99059ff775485246999027b3197955", // USDT
+  "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // USDC
+  "0xe9e7cea3dedca5984780bafc599bd69add087d56", // BUSD
+  "0xc5f0f7b66764f6ec8c8dff7ba683102295e16409", // FDUSD
+  "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3"  // DAI
 ];
+const AIRDROP_PRICED_TOKENS=[
+  "0x76d89e26502d0aa9bf83da222cfcf12a27ead801", // GDTY
+  WBNB_ADDR,                                    // WBNB
+  "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c", // BTCB
+  "0x2170ed0880ac9a755fd29b2688956bd959f933f8", // ETH
+  "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82", // CAKE
+  "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe", // XRP
+  "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47", // ADA
+  "0xba2ae424d960c26247dd6c32edc70b295c744c43", // DOGE
+  "0xf8a0bf9cf54bb92f17374d9e9a321e6a111a51bd", // LINK
+  "0x7083609fce4d1d8dc0c979aab8c869ea2c873402"  // DOT
+];
+// A pool must hold at least this much (in USD) on its quote side for its
+// price to be trusted - stops a tiny fake pool from inflating a price.
+const AIRDROP_MIN_POOL_LIQ_USD=500;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1248,17 +1258,70 @@ async function releaseAirdropIpSlot(e,ipHash) {
   await e.DB.prepare("UPDATE airdrop_ip_state SET claim_count=MAX(0,claim_count-1) WHERE ip_hash=?").bind(ipHash).run();
 }
 
-// Checks that the receiving wallet is a real, used wallet rather than an
-// address generated a second ago by a script.
+const tokenDecimalsCache=new Map();
+async function tokenDecimals(e,t){
+  if(tokenDecimalsCache.has(t))return tokenDecimalsCache.get(t);
+  const d=Number(BigInt(await call(e,t,S.dec)));
+  tokenDecimalsCache.set(t,d);
+  return d;
+}
+
+// Price of 1 `token` in `quote` units from its PancakeSwap V2 pool, plus how
+// much of `quote` the pool holds (used as a liquidity sanity check).
+async function poolPrice(e,token,quote){
+  const p=addr(await call(e,A.PF,S.pair+pad(token)+pad(quote)));
+  if(!p||p===Z)return null;
+  const [x0,rr,td,qd]=await Promise.all([call(e,p,S.t0),call(e,p,S.r),tokenDecimals(e,token),tokenDecimals(e,quote)]);
+  const r0=BigInt("0x"+rr.slice(2,66)),r1=BigInt("0x"+rr.slice(66,130));
+  const tokenIs0=addr(x0)===token;
+  const tRes=Number(tokenIs0?r0:r1)/10**td, qRes=Number(tokenIs0?r1:r0)/10**qd;
+  if(!(tRes>0)||!(qRes>0))return null;
+  return {price:qRes/tRes,quoteLiq:qRes};
+}
+
+// Live USD prices, cached for 5 minutes per Worker instance.
+let airdropPriceCache={at:0,prices:null};
+async function airdropUsdPrices(e){
+  if(airdropPriceCache.prices&&Date.now()-airdropPriceCache.at<300000)return airdropPriceCache.prices;
+  const bnb=await poolPrice(e,WBNB_ADDR,A.U);
+  if(!bnb||bnb.quoteLiq<AIRDROP_MIN_POOL_LIQ_USD)throw new Error("bnb_price_unavailable");
+  const prices={bnb:bnb.price,[WBNB_ADDR]:bnb.price};
+  await Promise.all(AIRDROP_PRICED_TOKENS.filter(t=>t!==WBNB_ADDR).map(async t=>{
+    try{
+      const viaUsdt=await poolPrice(e,t,A.U);
+      if(viaUsdt&&viaUsdt.quoteLiq>=AIRDROP_MIN_POOL_LIQ_USD){prices[t]=viaUsdt.price;return;}
+      const viaBnb=await poolPrice(e,t,WBNB_ADDR);
+      if(viaBnb&&viaBnb.quoteLiq*bnb.price>=AIRDROP_MIN_POOL_LIQ_USD)prices[t]=viaBnb.price*bnb.price;
+    }catch{}
+  }));
+  airdropPriceCache={at:Date.now(),prices};
+  return prices;
+}
+
+// Checks that the receiving wallet holds real value (>= AIRDROP_MIN_WALLET_USD
+// in total) rather than being an empty or dust-filled bot wallet.
 async function airdropWalletEligible(e,address){
-  const balHex=await rpc(e,"eth_getBalance",[address,"latest"]);
   const code=await rpc(e,"eth_getCode",[address,"latest"]).catch(()=>"0x");
   // Contracts can't be a personal wallet. "0xef0100..." is an EIP-7702
   // delegated normal wallet (e.g. MetaMask smart account) - allowed.
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
-  if(BigInt(balHex)>=AIRDROP_MIN_WALLET_BNB_WEI)return true;
-  const results=await Promise.allSettled(AIRDROP_ELIGIBLE_TOKENS.map(([t])=>tokenBalance(e,t,address)));
-  if(results.some((r,i)=>r.status==="fulfilled"&&r.value>=AIRDROP_ELIGIBLE_TOKENS[i][1]))return true;
+
+  const prices=await airdropUsdPrices(e);
+  const bnbWei=BigInt(await rpc(e,"eth_getBalance",[address,"latest"]));
+  let usd=Number(bnbWei)/1e18*prices.bnb;
+  if(usd>=AIRDROP_MIN_WALLET_USD)return true;
+
+  const tokens=[
+    ...AIRDROP_STABLE_TOKENS.map(t=>[t,1]),
+    ...AIRDROP_PRICED_TOKENS.filter(t=>prices[t]).map(t=>[t,prices[t]])
+  ];
+  const results=await Promise.allSettled(tokens.map(async([t,price])=>{
+    const bal=await tokenBalance(e,t,address);
+    if(bal===0n)return 0;
+    return Number(bal)/10**(await tokenDecimals(e,t))*price;
+  }));
+  for(const r of results)if(r.status==="fulfilled")usd+=r.value;
+  if(usd>=AIRDROP_MIN_WALLET_USD)return true;
   // Every lookup failed = RPC problem, not an ineligible wallet: let the
   // caller show "try again" instead of wrongly rejecting the user.
   if(results.every(r=>r.status==="rejected"))throw new Error("token_balance_lookup_failed");
