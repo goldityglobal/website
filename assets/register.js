@@ -1,251 +1,204 @@
-const API_BASE="";
-
- 
-
-const form=document.getElementById("registerForm");
-
-const state=document.getElementById("registerState");
-
-const ref=document.getElementById("referralCode");
-
-const refStatus=document.getElementById("refStatus");
-
- 
-
-function setState(message){
-
-  if(state) state.textContent=message;
-
-}
-
- 
-
-(()=>{
-
-  if(!ref)return;
-
-  const params=new URLSearchParams(location.search);
-
-  const fromLink=params.get("ref");
-
-  if(fromLink)ref.value=fromLink.toUpperCase();
-
-})();
-
- 
-
-async function readJson(response){
-
-  const text=await response.text();
-
-  try{
-
-    return text?JSON.parse(text):{};
-
-  }catch{
-
-    return {message:"Unexpected server response."};
-
-  }
-
-}
-
- 
-
-if(ref){
-
-  ref.addEventListener("blur",async()=>{
-
-    const code=ref.value.trim();
-
-    if(!code){
-
-      if(refStatus)refStatus.textContent="";
-
-      return;
-
-    }
-
-    if(refStatus)refStatus.textContent="Checking referral code…";
-
-    try{
-
-      const response=await fetch(
-
-        API_BASE+"/api/referral/check?code="+encodeURIComponent(code),
-
-        {headers:{accept:"application/json"}}
-
-      );
-
-      const data=await readJson(response);
-
-      if(!response.ok){
-
-        if(refStatus)refStatus.textContent=data.message||"Referral validation is temporarily unavailable.";
-
-        return;
-
-      }
-
-      if(refStatus)refStatus.textContent=data.valid?"Valid referral code.":"Referral code not found.";
-
-    }catch{
-
-      if(refStatus)refStatus.textContent="Referral validation is temporarily unavailable.";
-
-    }
-
-  });
-
-}
-
- 
-
-if(form){
-
-  form.addEventListener("submit",async event=>{
-
-    event.preventDefault();
-
- 
-
-    if(!form.checkValidity()){
-
-      form.reportValidity();
-
-      return;
-
-    }
-
- 
-
-    setState("Creating account…");
-
- 
-
-    const data=Object.fromEntries(
-
-      new FormData(form).entries()
-
-    );
-
- 
-
-    data.ageConfirmed=form.ageConfirmed.checked;
-
-    data.termsAccepted=form.termsPrivacyAccepted.checked;
-
-    data.privacyAccepted=form.termsPrivacyAccepted.checked;
-
-    data.marketingConsent=false;
-
- 
-
-    try{
-
-      const response=await fetch(
-
-        API_BASE+"/api/register",
-
-        {
-
-          method:"POST",
-
-          headers:{
-
-            "content-type":"application/json",
-
-            "accept":"application/json"
-
-          },
-
-          body:JSON.stringify(data)
-
-        }
-
-      );
-
- 
-
-      const result=await readJson(response);
-
- 
-
-      if(!response.ok){
-
-        throw new Error(
-
-          result.message||
-
-          (
-
-            result.error==="email_exists"
-
-              ?"An account with this email already exists."
-
-              :
-
-            result.error==="rate_limited"
-
-              ?"Too many registration attempts. Please try again later."
-
-              :
-
-            result.error==="invalid_referral"
-
-              ?"The referral code is not valid."
-
-              :
-
-            result.error==="validation_failed"
-
-              ?"Please complete the required fields and accept the required terms."
-
-              :
-
-            "Account creation failed. Please try again."
-
-          )
-
-        );
-
-      }
-
- 
-
-      setState(
-
-        "Account created. Email verification is required before activation."
-
-      );
-
- 
-
-      form.reset();
-
- 
-
-      if(refStatus){
-
-        refStatus.textContent="";
-
-      }
-
- 
-
-    }catch(error){
-
-      setState(
-
-        error?.message||
-
-        "Account creation failed. Please try again."
-
-      );
-
-    }
-
-  });
-
-}
+<!doctype html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NJNREX2QJM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-NJNREX2QJM');
+</script>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GOLDITY Registration | GDTY</title>
+  <meta name="description" content="Create a GOLDITY account and manage your GDTY profile.">
+  <link rel="canonical" href="https://goldityglobal.com/register">
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+  <header>
+    <a class="brand" href="/">
+      <span class="mark">G</span>
+      <span>GOLDITY <b>GDTY</b></span>
+    </a>
+
+    <nav>
+      <a href="/">Home</a>
+      <a href="/whitepaper.html">Whitepaper</a>
+      <a href="/contract.html">Contract</a>
+    </nav>
+
+    <a class="wallet" href="/login.html">Sign in</a>
+  </header>
+
+  <main class="page">
+    <section class="form-shell">
+      <p class="eyebrow">GOLDITY ACCOUNT</p>
+
+      <h1>Create your account</h1>
+
+      <p class="muted">
+        Register with the minimum information needed to maintain your account.
+        Government ID is not requested by this registration form.
+      </p>
+
+      <form id="registerForm" novalidate>
+        <div class="grid2">
+
+          <label>
+            First name <small>(optional)</small>
+            <input
+              name="firstName"
+              autocomplete="given-name"
+            >
+          </label>
+
+          <label>
+            Last name <small>(optional)</small>
+            <input
+              name="lastName"
+              autocomplete="family-name"
+            >
+          </label>
+
+          <label>
+            Email
+            <input
+              type="email"
+              name="email"
+              autocomplete="email"
+              required
+            >
+          </label>
+
+          <label>
+            Country <small>(optional)</small>
+            <input
+              name="country"
+              autocomplete="country-name"
+            >
+          </label>
+
+          <label>
+            Phone <small>(optional)</small>
+            <input
+              name="phone"
+              autocomplete="tel"
+            >
+          </label>
+
+          <label>
+            Password
+            <input
+              type="password"
+              name="password"
+              minlength="10"
+              autocomplete="new-password"
+              required
+            >
+            <small>At least 10 characters.</small>
+          </label>
+
+        </div>
+
+        <label>
+          Referral code <small>(optional)</small>
+          <input
+            name="referralCode"
+            id="referralCode"
+            placeholder="GDTY-XXXXXXXX"
+            autocomplete="off"
+          >
+          <small id="refStatus"></small>
+        </label>
+
+        <div class="checks">
+
+          <label>
+            <input
+              type="checkbox"
+              name="ageConfirmed"
+              required
+            >
+            I confirm that I am at least 18 years old and legally permitted
+            to use this service in my jurisdiction.
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="termsPrivacyAccepted"
+              required
+            >
+            I accept the
+            <a href="/terms.html">Terms of Use</a>
+            and have read the
+            <a href="/privacy.html">Privacy Notice</a>.
+          </label>
+
+        </div>
+
+        <button
+          class="cta primary"
+          type="submit"
+        >
+          Create Account →
+        </button>
+
+        <p
+          id="registerState"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </form>
+    </section>
+
+    <section class="legal-note">
+
+      <h2>Data protection</h2>
+
+      <p>
+        We use personal data only for stated purposes and aim to collect only
+        what is necessary. The Privacy Notice explains legal basis, retention,
+        recipients, international transfers and data-subject rights.
+      </p>
+
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+
+      <div class="footer-brand">
+        <strong>GOLDITY</strong>
+        <span>GDTY · BNB Smart Chain</span>
+      </div>
+
+      <nav
+        class="footer-links"
+        aria-label="Footer navigation"
+      >
+        <a href="/whitepaper.html">Whitepaper</a>
+        <a href="/contract.html">Contract</a>
+        <a href="/register.html">Register</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
+
+      <div class="footer-contact">
+        <span>CONTACT</span>
+        <a href="mailto:info@goldityglobal.com">
+          info@goldityglobal.com
+        </a>
+      </div>
+
+    </div>
+  </footer>
+
+  <script src="/register.js"></script>
+</body>
+</html>
