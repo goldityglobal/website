@@ -1174,7 +1174,16 @@ async function scanForNewTrades(e) {
 
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
-const AIRDROP_MAX_CLAIMS_PER_IP=10;
+const AIRDROP_MAX_CLAIMS_PER_IP=5;
+// Each IP gets this many claim attempts FOREVER - successful or not (a
+// wrong/ineligible wallet or an already-claimed wallet also uses one).
+// Attempts that fail because of our side (network busy, RPC problem, pool
+// empty...) are given back - see AIRDROP_REFUNDED_ERRORS.
+const AIRDROP_MAX_ATTEMPTS_PER_IP=5;
+const AIRDROP_REFUNDED_ERRORS=new Set([
+  "eligibility_check_failed","airdrop_busy","airdrop_send_failed",
+  "airdrop_treasury_empty","airdrop_not_configured","db_busy","airdrop_full"
+]);
 // --- Anti-bot settings (UPDATED) ---
 // Max successful-path claims per minute across the whole site. Real users
 // never come close; a bot farm hits it immediately, which turns a drain of
@@ -1356,6 +1365,15 @@ async function airdropStatus(e) {
 }
 
 async function claimAirdrop(e,req) {
+  const attempt={key:null};
+  const result=await claimAirdropInner(e,req,attempt);
+  if(!result.ok&&attempt.key&&AIRDROP_REFUNDED_ERRORS.has(result.error)){
+    await e.DB.prepare("UPDATE rate_limits SET attempts=MAX(0,attempts-1) WHERE key=?").bind(attempt.key).run().catch(()=>{});
+  }
+  return result;
+}
+
+async function claimAirdropInner(e,req,attempt) {
   // allowNullOrigin: this endpoint takes only a wallet address (no session
   // cookie), so a "null" Origin from an in-app browser's webview isn't a
   // CSRF risk here the way it would be for a cookie-authenticated endpoint.
@@ -1381,7 +1399,10 @@ async function claimAirdrop(e,req) {
     if(!await verifyTurnstile(e,d.turnstileToken,ip(req),"airdrop"))return {ok:false,error:"captcha_failed"};
 
     ipHash=await hashIp(e,ipBucket(ip(req)));
-    if(!await rateLimit(e,`airdrop:${ipHash}`,3,3600000))return {ok:false,error:"rate_limited"};
+    // Lifetime attempt counter: the window is 100 years, so it never resets.
+    const lifeKey=`airdrop:life:${ipHash}`;
+    if(!await rateLimit(e,lifeKey,AIRDROP_MAX_ATTEMPTS_PER_IP,100*365*24*3600*1000))return {ok:false,error:"ip_attempts_exhausted"};
+    attempt.key=lifeKey;
 
     const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
     if(byWallet)return {ok:false,error:"wallet_already_claimed"};
