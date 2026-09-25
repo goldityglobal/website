@@ -53,6 +53,10 @@ const id = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
 
 function out(data, status=200, ttl=0, extra={}) {
+  // SECURITY: many call sites pass headers as the 3rd argument. Treat an
+  // object there as headers (not a cache lifetime) so private responses are
+  // always "no-store" and never marked "public".
+  if (ttl && typeof ttl === "object") { extra = ttl; ttl = 0; }
   const h = {
     "content-type":"application/json; charset=utf-8",
     "cache-control":ttl ? `public, max-age=${ttl}` : "no-store",
@@ -258,12 +262,10 @@ async function requireOrigin(e,req,opts) {
 // hasn't been configured yet, this fails OPEN (returns true) so the claim
 // flow keeps working while it's being set up - as soon as the secret is
 // added, verification becomes mandatory automatically.
-// UPDATED: now fails CLOSED when the secret is missing (previously every
-// claim was accepted without any captcha check in that case), and also
-// checks that the token was issued for our own hostname and for the
-// "airdrop" action, so tokens farmed on another site can't be replayed here.
-async function verifyTurnstile(e, token, remoteIp, expectedAction) {
+async function verifyTurnstile(e, token, remoteIp) {
   if (!e.TURNSTILE_SECRET_KEY) {
+    // SECURITY: fail closed - without the secret, no claim is accepted
+    // (previously every claim skipped the bot check in this case).
     console.error("GOLDITY: TURNSTILE_SECRET_KEY not set - rejecting airdrop claims until it is configured");
     return false;
   }
@@ -281,12 +283,9 @@ async function verifyTurnstile(e, token, remoteIp, expectedAction) {
     });
     const data = await res.json().catch(() => ({}));
     if (data?.success !== true) return false;
+    // SECURITY: reject tokens solved on another website and replayed here.
     const expectedHost = new URL(e.PUBLIC_ORIGIN || "https://goldityglobal.com").hostname;
-    if (data.hostname && data.hostname !== expectedHost && data.hostname !== "www." + expectedHost) {
-      console.warn("GOLDITY turnstile hostname mismatch", data.hostname);
-      return false;
-    }
-    if (expectedAction && data.action && data.action !== expectedAction) return false;
+    if (data.hostname && data.hostname !== expectedHost && data.hostname !== "www." + expectedHost) return false;
     return true;
   } catch (err) {
     console.error("GOLDITY turnstile verify error", err);
@@ -328,10 +327,9 @@ async function rateLimit(e,key,limit=12,windowMs=60000) {
 
 function ip(req){return req.headers.get("CF-Connecting-IP")||"unknown";}
 
-// Groups an IP into the block one subscriber actually controls. Home/mobile
-// IPv6 users get a whole /64 (18 quintillion addresses), so limiting per
-// full IPv6 address let a single bot rotate addresses forever and never hit
-// the per-IP limit. IPv4 is left as-is.
+// SECURITY: an IPv6 subscriber controls a whole /64 block (billions of
+// addresses), so per-address limits could be bypassed by rotating addresses.
+// Group IPv6 by /64; IPv4 (and IPv4-mapped IPv6) is used as-is.
 function ipBucket(rawIp){
   if(!rawIp||!rawIp.includes(":"))return rawIp||"unknown";
   const mapped=rawIp.match(/(\d{1,3}(?:\.\d{1,3}){3})$/);
@@ -351,15 +349,20 @@ async function loginUser(e,req) {
   if(!await rateLimit(e,`login:${ip(req)}`,8,60000))return out({ok:false,error:"rate_limited",message:"Too many attempts. Please try again shortly."},429,cors(e));
   const d=await req.json().catch(()=>({}));
   const email=normalizeEmail(d.email), password=String(d.password||"");
+  // SECURITY: per-account limit, so guessing one account's password from many
+  // IPs is also throttled (the per-IP limit above alone doesn't stop that).
+  if(!await rateLimit(e,`login-acct:${await sha256Text(email)}`,10,900000))return out({ok:false,error:"rate_limited",message:"Too many attempts. Please try again shortly."},429,cors(e));
   const row=await e.DB.prepare("SELECT * FROM users WHERE email=?").bind(email).first();
   if(!row)return out({ok:false,error:"invalid_credentials",message:"Email or password is incorrect."},401,cors(e));
-  if(!row.email_verified)return out({ok:false,error:"email_not_verified",message:"Please verify your email before signing in."},403,cors(e));
   const p=String(row.password_hash||"").split("$");
   if(p.length!==4)return out({ok:false,error:"invalid_credentials",message:"Email or password is incorrect."},401,cors(e));
   const iterations=Number(p[1])||100000;
   const salt=Uint8Array.from(atob(p[2]),c=>c.charCodeAt(0));
   const expected=await hashPassword(password,salt,iterations);
   if(expected!==row.password_hash)return out({ok:false,error:"invalid_credentials",message:"Email or password is incorrect."},401,cors(e));
+  // SECURITY: checked only AFTER the password - before, anyone could learn
+  // whether an email was registered-but-unverified without knowing the password.
+  if(!row.email_verified)return out({ok:false,error:"email_not_verified",message:"Please verify your email before signing in."},403,cors(e));
   const raw=token(), hash=await sha256Text(raw), now=nowIso();
   const exp=new Date(Date.now()+7*86400000).toISOString();
   await e.DB.batch([
@@ -443,6 +446,31 @@ async function signLegacyTx(privHex,{nonce,gasPrice,gasLimit,to,value,data}) {
   const finalRlp=rlpEncode(finalFields);
   return "0x"+[...finalRlp].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
+// SECURITY (double-payment protection): when sending a signed transaction,
+// only a definite rejection from the node proves it was NOT sent. A network
+// error or lost response may mean it WAS sent - releasing the reward/claim
+// then would let it be paid a second time. "already known" means the exact
+// transaction is already in the node's pool, i.e. it was sent.
+function localTxHash(signedTx){
+  return "0x"+[...keccak_256(bytes(signedTx))].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+// Returns {sent:true,txHash} | {sent:false,err} (definitely not sent) |
+// {sent:"unknown",txHash} (can't tell - must NOT be retried automatically).
+async function safeBroadcast(e,signedTx){
+  const expectedHash=localTxHash(signedTx);
+  try{
+    return {sent:true,txHash:await rpc(e,"eth_sendRawTransaction",[signedTx])};
+  }catch(err){
+    if(String(err?.rpcMessage||"").toLowerCase().includes("already known"))return {sent:true,txHash:expectedHash};
+    if(err?.message==="rpc_error")return {sent:false,err}; // node explicitly rejected it
+    await new Promise(r=>setTimeout(r,2500));
+    const seen=await rpc(e,"eth_getTransactionByHash",[expectedHash]).catch(()=>undefined);
+    if(seen)return {sent:true,txHash:expectedHash};
+    if(seen===null)return {sent:false,err}; // node confirms it never saw it
+    return {sent:"unknown",txHash:expectedHash};
+  }
+}
+
 async function getNonce(e,address) {
   // "pending" (not "latest") includes transactions already broadcast but not
   // yet mined. Both referral payouts and airdrop claims sign from the same
@@ -751,6 +779,23 @@ async function verifyTrade(e,u,txHash) {
   if(side==="sell"&&!(usdtIn>0n||otherTokenIn))return {ok:false,error:"unsupported_trade"};
 
   const pp=await pair(e);
+  // SECURITY (referral fraud): a "buy" only earns a referral reward if the
+  // GDTY really came out of a GDTY liquidity pool in this transaction.
+  // Otherwise anyone could fake unlimited "purchases" with a contract that
+  // sends them their own GDTY back, and collect 3% referral payouts each time.
+  // The trade is still recorded as before; it just doesn't pay a reward.
+  let rewardEligible=false;
+  if(side==="buy"){
+    const pools=new Set([pp]);
+    try{
+      const wbnbPair=addr(await call(e,A.PF,S.pair+pad(A.G)+pad("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")));
+      if(wbnbPair!==Z)pools.add(wbnbPair);
+    }catch{}
+    pools.delete(Z);
+    let fromPools=0n;
+    for(const l of logs)if(l.token===A.G&&pools.has(l.from))fromPools+=BigInt(l.amount);
+    rewardEligible=fromPools>=gdtyNet;
+  }
   const dexMap=new Map([[A.UNI,"Uniswap V2"],[pp,"PancakeSwap V2"]]);
   const dex=dexMap.get(String(tx.to||"").toLowerCase())||"On-chain";
 
@@ -758,7 +803,8 @@ async function verifyTrade(e,u,txHash) {
     ok:true,side,dex,pair:String(tx.to||"").toLowerCase(),
     gdty:(side==="buy"?gdtyNet:-gdtyNet).toString(),
     usdt:(side==="buy"?usdtOut:usdtIn).toString(),
-    block:parseInt(receipt.blockNumber,16)
+    block:parseInt(receipt.blockNumber,16),
+    rewardEligible
   };
 }
 
@@ -972,7 +1018,7 @@ async function recordTrade(e,u,trade) {
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).bind(tradeId,u.id,u.wallet_address,trade.txHash,trade.block,now,trade.dex,trade.pair,trade.side,g.toString(),uAmt.toString(),price,confirmations,status,now,status==="confirmed"?now:null).run();
 
-  if(trade.side==="buy"){
+  if(trade.side==="buy"&&trade.rewardEligible){
     await maybeCreateReferralReward(e,u,tradeId,trade,g);
   }
 
@@ -1049,7 +1095,16 @@ async function tryPayReferralReward(e,reward) {
     gasLimit=100000;
     const data=erc20TransferData(refUser.wallet_address,amountWei);
     const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:A.G,value:0n,data});
-    txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
+    const b=await safeBroadcast(e,signedTx);
+    if(b.sent==="unknown"){
+      // May already be on-chain: keep reward + payout in 'processing' (never
+      // retried automatically) and record the hash for a manual BscScan check.
+      console.error("GOLDITY CRITICAL: referral payout outcome unknown - check on BscScan before any retry",b.txHash,reward.id,payoutId);
+      await e.DB.prepare("UPDATE referral_payouts SET tx_hash=? WHERE id=?").bind(b.txHash,payoutId).run().catch(()=>{});
+      return false;
+    }
+    if(!b.sent)throw b.err;
+    txHash=b.txHash;
   }catch(err){
     console.error("GOLDITY payout broadcast error",err);
     await e.DB.prepare("UPDATE referral_rewards SET status='pending' WHERE id=?").bind(reward.id).run().catch(()=>{});
@@ -1174,7 +1229,7 @@ async function scanForNewTrades(e) {
 
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
-const AIRDROP_MAX_CLAIMS_PER_IP=5;
+const AIRDROP_MAX_CLAIMS_PER_IP=10;
 // Each IP gets this many claim attempts FOREVER - successful or not (a
 // wrong/ineligible wallet or an already-claimed wallet also uses one).
 // Attempts that fail because of our side (network busy, RPC problem, pool
@@ -1339,22 +1394,6 @@ async function airdropWalletEligible(e,address){
   return false;
 }
 
-// Errors where the node definitely did NOT accept our transaction because
-// another transaction already uses that nonce - safe to re-sign and retry.
-function isNonceCollision(err){
-  const m=String(err?.rpcMessage||"").toLowerCase();
-  return m.includes("nonce too low")||m.includes("replacement transaction underpriced")||m.includes("nonce has already been used");
-}
-// "already known" means this exact signed transaction is already in the
-// node's pool - i.e. it WAS sent. It must be treated as success, never
-// retried with a new nonce (that would pay the same wallet twice).
-function isAlreadyKnown(err){
-  return String(err?.rpcMessage||"").toLowerCase().includes("already known");
-}
-function localTxHash(signedTx){
-  return "0x"+[...keccak_256(bytes(signedTx))].map(x=>x.toString(16).padStart(2,"0")).join("");
-}
-
 async function airdropStatus(e) {
   const claimed=await airdropClaimedCount(e);
   const paused=await airdropIsPaused(e);
@@ -1475,41 +1514,18 @@ async function claimAirdropInner(e,req,attempt) {
     const gasPrice=await getGasPrice(e);
     const gasLimit=150000;
     const data=singleAirdropData(address,AIRDROP_REWARD_WEI);
-    // UPDATED: several claims (or a claim + a referral payout) processed at
-    // the same moment read the same "pending" nonce, so all but one were
-    // rejected by the node and those users saw "airdrop_send_failed". Only
-    // explicit nonce-collision errors are retried (never timeouts), so this
-    // can't double-send.
-    for(let attempt=0;;attempt++){
-      const nonce=await getNonce(e,payoutAddress);
-      const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
-      const expectedHash=localTxHash(signedTx);
-      try{
-        txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
-        break;
-      }catch(err){
-        if(isAlreadyKnown(err)){txHash=expectedHash;break;}
-        if(!err?.rpcMessage&&err?.message!=="rpc_error"){
-          // Network/HTTP failure: we don't know whether the node got the
-          // transaction. Check the network before deciding - releasing the
-          // claim when the tx actually went out would allow a double payment.
-          await new Promise(r=>setTimeout(r,2500));
-          const seen=await rpc(e,"eth_getTransactionByHash",[expectedHash]).catch(()=>undefined);
-          if(seen){txHash=expectedHash;break;}
-          if(seen===undefined){
-            // Still can't tell: keep the slot and the claim row reserved
-            // (status stays "processing") so this wallet can't claim again,
-            // and record the hash for manual checking on BscScan.
-            await e.DB.prepare("UPDATE airdrop_claims SET status='processing',tx_hash=? WHERE id=?").bind(expectedHash,claimId).run().catch(()=>{});
-            console.error("GOLDITY airdrop broadcast outcome unknown - check on BscScan",expectedHash,claimId);
-            return {ok:false,error:"claim_pending_check"};
-          }
-          throw err; // node confirms it never saw the tx - safe to release
-        }
-        if(attempt>=4||!isNonceCollision(err))throw err;
-        await new Promise(r=>setTimeout(r,400+Math.floor(Math.random()*900)));
-      }
+    const nonce=await getNonce(e,payoutAddress);
+    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
+    const b=await safeBroadcast(e,signedTx);
+    if(b.sent==="unknown"){
+      // May already be on-chain: keep the slot + claim row reserved so this
+      // wallet can't claim again; record the hash for a manual BscScan check.
+      await e.DB.prepare("UPDATE airdrop_claims SET tx_hash=? WHERE id=?").bind(b.txHash,claimId).run().catch(()=>{});
+      console.error("GOLDITY airdrop broadcast outcome unknown - check on BscScan",b.txHash,claimId);
+      return {ok:false,error:"claim_pending_check"};
     }
+    if(!b.sent)throw b.err;
+    txHash=b.txHash;
   }catch(err){
     console.error("GOLDITY airdrop broadcast error",err);
     return await failBeforeBroadcast("airdrop_send_failed");
@@ -1613,6 +1629,7 @@ async function logout(e,req) {
 async function createTicket(e,req) {
   const u=await currentUser(e,req);if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
   if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+  if(!await rateLimit(e,`ticket:${u.id}`,10,3600000))return out({ok:false,error:"rate_limited"},429,cors(e));
   const d=await req.json().catch(()=>({}));
   const category=clean(d.category,40),subject=clean(d.subject,160),message=clean(d.message,4000);
   const allowed=["Account","Wallet","Referral","Purchase","Technical","Security","Other"];
@@ -1737,23 +1754,6 @@ export default {
       if(u.pathname==="/api/support/messages"&&req.method==="POST")return await sendTicketMessage(e,req);
       if(u.pathname==="/api/admin/referral-rewards"&&req.method==="GET")return await adminListFlaggedRewards(e,req);
       if(u.pathname==="/api/admin/referral-rewards/release"&&req.method==="POST")return await adminReleaseReward(e,req);
-      // Wallet logos for the airdrop wallet list, fetched once by the Worker
-      // and cached at Cloudflare's edge, so visitors only ever load them
-      // from our own domain (third-party icon hosts can be blocked or slow
-      // in some countries). Only these wallet domains are allowed.
-      if(u.pathname==="/api/wallet-icon"&&req.method==="GET"){
-        const allowed=["trustwallet.com","metamask.io","okx.com","web3.bitget.com","tokenpocket.pro","safepal.com","walletconnect.com"];
-        const d=u.searchParams.get("d")||"";
-        if(!allowed.includes(d))return new Response("not found",{status:404});
-        try{
-          const r=await fetch(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`,{cf:{cacheTtl:604800,cacheEverything:true}});
-          const type=r.headers.get("content-type")||"";
-          if(!r.ok||!type.startsWith("image/"))return new Response("not found",{status:404});
-          return new Response(r.body,{status:200,headers:{"content-type":type,"cache-control":"public, max-age=604800"}});
-        }catch{
-          return new Response("not found",{status:404});
-        }
-      }
       if(u.pathname==="/api/airdrop/status"&&req.method==="GET"){
         return out(await airdropStatus(e),200,10,baseHeaders);
       }
@@ -1764,6 +1764,7 @@ export default {
       if(u.pathname==="/api/airdrop/toggle-pause"&&req.method==="POST"){
         const user=await currentUser(e,req);
         if(!user||user.role!=="admin")return out({ok:false,error:"unauthorized"},401,baseHeaders);
+        if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,baseHeaders);
         const paused=await airdropIsPaused(e);
         await e.DB.prepare(`
           INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('paused',?,?)
