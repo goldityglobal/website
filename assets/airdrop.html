@@ -53,29 +53,23 @@
       <span class="airdrop-step-num">1</span>
       <div>
         <strong>Connect Wallet</strong>
-        <p>Connect the wallet you want to receive GDTY in.</p>
-      </div>
-    </li>
-    <li id="stepAdd">
-      <span class="airdrop-step-num">2</span>
-      <div>
-        <strong>Add GDTY to Wallet</strong>
-        <p>So your wallet recognizes and displays the token.</p>
+        <p>Tap Connect Wallet and approve in your wallet app.</p>
       </div>
     </li>
     <li id="stepClaim">
-      <span class="airdrop-step-num">3</span>
+      <span class="airdrop-step-num">2</span>
       <div>
-        <strong>Claim 0.03 GDTY</strong>
-        <p>Sent directly to your connected wallet — no approval needed.</p>
+        <strong>Receive 0.03 GDTY</strong>
+        <p>Sent automatically to your wallet right after it connects.</p>
       </div>
     </li>
   </ol>
 
+  <div class="cf-turnstile" id="turnstileWidget" data-sitekey="0x4AAAAAAFDd1tjIVJmAL4yl" data-action="airdrop" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileExpired" data-theme="dark" style="margin-bottom:14px"></div>
+
   <div class="airdrop-actions">
     <button id="connectWallet" class="btn btn-gold" type="button">Connect Wallet</button>
-    <button id="addGdtyToken" class="btn btn-outline" type="button" disabled>Add GDTY to Wallet</button>
-    <button id="claimAirdrop" class="btn btn-gold" type="button" disabled>Claim 0.03 GDTY</button>
+    <button id="claimAirdrop" class="btn btn-gold" type="button" style="display:none">Try again</button>
   </div>
 
   <details id="manualAddressBox" style="margin:0 0 18px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:9px">
@@ -83,11 +77,9 @@
     <p style="margin:10px 0 8px;color:var(--muted);font-size:12px">Copy your BNB Smart Chain (BEP-20) receiving address from your wallet app and paste it here. Never share your seed phrase or private key.</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       <input id="manualAddress" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x…" style="flex:1;min-width:220px;padding:10px 12px;border-radius:8px;border:1px solid var(--line-soft);background:#0f0e0b;color:var(--text);font-family:monospace;font-size:13px">
-      <button id="useManualAddress" class="btn btn-outline" type="button">Use this address</button>
+      <button id="useManualAddress" class="btn btn-outline" type="button">Claim to this address</button>
     </div>
   </details>
-
-  <div class="cf-turnstile" id="turnstileWidget" data-sitekey="0x4AAAAAAFDd1tjIVJmAL4yl" data-action="airdrop" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileExpired" data-theme="dark"></div>
 
   <div class="wallet-address-wrap" id="airdropWalletWrap" style="display:none">
     <span class="card-label">Connected Wallet</span>
@@ -99,6 +91,8 @@
   <div id="airdropSuccess" class="airdrop-success" style="display:none">
     <strong>✅ 0.03 GDTY sent to your wallet.</strong>
     <a id="airdropTxLink" href="#" target="_blank" rel="noopener noreferrer">View transaction on BscScan →</a>
+    <button id="addGdtyToken" class="btn btn-outline" type="button" style="display:none">Add GDTY to Wallet</button>
+    <span style="color:var(--muted);font-size:12px">Don't see it? Add GDTY in your wallet with contract <code id="gdtyContract" style="cursor:pointer" title="Tap to copy">0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801</code></span>
   </div>
 
 </div>
