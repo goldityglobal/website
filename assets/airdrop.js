@@ -314,7 +314,8 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         airdrop_not_configured: "The airdrop isn't fully set up yet. Please check back soon.",
         forbidden: "Your browser blocked this request. If you're in an app's built-in browser (Instagram, Facebook, etc.), try opening this page in Chrome or Safari instead, then try again.",
         validation_failed: "Could not read a valid wallet address.",
-        captcha_failed: "Verification failed. Please complete the check below and try again."
+        captcha_failed: "Verification failed. Please complete the check below and try again.",
+        db_busy: "The airdrop is experiencing very high traffic right now. Please wait a moment and try again."
       };
       setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
       $("claimAirdrop").disabled = false;
