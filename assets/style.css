@@ -669,6 +669,7 @@ img{max-width:100%}
 .wallet-picker-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid var(--line-soft);border-radius:9px;background:#100f0c;color:var(--text);font-size:14px;cursor:pointer;text-align:left}
 .wallet-picker-item:hover{border-color:var(--gold);background:rgba(217,180,91,.08)}
 .wallet-picker-item img{border-radius:6px;flex:none}
+.wallet-picker-icon-fallback{width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex:none;font-size:15px}
 .wallet-picker-cancel{width:100%;margin-top:14px;padding:9px 12px;border:1px solid var(--line-soft);border-radius:9px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer}
 .wallet-picker-cancel:hover{color:var(--text)}
 
