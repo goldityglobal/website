@@ -1,18 +1,1 @@
-<!doctype html><html lang="en"><head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NJNREX2QJM"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-NJNREX2QJM');
-</script>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in | GOLDITY</title><meta name="description" content="Sign in to your GOLDITY account."><link rel="stylesheet" href="style.css"><meta property="og:site_name" content="GOLDITY">
-
-<meta property="og:image" content="https://goldityglobal.com/favicon.png">
-
-<meta name="twitter:card" content="summary_large_image">
-
-<meta name="twitter:image" content="https://goldityglobal.com/favicon.png">
-
-</head><body><header><a class="brand" href="/"><span class="mark">G</span><span>GOLDITY <b>GDTY</b></span></a><nav><a href="/">Home</a><a href="/whitepaper.html">Whitepaper</a><a href="/contract.html">Contract</a></nav><a class="wallet" href="/register.html">Create account</a></header><main class="page"><section class="form-shell"><p class="eyebrow">GOLDITY ACCOUNT</p><h1>Sign in</h1><p class="muted">Access your dashboard, referral code and rewards.</p><form id="loginForm"><label>Email<input type="email" name="email" autocomplete="email" required></label><label>Password<input type="password" name="password" autocomplete="current-password" required></label><button class="cta primary" type="submit">Sign In →</button><p id="loginState" class="status"></p></form><p class="muted"><a href="/forgot-password.html">Forgot password?</a></p><p class="muted">No account? <a href="/register.html">Create one</a>.</p></section></main><footer>GOLDITY · GDTY · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></footer><script src="login.js"></script></body></html>
+const API_BASE="";const f=document.getElementById('loginForm'),s=document.getElementById('loginState');f.addEventListener('submit',async e=>{e.preventDefault();s.textContent='Signing in…';try{const d=Object.fromEntries(new FormData(f).entries());const r=await fetch(API_BASE+'/api/login',{method:'POST',credentials:'include',headers:{'content-type':'application/json'},body:JSON.stringify(d)});const j=await r.json();if(!r.ok)throw Error(j.message||j.error||'Sign in failed');location.href='/dashboard.html';}catch(err){s.textContent=err.message||'Sign in failed.'}});
