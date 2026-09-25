@@ -192,6 +192,23 @@ async function sha256Text(v) {
   return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
 
+// Hashes an IP address for storage in audit_log/airdrop_claims. Plain SHA-256
+// of an IP is NOT effectively one-way - the entire IPv4 space (~4.3B
+// addresses) can be hashed in minutes on commodity hardware, so anyone with a
+// DB dump could recover the real IP. HMAC-SHA256 with a secret Worker key
+// closes that: without IP_HASH_SECRET, the hash cannot be reversed by
+// precomputation. Falls back to plain SHA-256 (with a warning) only if the
+// secret hasn't been configured yet, so this never hard-fails registration.
+async function hashIp(e,rawIp) {
+  if(!e.IP_HASH_SECRET){
+    console.error("GOLDITY IP_HASH_SECRET not configured - falling back to reversible plain SHA-256 for IP hashing");
+    return sha256Text(rawIp);
+  }
+  const key=await crypto.subtle.importKey("raw",enc.encode(e.IP_HASH_SECRET),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("HMAC",key,enc.encode(rawIp));
+  return [...new Uint8Array(sig)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+
 async function hashPassword(password,saltBytes,iterations=100000) {
   const key=await crypto.subtle.importKey("raw",enc.encode(password),"PBKDF2",false,["deriveBits"]);
   const bits=await crypto.subtle.deriveBits(
@@ -370,13 +387,18 @@ async function tokenBalance(e,tokenAddress,account) {
   return BigInt(raw);
 }
 
+// Always produces an 8-character suffix: one alphabet character per random
+// byte (mod alphabet length), unlike byte.toString(36) which yields a
+// variable-length string (about 2.3% of codes ended up 6-7 chars).
 async function makeReferralCode(e) {
+  const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   for(let i=0;i<8;i++){
-    const code="GDTY-"+[...crypto.getRandomValues(new Uint8Array(5))].map(b=>b.toString(36)).join("").toUpperCase().slice(0,8);
+    const bytes=crypto.getRandomValues(new Uint8Array(8));
+    const code="GDTY-"+[...bytes].map(b=>alphabet[b%alphabet.length]).join("");
     const existing=await e.DB.prepare("SELECT id FROM users WHERE referral_code=?").bind(code).first();
     if(!existing)return code;
   }
-  return "GDTY-"+crypto.randomUUID().slice(0,8).toUpperCase();
+  return "GDTY-"+crypto.randomUUID().replace(/-/g,"").slice(0,8).toUpperCase();
 }
 
 async function walletChallenge(e,req) {
@@ -442,10 +464,16 @@ async function registerUser(e,req) {
     return out({ok:false,error:"validation_failed",message:"Please complete the required registration fields and accept the required terms."},400,cors(e));
   if(await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first())
     return out({ok:false,error:"email_exists",message:"An account with this email already exists."},409,cors(e));
+  // canonical_email lets us catch a duplicate regardless of which alias
+  // variant (plus-tag, gmail dots) was registered first - checking
+  // "canonical!==email" only (the old approach) was order-dependent: it
+  // missed the case where a plain address registers AFTER an aliased
+  // variant of the same inbox already exists, since a plain address's own
+  // canonical form equals itself and skipped the alias lookup entirely.
   const canonical=canonicalEmailKey(email);
+  if(await e.DB.prepare("SELECT id FROM users WHERE canonical_email=? OR email=?").bind(canonical,canonical).first())
+    return out({ok:false,error:"email_exists",message:"An account with this email already exists."},409,cors(e));
   if(canonical!==email){
-    if(await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(canonical).first())
-      return out({ok:false,error:"email_exists",message:"An account with this email already exists."},409,cors(e));
     const localPrefix=canonical.slice(0,canonical.indexOf("@"));
     const domain=canonical.slice(canonical.indexOf("@")+1);
     const aliasMatch=await e.DB.prepare("SELECT id FROM users WHERE email LIKE ? AND email LIKE ?")
@@ -465,15 +493,15 @@ async function registerUser(e,req) {
   const myCode=await makeReferralCode(e);
   try{
     await e.DB.prepare(`
-      INSERT INTO users(id,email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
+      INSERT INTO users(id,email,canonical_email,password_hash,first_name,last_name,country,phone,referral_code,referred_by,
       email_verified,terms_version,privacy_version,age_confirmed,marketing_consent,created_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(uid,email,hash,first,last,country,phone,myCode,referredBy,0,TERMS_VERSION,PRIVACY_VERSION,1,d.marketingConsent?1:0,now,now).run();
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(uid,email,canonical,hash,first,last,country,phone,myCode,referredBy,0,TERMS_VERSION,PRIVACY_VERSION,1,d.marketingConsent?1:0,now,now).run();
   }catch{
     return out({ok:false,error:"registration_failed",message:"Account creation failed. Please try again."},500,cors(e));
   }
   try{
-    const ipHash=await sha256Text(ip(req));
+    const ipHash=await hashIp(e,ip(req));
     await e.DB.prepare("INSERT INTO audit_log(id,user_id,event_type,ip_hash,created_at) VALUES(?,?,?,?,?)")
       .bind(id(),uid,"register",ipHash,now).run();
   }catch{}
@@ -932,6 +960,23 @@ async function graduateReferralRewards(e,userId) {
   }
 }
 
+// Same idea as graduateReferralRewards, but with no user filter - run from
+// the cron so a reward whose pending window closed still gets paid even if
+// neither the referrer nor the referred buyer ever logs back in. Without
+// this, a reward could sit in 'pending' forever, since the login/dashboard
+// paths only check rewards tied to whichever user is currently active.
+async function graduateOverdueRewardsGlobal(e) {
+  const now=nowIso();
+  const rows=await e.DB.prepare(`
+    SELECT * FROM referral_rewards
+    WHERE status='pending' AND available_at IS NOT NULL AND available_at<=?
+    LIMIT 20
+  `).bind(now).all();
+  for(const reward of (rows.results||[])){
+    await tryPayReferralReward(e,reward).catch(err=>console.error("GOLDITY global graduate error",reward.id,err));
+  }
+}
+
 async function scanForNewTrades(e) {
   // Automatically detects GDTY purchases for any bound (signature-verified) wallet,
   // so users don't have to find and paste a transaction hash themselves. Only scans
@@ -1050,7 +1095,7 @@ async function claimAirdrop(e,req) {
   const address=String(d.address||"").toLowerCase();
   if(!walletRe.test(address))return {ok:false,error:"invalid_wallet"};
 
-  const ipHash=await sha256Text(ip(req));
+  const ipHash=await hashIp(e,ip(req));
   if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
 
   const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
@@ -1243,6 +1288,44 @@ async function ticketMessages(e,req) {
   return out({ok:true,messages:rows.results||[]},200,0,cors(e));
 }
 
+// Admin-only: list referral rewards stuck in 'frozen' (flagged as high-risk)
+// or 'payout_failed' (referrer had no valid wallet at payout time), so a
+// human can review and decide whether to release one back into the normal
+// payout flow. There is otherwise no path out of these two states.
+async function adminListFlaggedRewards(e,req) {
+  const admin=await currentUser(e,req);
+  if(!admin||admin.role!=="admin")return out({ok:false,error:"unauthorized"},401,cors(e));
+  const rows=await e.DB.prepare(`
+    SELECT r.id,r.status,r.gdty_amount_wei AS gdtyAmountWei,r.reward_amount_wei AS rewardAmountWei,
+           r.source_tx_hash AS sourceTxHash,r.created_at AS createdAt,
+           ru.email AS referrerEmail,ru.wallet_address AS referrerWallet,
+           du.email AS referredEmail
+    FROM referral_rewards r
+    JOIN users ru ON ru.id=r.referrer_user_id
+    JOIN users du ON du.id=r.referred_user_id
+    WHERE r.status IN ('frozen','payout_failed')
+    ORDER BY r.created_at DESC LIMIT 100
+  `).all();
+  return out({ok:true,rewards:rows.results||[]},200,0,cors(e));
+}
+
+// Admin-only: manually move one flagged reward back to 'pending' with
+// available_at set to now, so the next login/dashboard visit or cron sweep
+// picks it up and re-runs the normal risk check before paying it.
+async function adminReleaseReward(e,req) {
+  const admin=await currentUser(e,req);
+  if(!admin||admin.role!=="admin")return out({ok:false,error:"unauthorized"},401,cors(e));
+  if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
+  const d=await req.json().catch(()=>({}));
+  const rewardId=clean(d.rewardId,80);
+  if(!rewardId)return out({ok:false,error:"validation_failed"},400,cors(e));
+  const res=await e.DB.prepare(`
+    UPDATE referral_rewards SET status='pending',available_at=? WHERE id=? AND status IN ('frozen','payout_failed')
+  `).bind(nowIso(),rewardId).run();
+  if(!res?.meta?.changes)return out({ok:false,error:"not_found"},404,cors(e));
+  return out({ok:true},200,0,cors(e));
+}
+
 export default {
   async fetch(req,e) {
     const u=new URL(req.url);
@@ -1280,6 +1363,8 @@ export default {
       if(u.pathname==="/api/support/tickets"&&req.method==="POST")return await createTicket(e,req);
       if(u.pathname==="/api/support/tickets"&&req.method==="GET")return await ticketList(e,req);
       if(u.pathname==="/api/support/messages"&&req.method==="GET")return await ticketMessages(e,req);
+      if(u.pathname==="/api/admin/referral-rewards"&&req.method==="GET")return await adminListFlaggedRewards(e,req);
+      if(u.pathname==="/api/admin/referral-rewards/release"&&req.method==="POST")return await adminReleaseReward(e,req);
       if(u.pathname==="/api/airdrop/status"&&req.method==="GET"){
         return out(await airdropStatus(e),200,10,baseHeaders);
       }
@@ -1363,5 +1448,6 @@ export default {
   async scheduled(event,e,ctx) {
     if(!e.DB)return;
     try{await scanForNewTrades(e);}catch(err){console.error("GOLDITY scanner error",err);}
+    try{await graduateOverdueRewardsGlobal(e);}catch(err){console.error("GOLDITY global graduate error",err);}
   }
 };
