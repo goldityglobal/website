@@ -93,7 +93,11 @@ async function rpc(e, method, params=[]) {
   });
   if (!r.ok) throw new Error("rpc_http_error");
   const j = await r.json();
-  if (j.error) throw new Error("rpc_error");
+  if (j.error) {
+    const err = new Error("rpc_error");
+    err.rpcMessage = String(j.error.message || "");
+    throw err;
+  }
   return j.result;
 }
 
@@ -254,10 +258,14 @@ async function requireOrigin(e,req,opts) {
 // hasn't been configured yet, this fails OPEN (returns true) so the claim
 // flow keeps working while it's being set up - as soon as the secret is
 // added, verification becomes mandatory automatically.
-async function verifyTurnstile(e, token, remoteIp) {
+// UPDATED: now fails CLOSED when the secret is missing (previously every
+// claim was accepted without any captcha check in that case), and also
+// checks that the token was issued for our own hostname and for the
+// "airdrop" action, so tokens farmed on another site can't be replayed here.
+async function verifyTurnstile(e, token, remoteIp, expectedAction) {
   if (!e.TURNSTILE_SECRET_KEY) {
-    console.warn("GOLDITY: TURNSTILE_SECRET_KEY not set - airdrop captcha check is disabled");
-    return true;
+    console.error("GOLDITY: TURNSTILE_SECRET_KEY not set - rejecting airdrop claims until it is configured");
+    return false;
   }
   if (!token || typeof token !== "string") return false;
   try {
@@ -272,7 +280,14 @@ async function verifyTurnstile(e, token, remoteIp) {
       signal: AbortSignal.timeout(8000)
     });
     const data = await res.json().catch(() => ({}));
-    return data?.success === true;
+    if (data?.success !== true) return false;
+    const expectedHost = new URL(e.PUBLIC_ORIGIN || "https://goldityglobal.com").hostname;
+    if (data.hostname && data.hostname !== expectedHost && data.hostname !== "www." + expectedHost) {
+      console.warn("GOLDITY turnstile hostname mismatch", data.hostname);
+      return false;
+    }
+    if (expectedAction && data.action && data.action !== expectedAction) return false;
+    return true;
   } catch (err) {
     console.error("GOLDITY turnstile verify error", err);
     return false;
@@ -312,6 +327,21 @@ async function rateLimit(e,key,limit=12,windowMs=60000) {
 }
 
 function ip(req){return req.headers.get("CF-Connecting-IP")||"unknown";}
+
+// Groups an IP into the block one subscriber actually controls. Home/mobile
+// IPv6 users get a whole /64 (18 quintillion addresses), so limiting per
+// full IPv6 address let a single bot rotate addresses forever and never hit
+// the per-IP limit. IPv4 is left as-is.
+function ipBucket(rawIp){
+  if(!rawIp||!rawIp.includes(":"))return rawIp||"unknown";
+  let parts=rawIp.toLowerCase().split("%")[0].split(":");
+  const gap=parts.indexOf("");
+  if(gap!==-1){
+    const head=parts.slice(0,gap).filter(Boolean), tail=parts.slice(gap+1).filter(Boolean);
+    parts=[...head,...Array(Math.max(0,8-head.length-tail.length)).fill("0"),...tail];
+  }
+  return "v6:"+parts.slice(0,4).map(x=>x.padStart(4,"0")).join(":")+"::/64";
+}
 
 async function loginUser(e,req) {
   if(!e.DB)return out({ok:false,error:"registration_not_configured"},503,cors(e));
@@ -1143,6 +1173,16 @@ async function scanForNewTrades(e) {
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
 const AIRDROP_MAX_CLAIMS_PER_IP=10;
+// --- Anti-bot settings (UPDATED) ---
+// Max successful-path claims per minute across the whole site. Real users
+// never come close; a bot farm hits it immediately, which turns a drain of
+// thousands of claims in minutes into a slow trickle you can see and pause.
+const AIRDROP_GLOBAL_PER_MINUTE=20;
+// A wallet qualifies if it has sent at least this many transactions on BSC...
+const AIRDROP_MIN_WALLET_TXS=1;
+// ...OR currently holds at least this much BNB (0.0005 BNB). Freshly
+// generated bot wallets have neither, so each one would have to be funded.
+const AIRDROP_MIN_WALLET_BNB_WEI=5n*10n**14n;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1191,6 +1231,26 @@ async function releaseAirdropIpSlot(e,ipHash) {
   await e.DB.prepare("UPDATE airdrop_ip_state SET claim_count=MAX(0,claim_count-1) WHERE ip_hash=?").bind(ipHash).run();
 }
 
+// Checks that the receiving wallet is a real, used wallet rather than an
+// address generated a second ago by a script.
+async function airdropWalletEligible(e,address){
+  const [txCountHex,balHex]=await Promise.all([
+    rpc(e,"eth_getTransactionCount",[address,"latest"]),
+    rpc(e,"eth_getBalance",[address,"latest"])
+  ]);
+  const code=await rpc(e,"eth_getCode",[address,"latest"]).catch(()=>"0x");
+  // Contracts can't be a personal wallet. "0xef0100..." is an EIP-7702
+  // delegated normal wallet (e.g. MetaMask smart account) - allowed.
+  if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
+  return parseInt(txCountHex,16)>=AIRDROP_MIN_WALLET_TXS||BigInt(balHex)>=AIRDROP_MIN_WALLET_BNB_WEI;
+}
+
+function isNonceCollision(err){
+  const m=String(err?.rpcMessage||"").toLowerCase();
+  return m.includes("nonce too low")||m.includes("already known")||
+         m.includes("replacement transaction underpriced")||m.includes("nonce has already been used");
+}
+
 async function airdropStatus(e) {
   const claimed=await airdropClaimedCount(e);
   const paused=await airdropIsPaused(e);
@@ -1223,13 +1283,22 @@ async function claimAirdrop(e,req) {
 
     // Cloudflare Turnstile check - blocks scripted/bot claims before they
     // ever touch the rate limiter or the reservation counters.
-    if(!await verifyTurnstile(e,d.turnstileToken,ip(req)))return {ok:false,error:"captcha_failed"};
+    if(!await verifyTurnstile(e,d.turnstileToken,ip(req),"airdrop"))return {ok:false,error:"captcha_failed"};
 
-    ipHash=await hashIp(e,ip(req));
+    ipHash=await hashIp(e,ipBucket(ip(req)));
     if(!await rateLimit(e,`airdrop:${ipHash}`,3,3600000))return {ok:false,error:"rate_limited"};
 
     const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
     if(byWallet)return {ok:false,error:"wallet_already_claimed"};
+
+    // On-chain check: blocks freshly generated, never-used bot wallets.
+    let eligible;
+    try{eligible=await airdropWalletEligible(e,address);}
+    catch(err){console.error("GOLDITY airdrop eligibility RPC error",err);return {ok:false,error:"eligibility_check_failed"};}
+    if(!eligible)return {ok:false,error:"wallet_not_eligible"};
+
+    // Site-wide speed limit (see AIRDROP_GLOBAL_PER_MINUTE).
+    if(!await rateLimit(e,"airdrop:global",AIRDROP_GLOBAL_PER_MINUTE,60000))return {ok:false,error:"airdrop_busy"};
 
     // Both reservations below are atomic single UPDATE...WHERE statements
     // (see reserveAirdropSlot/reserveAirdropIpSlot), so neither the global
@@ -1287,12 +1356,25 @@ async function claimAirdrop(e,req) {
     if(BigInt(gdtyBal)<AIRDROP_REWARD_WEI||BigInt(bnbRaw)<2000000000000000n){
       return await failBeforeBroadcast("airdrop_treasury_empty");
     }
-    const nonce=await getNonce(e,payoutAddress);
     const gasPrice=await getGasPrice(e);
     const gasLimit=150000;
     const data=singleAirdropData(address,AIRDROP_REWARD_WEI);
-    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
-    txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
+    // UPDATED: several claims (or a claim + a referral payout) processed at
+    // the same moment read the same "pending" nonce, so all but one were
+    // rejected by the node and those users saw "airdrop_send_failed". Only
+    // explicit nonce-collision errors are retried (never timeouts), so this
+    // can't double-send.
+    for(let attempt=0;;attempt++){
+      const nonce=await getNonce(e,payoutAddress);
+      const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
+      try{
+        txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
+        break;
+      }catch(err){
+        if(attempt>=4||!isNonceCollision(err))throw err;
+        await new Promise(r=>setTimeout(r,400+Math.floor(Math.random()*900)));
+      }
+    }
   }catch(err){
     console.error("GOLDITY airdrop broadcast error",err);
     return await failBeforeBroadcast("airdrop_send_failed");
