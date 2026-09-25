@@ -458,7 +458,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
       const messages = {
         wallet_already_claimed: "This wallet has already claimed the airdrop.",
         ip_limit_reached: "You've reached the maximum number of claims allowed from your network.",
-        wallet_not_eligible: "This wallet isn't eligible: it looks brand new and empty. Please use a wallet that already holds BNB or a token (e.g. USDT) on BNB Smart Chain.",
+        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet must hold at least about $1 on BNB Smart Chain - for example 1 USDT/USDC or 0.001 BNB.",
         eligibility_check_failed: "We couldn't check your wallet on BNB Smart Chain right now. Please try again in a moment.",
         airdrop_busy: "Lots of people are claiming right now. Please wait a minute and try again.",
         airdrop_full: "All 10,000 claims have been taken. Thanks for your interest!",
