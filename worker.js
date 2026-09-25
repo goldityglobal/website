@@ -371,21 +371,18 @@ async function tokenBalance(e,tokenAddress,account) {
 }
 
 async function makeReferralCode(e) {
-  const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   for(let i=0;i<8;i++){
-    const bytes=crypto.getRandomValues(new Uint8Array(8));
-    const code="GDTY-"+[...bytes].map(b=>alphabet[b%alphabet.length]).join("");
+    const code="GDTY-"+[...crypto.getRandomValues(new Uint8Array(5))].map(b=>b.toString(36)).join("").toUpperCase().slice(0,8);
     const existing=await e.DB.prepare("SELECT id FROM users WHERE referral_code=?").bind(code).first();
     if(!existing)return code;
   }
-  return "GDTY-"+crypto.randomUUID().replace(/-/g,"").slice(0,8).toUpperCase();
+  return "GDTY-"+crypto.randomUUID().slice(0,8).toUpperCase();
 }
 
 async function walletChallenge(e,req) {
   const u=await currentUser(e,req);
   if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
   if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
-  if(!await rateLimit(e,`wallet-challenge:${u.id}`,10,60000))return out({ok:false,error:"rate_limited"},429,cors(e));
   const d=await req.json().catch(()=>({})), address=String(d.address||"").toLowerCase();
   if(!walletRe.test(address))return out({ok:false,error:"invalid_wallet"},400,cors(e));
   const existing=await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(address).first();
@@ -878,11 +875,14 @@ async function tryPayReferralReward(e,reward) {
   if(!guard?.meta||guard.meta.changes===0)return false;
 
   const payoutId=id(),now=nowIso();
-  await e.DB.prepare("INSERT INTO referral_payouts(id,user_id,wallet_address,amount_wei,status,created_at) VALUES(?,?,?,?,?,?)")
-    .bind(payoutId,refUser.id,refUser.wallet_address,amountWei.toString(),"processing",now).run().catch(()=>{});
 
+  // Stage A: everything up to and including the broadcast. If anything here
+  // throws, the transaction was never (successfully) sent, so it is still
+  // safe to revert the reward to 'pending' for a later retry.
   let txHash,nonce,gasPrice,gasLimit;
   try{
+    await e.DB.prepare("INSERT INTO referral_payouts(id,user_id,wallet_address,amount_wei,status,created_at) VALUES(?,?,?,?,?,?)")
+      .bind(payoutId,refUser.id,refUser.wallet_address,amountWei.toString(),"processing",now).run();
     nonce=await getNonce(e,payoutAddress);
     gasPrice=await getGasPrice(e);
     gasLimit=100000;
@@ -890,15 +890,17 @@ async function tryPayReferralReward(e,reward) {
     const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:A.G,value:0n,data});
     txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
   }catch(err){
-    // Broadcast itself never went out - safe to revert to pending and retry later.
     console.error("GOLDITY payout broadcast error",err);
     await e.DB.prepare("UPDATE referral_rewards SET status='pending' WHERE id=?").bind(reward.id).run().catch(()=>{});
+    await e.DB.prepare("UPDATE referral_payouts SET status='failed' WHERE id=?").bind(payoutId).run().catch(()=>{});
     return false;
   }
 
-  // The transaction is now on-chain and cannot be undone. From here on we
-  // NEVER revert this reward back to 'pending', even if the DB writes below
-  // fail - doing so could cause a second broadcast and a real double payment.
+  // Stage B: the transaction is on-chain now (we have a txHash). From this
+  // point on we NEVER revert the reward back to 'pending' or retry the
+  // broadcast - doing so risks paying the same reward twice. A failure here
+  // only means our own bookkeeping write failed; it is recorded for manual
+  // reconciliation instead, keyed by the on-chain txHash.
   try{
     await e.DB.batch([
       e.DB.prepare("UPDATE referral_payouts SET status='broadcast',tx_hash=?,nonce=?,gas_price_wei=?,gas_limit=? WHERE id=?")
@@ -906,15 +908,12 @@ async function tryPayReferralReward(e,reward) {
       e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now,txHash,reward.id)
     ]);
     await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)")
-      .bind(id(),refUser.id,"referral_paid","Referral reward sent","Your 3% referral reward was sent on-chain to your wallet.",now).run().catch(()=>{});
-    return true;
+      .bind(id(),refUser.id,"referral_paid","Referral reward sent","Your 3% referral reward was sent on-chain to your wallet.",now).run();
   }catch(err){
-    console.error("GOLDITY CRITICAL: referral payout broadcast succeeded but recording failed - manual reconciliation needed",txHash,reward.id,err);
-    // Best-effort: try a simpler single-statement update so at least the tx
-    // hash isn't lost, without risking a duplicate send on next retry.
+    console.error("GOLDITY CRITICAL: referral payout broadcast succeeded but DB recording failed - manual reconciliation required",txHash,reward.id,payoutId,err);
     await e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now,txHash,reward.id).run().catch(()=>{});
-    return true;
   }
+  return true;
 }
 
 async function graduateReferralRewards(e,userId) {
@@ -928,22 +927,6 @@ async function graduateReferralRewards(e,userId) {
     WHERE (referrer_user_id=? OR referred_user_id=?) AND status='pending' AND available_at IS NOT NULL AND available_at<=?
     LIMIT 5
   `).bind(userId,userId,now).all();
-  for(const reward of (rows.results||[])){
-    await tryPayReferralReward(e,reward);
-  }
-}
-
-// Cron-driven, no-user-filter version: catches rewards where neither the
-// referrer nor the referred buyer has visited the dashboard recently, so
-// nothing sits in 'pending' forever just because both parties went quiet.
-// Small batch size keeps each cron run cheap (this runs every 3 minutes).
-async function graduateOverdueRewardsGlobal(e) {
-  const now=nowIso();
-  const rows=await e.DB.prepare(`
-    SELECT * FROM referral_rewards
-    WHERE status='pending' AND available_at IS NOT NULL AND available_at<=?
-    LIMIT 10
-  `).bind(now).all();
   for(const reward of (rows.results||[])){
     await tryPayReferralReward(e,reward);
   }
@@ -1001,6 +984,7 @@ async function scanForNewTrades(e) {
 
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
+const AIRDROP_MAX_CLAIMS_PER_IP=100;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1033,6 +1017,22 @@ async function releaseAirdropSlot(e) {
   await e.DB.prepare("UPDATE airdrop_state SET value_int=MAX(0,value_int-1) WHERE key='claimed_count'").run();
 }
 
+// Atomically reserves one of the AIRDROP_MAX_CLAIMS_PER_IP claim slots for a
+// given IP, using the same UPDATE...WHERE pattern as reserveAirdropSlot above.
+// This closes the check-then-write race window that a plain
+// "SELECT COUNT(*) ... WHERE ip_hash=?" then "if(count>=cap)reject" has under
+// concurrent requests from the same IP.
+async function reserveAirdropIpSlot(e,ipHash) {
+  const now=nowIso();
+  await e.DB.prepare("INSERT INTO airdrop_ip_state(ip_hash,claim_count,updated_at) VALUES(?,0,?) ON CONFLICT(ip_hash) DO NOTHING").bind(ipHash,now).run();
+  const res=await e.DB.prepare("UPDATE airdrop_ip_state SET claim_count=claim_count+1,updated_at=? WHERE ip_hash=? AND claim_count<?")
+    .bind(now,ipHash,AIRDROP_MAX_CLAIMS_PER_IP).run();
+  return !!res?.meta?.changes;
+}
+async function releaseAirdropIpSlot(e,ipHash) {
+  await e.DB.prepare("UPDATE airdrop_ip_state SET claim_count=MAX(0,claim_count-1) WHERE ip_hash=?").bind(ipHash).run();
+}
+
 async function airdropStatus(e) {
   const claimed=await airdropClaimedCount(e);
   const paused=await airdropIsPaused(e);
@@ -1053,17 +1053,26 @@ async function claimAirdrop(e,req) {
   const ipHash=await sha256Text(ip(req));
   if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
 
-  const MAX_CLAIMS_PER_IP=100;
-  const [byWallet,ipCountRow]=await Promise.all([
-    e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first(),
-    e.DB.prepare("SELECT COUNT(*) AS c FROM airdrop_claims WHERE ip_hash=?").bind(ipHash).first()
-  ]);
+  const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
   if(byWallet)return {ok:false,error:"wallet_already_claimed"};
-  if(Number(ipCountRow?.c||0)>=MAX_CLAIMS_PER_IP)return {ok:false,error:"ip_limit_reached"};
 
-  if(!await reserveAirdropSlot(e))return {ok:false,error:"airdrop_full"};
+  // Both reservations below are atomic single UPDATE...WHERE statements (see
+  // reserveAirdropSlot/reserveAirdropIpSlot), so neither the global 10,000 cap
+  // nor the per-IP cap can be pushed past its limit by concurrent requests.
+  if(!await reserveAirdropIpSlot(e,ipHash))return {ok:false,error:"ip_limit_reached"};
+  if(!await reserveAirdropSlot(e)){
+    await releaseAirdropIpSlot(e,ipHash);
+    return {ok:false,error:"airdrop_full"};
+  }
 
   const claimId=id(),now=nowIso();
+  const failBeforeBroadcast=async(error)=>{
+    await releaseAirdropSlot(e);
+    await releaseAirdropIpSlot(e,ipHash);
+    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run().catch(()=>{});
+    return {ok:false,error};
+  };
+
   try{
     await e.DB.prepare(`
       INSERT INTO airdrop_claims(id,wallet_address,ip_hash,amount_wei,status,created_at)
@@ -1071,47 +1080,33 @@ async function claimAirdrop(e,req) {
     `).bind(claimId,address,ipHash,AIRDROP_REWARD_WEI.toString(),"processing",now).run();
   }catch{
     await releaseAirdropSlot(e);
+    await releaseAirdropIpSlot(e,ipHash);
     return {ok:false,error:"wallet_already_claimed"};
   }
 
-  if(!e.REFERRAL_PAYOUT_PRIVATE_KEY){
-    await releaseAirdropSlot(e);
-    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
-    return {ok:false,error:"airdrop_not_configured"};
-  }
+  if(!e.REFERRAL_PAYOUT_PRIVATE_KEY)return await failBeforeBroadcast("airdrop_not_configured");
 
   let payoutAddress;
   try{payoutAddress=addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);}catch{
-    await releaseAirdropSlot(e);
-    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
-    return {ok:false,error:"airdrop_not_configured"};
+    return await failBeforeBroadcast("airdrop_not_configured");
   }
   if(payoutAddress.toLowerCase()!==AIRDROP_CONTRACT_OWNER){
     console.error("GOLDITY airdrop owner mismatch - configured key does not control the airdrop contract");
-    await releaseAirdropSlot(e);
-    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
-    return {ok:false,error:"airdrop_not_configured"};
+    return await failBeforeBroadcast("airdrop_not_configured");
   }
 
+  // Stage A: everything up to and including the broadcast. If anything here
+  // throws, the transaction was never (successfully) sent, so it is still
+  // safe to release the reserved slots and delete the claim row.
+  let txHash;
   try{
     const [gdtyBal,bnbRaw]=await Promise.all([
       tokenBalance(e,A.G,AIRDROP_CONTRACT),
       rpc(e,"eth_getBalance",[payoutAddress,"latest"])
     ]);
     if(BigInt(gdtyBal)<AIRDROP_REWARD_WEI||BigInt(bnbRaw)<2000000000000000n){
-      await releaseAirdropSlot(e);
-      await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
-      return {ok:false,error:"airdrop_treasury_empty"};
+      return await failBeforeBroadcast("airdrop_treasury_empty");
     }
-  }catch(err){
-    console.error("GOLDITY airdrop balance check error",err);
-    await releaseAirdropSlot(e);
-    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
-    return {ok:false,error:"airdrop_send_failed"};
-  }
-
-  let txHash;
-  try{
     const nonce=await getNonce(e,payoutAddress);
     const gasPrice=await getGasPrice(e);
     const gasLimit=150000;
@@ -1119,22 +1114,19 @@ async function claimAirdrop(e,req) {
     const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
     txHash=await rpc(e,"eth_sendRawTransaction",[signedTx]);
   }catch(err){
-    // Broadcast itself never went out - safe to release the slot and delete
-    // the claim row so the user (or someone else) can try again.
-    console.error("GOLDITY airdrop payout error",err);
-    await releaseAirdropSlot(e);
-    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run();
-    return {ok:false,error:"airdrop_send_failed"};
+    console.error("GOLDITY airdrop broadcast error",err);
+    return await failBeforeBroadcast("airdrop_send_failed");
   }
 
-  // The transaction is now on-chain and cannot be undone. From here on we
-  // NEVER release the slot or delete the claim row, even if this DB write
-  // fails - doing so could let the same wallet claim again or push the
-  // 10,000 cap over its limit.
+  // Stage B: the transaction is on-chain now (we have a txHash). From this
+  // point on we NEVER release the slot, delete the claim, or allow a retry -
+  // doing so could let the same wallet claim again and double the payout.
+  // A failure here only means our own bookkeeping write failed; it is
+  // recorded for manual reconciliation instead.
   try{
     await e.DB.prepare("UPDATE airdrop_claims SET status='sent',tx_hash=? WHERE id=?").bind(txHash,claimId).run();
   }catch(err){
-    console.error("GOLDITY CRITICAL: airdrop broadcast succeeded but recording failed - manual reconciliation needed",txHash,claimId,err);
+    console.error("GOLDITY CRITICAL: airdrop broadcast succeeded but DB recording failed - manual reconciliation required",txHash,claimId,err);
   }
   return {ok:true,txHash,amountWei:AIRDROP_REWARD_WEI.toString()};
 }
@@ -1224,7 +1216,6 @@ async function logout(e,req) {
 async function createTicket(e,req) {
   const u=await currentUser(e,req);if(!u)return out({ok:false,error:"unauthorized"},401,cors(e));
   if(!await requireOrigin(e,req))return out({ok:false,error:"forbidden"},403,cors(e));
-  if(!await rateLimit(e,`ticket:${u.id}`,10,3600000))return out({ok:false,error:"rate_limited"},429,cors(e));
   const d=await req.json().catch(()=>({}));
   const category=clean(d.category,40),subject=clean(d.subject,160),message=clean(d.message,4000);
   const allowed=["Account","Wallet","Referral","Purchase","Technical","Security","Other"];
@@ -1372,6 +1363,5 @@ export default {
   async scheduled(event,e,ctx) {
     if(!e.DB)return;
     try{await scanForNewTrades(e);}catch(err){console.error("GOLDITY scanner error",err);}
-    try{await graduateOverdueRewardsGlobal(e);}catch(err){console.error("GOLDITY global graduate error",err);}
   }
 };
