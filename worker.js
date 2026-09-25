@@ -359,7 +359,15 @@ async function signLegacyTx(privHex,{nonce,gasPrice,gasLimit,to,value,data}) {
   return "0x"+[...finalRlp].map(x=>x.toString(16).padStart(2,"0")).join("");
 }
 async function getNonce(e,address) {
-  return parseInt(await rpc(e,"eth_getTransactionCount",[address,"latest"]),16);
+  // "pending" (not "latest") includes transactions already broadcast but not
+  // yet mined. Both referral payouts and airdrop claims sign from the same
+  // hot wallet (REFERRAL_PAYOUT_PRIVATE_KEY) with no other locking between
+  // them, so if "latest" were used here, two payouts processed moments apart
+  // - even sequentially in the same cron loop, since BSC block time (~3s) can
+  // easily exceed the gap between them - could fetch the identical
+  // already-confirmed nonce and collide on-chain, silently dropping one of
+  // the two real transfers even though our DB already marked it as sent.
+  return parseInt(await rpc(e,"eth_getTransactionCount",[address,"pending"]),16);
 }
 async function getGasPrice(e) {
   return BigInt(await rpc(e,"eth_gasPrice",[]));
@@ -930,9 +938,18 @@ async function tryPayReferralReward(e,reward) {
   // only means our own bookkeeping write failed; it is recorded for manual
   // reconciliation instead, keyed by the on-chain txHash.
   try{
+    // referral_payouts.status must land on a terminal value OUTSIDE
+    // ('processing','broadcast') - migrations/002_referral_payouts.sql has a
+    // partial UNIQUE INDEX on user_id WHERE status IN ('processing',
+    // 'broadcast') that allows only one unfinished payout per user at a
+    // time. Leaving this row at 'broadcast' forever (as a previous version
+    // of this code did) would mean that INDEX permanently blocks this same
+    // referrer from ever receiving a second payout - every later reward
+    // would fail the INSERT in Stage A with a UNIQUE constraint error and
+    // loop forever between 'pending' and that failure.
     await e.DB.batch([
-      e.DB.prepare("UPDATE referral_payouts SET status='broadcast',tx_hash=?,nonce=?,gas_price_wei=?,gas_limit=? WHERE id=?")
-        .bind(txHash,nonce,gasPrice.toString(),gasLimit,payoutId),
+      e.DB.prepare("UPDATE referral_payouts SET status='paid',tx_hash=?,nonce=?,gas_price_wei=?,gas_limit=?,paid_at=? WHERE id=?")
+        .bind(txHash,nonce,gasPrice.toString(),gasLimit,now,payoutId),
       e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now,txHash,reward.id)
     ]);
     await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)")
@@ -940,6 +957,9 @@ async function tryPayReferralReward(e,reward) {
   }catch(err){
     console.error("GOLDITY CRITICAL: referral payout broadcast succeeded but DB recording failed - manual reconciliation required",txHash,reward.id,payoutId,err);
     await e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now,txHash,reward.id).run().catch(()=>{});
+    // Must still clear the payout row out of ('processing','broadcast') even
+    // on this fallback path, for the same unique-index reason as above.
+    await e.DB.prepare("UPDATE referral_payouts SET status='paid',tx_hash=?,paid_at=? WHERE id=?").bind(txHash,now,payoutId).run().catch(()=>{});
   }
   return true;
 }
