@@ -396,11 +396,65 @@
     </div>
   </section>
 
+  <section class="dashboard-section hidden" id="airdropAdminSection">
+    <div class="section-heading">
+      <h2>Airdrop Admin</h2>
+    </div>
+    <div class="dashboard-grid">
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Claimed</span>
+        <strong id="airdropAdminClaimed">— / —</strong>
+      </article>
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Distributed</span>
+        <strong id="airdropAdminDistributed">0 GDTY</strong>
+      </article>
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Remaining</span>
+        <strong id="airdropAdminRemaining">—</strong>
+      </article>
+      <article class="dashboard-card referral-stat-card">
+        <span class="card-label">Status</span>
+        <strong id="airdropAdminStatus">—</strong>
+      </article>
+    </div>
+    <div class="dashboard-card">
+      <button id="toggleAirdropPause" class="btn btn-outline" type="button">Pause</button>
+    </div>
+  </section>
+
+  <section class="dashboard-section hidden" id="referralAdminSection">
+    <div class="section-heading">
+      <h2>Referral Rewards Admin</h2>
+    </div>
+    <p class="card-note">
+      Rewards stuck in <strong>Under Review</strong> (flagged as high-risk) or <strong>Payout Failed</strong> (referrer had no valid wallet). Releasing one sends it back to the normal queue for a fresh review and payout attempt.
+    </p>
+    <div class="table-wrap">
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Referrer</th>
+            <th>Referred User</th>
+            <th>Reward</th>
+            <th>Source Tx</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="referralAdminBody">
+          <tr><td colspan="7">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="dashboard-section">
 
     <div class="section-heading">
 
- 
+
 
       <h2>Notifications</h2>
 
