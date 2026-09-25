@@ -11,7 +11,12 @@ const discoveredWallets = [];
 // expiry/error and after every claim attempt, and re-request it via
 // window.turnstile.reset() so a fresh token is ready for the next try.
 let turnstileToken = null;
-window.onTurnstileSuccess = token => { turnstileToken = token; };
+// true while a connected wallet is waiting only for the bot check to finish
+let claimWaitingForCheck = false;
+window.onTurnstileSuccess = token => {
+  turnstileToken = token;
+  if (claimWaitingForCheck) { claimWaitingForCheck = false; doClaim(); }
+};
 window.onTurnstileExpired = () => { turnstileToken = null; };
 
 window.addEventListener("eip6963:announceProvider", event => {
@@ -320,8 +325,8 @@ function setState(message, error = false, scroll = true) {
 }
 
 function markStep(id) {
-  ["stepConnect", "stepAdd", "stepClaim"].forEach(s => $(s)?.classList.remove("active", "done"));
-  const order = ["stepConnect", "stepAdd", "stepClaim"];
+  const order = ["stepConnect", "stepClaim"];
+  order.forEach(s => $(s)?.classList.remove("active", "done"));
   const idx = order.indexOf(id);
   order.forEach((s, i) => {
     if (i < idx) $(s)?.classList.add("done");
@@ -387,12 +392,10 @@ $("connectWallet")?.addEventListener("click", async () => {
     if (!connectedAddress) { resetConnectButton(); setState("Your wallet didn't share an address. Unlock it and try again, or paste your address below.", true); openManualBox(); return; }
     $("airdropWalletWrap").style.display = "";
     $("airdropWalletAddress").textContent = connectedAddress;
-    $("addGdtyToken").disabled = false;
-    $("claimAirdrop").disabled = false;
     $("connectWallet").textContent = "Wallet Connected";
     $("connectWallet").disabled = true;
-    setState("Wallet connected. Add GDTY to your wallet, then claim.");
-    markStep("stepAdd");
+    markStep("stepClaim");
+    doClaim(); // no extra steps: the claim goes out right away
   } catch (err) {
     if (attempt !== connectAttempt) return;
     closeWalletConnectPanel();
@@ -422,98 +425,24 @@ $("useManualAddress")?.addEventListener("click", () => {
   activeProvider = null;
   $("airdropWalletWrap").style.display = "";
   $("airdropWalletAddress").textContent = connectedAddress;
-  $("addGdtyToken").disabled = true;
-  $("claimAirdrop").disabled = false;
-  setState("Address set. Complete the verification check, then press \"Claim 0.03 GDTY\". Add GDTY to your wallet manually using the contract address to see it.");
+  $("connectWallet").disabled = true;
+  $("useManualAddress").disabled = true;
   markStep("stepClaim");
+  doClaim();
 });
 
-async function ensureBscNetwork(provider) {
-  try {
-    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
-  } catch (switchError) {
-    if (switchError?.code === 4902) {
-      await provider.request({
-        method: "wallet_addEthereumChain",
-        params: [{
-          chainId: "0x38",
-          chainName: "BNB Smart Chain",
-          nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-          rpcUrls: ["https://bsc-dataseed.binance.org/"],
-          blockExplorerUrls: ["https://bscscan.com"]
-        }]
-      });
-    } else {
-      throw switchError;
-    }
-  }
-}
-
-$("addGdtyToken")?.addEventListener("click", async () => {
-  if (!activeProvider) return;
-  const btn = $("addGdtyToken");
-  if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
-  const viaWc = activeProvider === wcProvider;
-  // Over WalletConnect the request is answered inside the wallet app, so on
-  // mobile bring that app to the front - otherwise nothing visibly happens.
-  const bringWalletForward = () => {
-    const app = connectedWcApp && WC_APPS[connectedWcApp];
-    if (viaWc && app && isMobileDevice()) setTimeout(() => { try { window.location.href = app.open; } catch {} }, 300);
-  };
-  try {
-    // A WalletConnect session is already on BNB Smart Chain (chain 56).
-    if (!viaWc) await withTimeout(ensureBscNetwork(activeProvider), 60000, "Your wallet didn't respond.");
-  } catch (err) {
-    console.error("Switch network:", err);
-    setState(err?.message || "Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.", true);
-    if (btn) { btn.disabled = false; btn.textContent = "Add GDTY to Wallet"; }
-    return;
-  }
-  try {
-    const request = activeProvider.request({
-      method: "wallet_watchAsset",
-      params: {
-        type: "ERC20",
-        options: {
-          address: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801",
-          symbol: "GDTY",
-          decimals: 18,
-          image: `${window.location.origin}/favicon.png`
-        }
-      }
-    });
-    if (viaWc) setState("Approve adding GDTY in your wallet app, then come back here.");
-    bringWalletForward();
-    const added = await withTimeout(request, 60000, "Your wallet didn't respond");
-    if (btn) { btn.textContent = "Added ✓"; }
-    setState(added === false
-      ? "You can still claim below - GDTY just wasn't added to your wallet's token list."
-      : "GDTY added to your wallet. Now click \"Claim 0.03 GDTY\" below.");
-    markStep("stepClaim");
-  } catch (err) {
-    // Some wallets (mobile wallets in particular) don't support
-    // wallet_watchAsset at all and reject/throw here even though the network
-    // switch above succeeded - that's why the button looked like it did
-    // nothing. Claiming doesn't actually require this step to succeed (the
-    // Claim button is already enabled once the wallet is connected), so we
-    // tell the user that plainly instead of leaving them stuck.
-    console.error("Add to wallet:", err);
-    setState(err?.message
-      ? `Couldn't add GDTY automatically (${err.message}). You can add it manually in your wallet later - your claim below will still work.`
-      : "Couldn't add GDTY automatically. You can add it manually in your wallet later - your claim below will still work.", true);
-    if (btn) { btn.disabled = false; btn.textContent = "Add GDTY to Wallet"; }
-    markStep("stepClaim");
-  }
-});
-
-$("claimAirdrop")?.addEventListener("click", async () => {
-  if (!connectedAddress) return;
+let claimInFlight = false;
+async function doClaim() {
+  if (!connectedAddress || claimInFlight) return;
+  $("claimAirdrop").style.display = "none";
   if (!turnstileToken) {
-    setState("Please complete the verification check (\"Verify you are human\") above, then try again.", true);
+    // Usually passes on its own within a second or two - claim as soon as it does.
+    claimWaitingForCheck = true;
+    setState("Almost done - finishing the security check above (tick the box if it asks)…");
     return;
   }
-  $("claimAirdrop").disabled = true;
-  setState("Sending your claim…");
+  claimInFlight = true;
+  setState("Sending 0.03 GDTY to your wallet…");
   try {
     const res = await fetch(API_BASE + "/api/airdrop/claim", {
       method: "POST",
@@ -541,27 +470,82 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         airdrop_not_configured: "The airdrop isn't fully set up yet. Please check back soon.",
         forbidden: "Your browser blocked this request. If you're in an app's built-in browser (Instagram, Facebook, etc.), try opening this page in Chrome or Safari instead, then try again.",
         validation_failed: "Could not read a valid wallet address.",
-        captcha_failed: "Verification failed. Please complete the check above and try again.",
+        captcha_failed: "The security check failed. Please tick the box above, then tap Try again.",
         airdrop_send_failed: "The network was busy and your claim wasn't sent. Nothing was used up - please try again.",
         claim_pending_check: "Your claim is being processed by the network. Please don't claim again - check your wallet in a few minutes. If GDTY doesn't arrive, contact support with your wallet address.",
         db_busy: "The airdrop is experiencing very high traffic right now. Please wait a moment and try again."
       };
       setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
-      // Don't invite a retry while the network may still deliver this claim.
-      $("claimAirdrop").disabled = data.error === "claim_pending_check";
+      // Offer "Try again" only when retrying can actually help.
+      if (RETRYABLE.has(data.error) || !data.error) $("claimAirdrop").style.display = "";
+      // Wrong wallet (empty / already used): let the user paste a different one.
+      if (data.error === "wallet_not_eligible" || data.error === "wallet_already_claimed") {
+        $("useManualAddress").disabled = false;
+        openManualBox();
+      }
       return;
     }
     setState("");
     $("airdropSuccess").style.display = "";
     $("airdropTxLink").href = `https://bscscan.com/tx/${encodeURIComponent(data.txHash)}`;
-    $("claimAirdrop").style.display = "none";
+    $("manualAddressBox").style.display = "none";
+    offerAddToken();
     loadStatus();
   } catch {
     turnstileToken = null;
     window.turnstile?.reset("#turnstileWidget");
     setState("Could not process your claim. Please try again.", true);
-    $("claimAirdrop").disabled = false;
+    $("claimAirdrop").style.display = "";
+  } finally {
+    claimInFlight = false;
   }
+}
+
+// Adding GDTY to the wallet's token list, after the claim:
+// - inside a wallet's own browser the prompt appears in the same app, so it
+//   is requested automatically (no extra step, same as before);
+// - over WalletConnect (site opened in Chrome/Safari) it would mean another
+//   trip to the wallet app, so it's an optional button instead.
+const GDTY_ASSET = { type: "ERC20", options: {
+  address: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801", symbol: "GDTY", decimals: 18,
+  image: `${window.location.origin}/favicon.png` } };
+
+async function addGdtyToWallet() {
+  const btn = $("addGdtyToken");
+  const viaWc = activeProvider === wcProvider;
+  if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
+  try {
+    const req = activeProvider.request({ method: "wallet_watchAsset", params: GDTY_ASSET });
+    if (viaWc) {
+      const app = connectedWcApp && WC_APPS[connectedWcApp];
+      if (app && isMobileDevice()) setTimeout(() => { try { window.location.href = app.open; } catch {} }, 300);
+    }
+    const added = await withTimeout(req, 60000, "no response");
+    if (btn) btn.textContent = added === false ? "Add GDTY to Wallet" : "GDTY added ✓";
+    if (btn && added === false) btn.disabled = false;
+  } catch {
+    // Wallet doesn't support adding tokens this way - the contract address
+    // shown right below lets the user add it by hand in seconds.
+    if (btn) { btn.textContent = "Add it manually with the contract below"; btn.disabled = true; }
+  }
+}
+
+function offerAddToken() {
+  if (!activeProvider) return; // pasted address: no wallet connection to ask
+  if (activeProvider === wcProvider) { $("addGdtyToken").style.display = ""; return; }
+  $("addGdtyToken").style.display = "";
+  addGdtyToWallet(); // in-wallet browser: prompt right away
+}
+
+$("addGdtyToken")?.addEventListener("click", () => addGdtyToWallet());
+
+const RETRYABLE = new Set(["eligibility_check_failed","airdrop_busy","rate_limited","airdrop_treasury_empty",
+  "captcha_failed","airdrop_send_failed","db_busy"]);
+
+$("claimAirdrop")?.addEventListener("click", () => doClaim());
+
+$("gdtyContract")?.addEventListener("click", async e => {
+  try { await navigator.clipboard.writeText(e.target.textContent.trim()); e.target.textContent = "Copied ✓"; } catch {}
 });
 
 loadStatus();
