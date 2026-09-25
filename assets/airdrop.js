@@ -46,8 +46,44 @@ const WALLETCONNECT_ENTRY = {
   special: "walletconnect"
 };
 
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+// Named quick-access entries for the most commonly requested wallet apps.
+// On mobile, tapping one opens this page inside that wallet's own in-app
+// browser (which then injects its provider so Connect Wallet works
+// normally on the reload). This is in addition to - not instead of - the
+// generic WalletConnect option, which still covers every other wallet.
+function buildNamedDeepLinkWallets() {
+  const currentUrl = window.location.href;
+  const bareUrl = currentUrl.replace(/^https?:\/\//, "");
+  return [
+    {
+      info: { name: "Trust Wallet", icon: "" },
+      special: "deeplink",
+      url: `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}`
+    },
+    {
+      info: { name: "MetaMask", icon: "" },
+      special: "deeplink",
+      url: `https://metamask.app.link/dapp/${bareUrl}`
+    },
+    {
+      info: { name: "OKX Wallet", icon: "" },
+      special: "deeplink",
+      url: `https://web3.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + encodeURIComponent(currentUrl))}`
+    }
+  ];
+}
+
 async function connectViaOption(chosen, resolve) {
   if (!chosen) { resolve(null); return; }
+  if (chosen.special === "deeplink") {
+    window.location.href = chosen.url;
+    resolve(null);
+    return;
+  }
   if (chosen.special === "walletconnect") {
     try {
       const p = await getWalletConnectProvider();
@@ -68,11 +104,15 @@ function pickWalletProvider() {
       if (window.ethereum && !options.length) {
         options.push({ info: { name: "Browser Wallet", icon: "" }, provider: window.ethereum });
       }
+      if (isMobileDevice()) {
+        options.push(...buildNamedDeepLinkWallets());
+      }
       options.push(WALLETCONNECT_ENTRY);
 
       if (options.length === 1) {
-        // Nothing injected/discovered - go straight to WalletConnect
-        // (its own modal offers a QR code plus deep links to hundreds of wallets).
+        // Nothing injected/discovered and not on mobile - go straight to
+        // WalletConnect (its own modal offers a QR code plus deep links to
+        // hundreds of wallets).
         connectViaOption(WALLETCONNECT_ENTRY, resolve);
         return;
       }
