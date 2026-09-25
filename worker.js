@@ -234,9 +234,18 @@ async function currentUser(e,req) {
   `).bind(h,nowIso()).first();
 }
 
-async function requireOrigin(e,req) {
+async function requireOrigin(e,req,opts) {
   const origin=req.headers.get("Origin");
-  if(origin && origin!==(e.PUBLIC_ORIGIN||"https://goldityglobal.com")) return false;
+  if(!origin)return true;
+  // Some in-app/webview browsers (Instagram, Facebook, some Android
+  // WebViews) send the literal string "null" as Origin on POST fetch calls
+  // even for a normal top-level page load, not just from a sandboxed iframe.
+  // For endpoints that don't rely on a session cookie for authorization
+  // (opts.allowNullOrigin), rejecting "null" here just breaks the feature for
+  // everyone browsing from those apps - there's no CSRF benefit being lost
+  // since there's no cookie/session to protect on those endpoints.
+  if(origin==="null"&&opts?.allowNullOrigin)return true;
+  if(origin!==(e.PUBLIC_ORIGIN||"https://goldityglobal.com"))return false;
   return true;
 }
 
@@ -1162,7 +1171,10 @@ async function airdropStatus(e) {
 }
 
 async function claimAirdrop(e,req) {
-  if(!await requireOrigin(e,req))return {ok:false,error:"forbidden"};
+  // allowNullOrigin: this endpoint takes only a wallet address (no session
+  // cookie), so a "null" Origin from an in-app browser's webview isn't a
+  // CSRF risk here the way it would be for a cookie-authenticated endpoint.
+  if(!await requireOrigin(e,req,{allowNullOrigin:true}))return {ok:false,error:"forbidden"};
   if(await airdropIsPaused(e))return {ok:false,error:"airdrop_paused"};
 
   const d=await req.json().catch(()=>({}));
