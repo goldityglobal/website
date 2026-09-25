@@ -1737,6 +1737,71 @@ function setupAirdropAdmin() {
   });
 }
 
+/* =========================================================
+   REFERRAL REWARDS ADMIN
+========================================================= */
+function shortAddr(addr) {
+  if (!addr) return "—";
+  return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+}
+
+async function loadReferralAdmin() {
+  const section = $("referralAdminSection");
+  if (!section) return;
+  try {
+    const data = await api("/api/admin/referral-rewards");
+    const rewards = data?.rewards || [];
+    section.classList.remove("hidden");
+    renderReferralAdmin(rewards);
+  } catch (error) {
+    console.error("Load referral admin:", error);
+    section.classList.add("hidden");
+  }
+}
+
+function renderReferralAdmin(rewards) {
+  const body = $("referralAdminBody");
+  if (!body) return;
+  if (!rewards.length) {
+    body.innerHTML = `<tr><td colspan="7">No flagged rewards right now.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rewards.map(r => `
+    <tr>
+      <td>${r.status === "frozen" ? "Under Review" : "Payout Failed"}</td>
+      <td>${r.referrerEmail || "—"}<br><small>${shortAddr(r.referrerWallet)}</small></td>
+      <td>${r.referredEmail || "—"}</td>
+      <td>${fmtGdty(r.rewardAmountWei)}</td>
+      <td>${r.sourceTxHash ? `<a href="https://bscscan.com/tx/${encodeURIComponent(r.sourceTxHash)}" target="_blank" rel="noopener noreferrer">${shortTx(r.sourceTxHash)}</a>` : "—"}</td>
+      <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+      <td><button class="btn btn-small btn-outline" type="button" data-release="${r.id}">Release</button></td>
+    </tr>
+  `).join("");
+}
+
+function setupReferralAdmin() {
+  $("referralAdminBody")?.addEventListener("click", async (event) => {
+    const btn = event.target.closest("[data-release]");
+    if (!btn) return;
+    const rewardId = btn.getAttribute("data-release");
+    if (!confirm("Release this reward back into the normal payout queue?")) return;
+    btn.disabled = true;
+    btn.textContent = "Releasing…";
+    try {
+      await api("/api/admin/referral-rewards/release", {
+        method: "POST",
+        body: JSON.stringify({ rewardId })
+      });
+      await loadReferralAdmin();
+    } catch (error) {
+      console.error("Release reward:", error);
+      alert("Couldn't release this reward. Please try again.");
+      btn.disabled = false;
+      btn.textContent = "Release";
+    }
+  });
+}
+
 async function load() {
 
  
@@ -1788,6 +1853,12 @@ async function load() {
     renderRewards(data.user, data.referralRewards);
 
     renderAirdropAdmin(data.airdropAdmin);
+
+    if (data.user?.role === "admin") {
+      await loadReferralAdmin();
+    } else {
+      $("referralAdminSection")?.classList.add("hidden");
+    }
 
     renderTrades(data.trades);
 
@@ -1928,5 +1999,7 @@ setupAddToken();
 setupCopyButtons();
 
 setupAirdropAdmin();
+
+setupReferralAdmin();
 
 load();
