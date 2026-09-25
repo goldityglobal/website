@@ -30,22 +30,41 @@ window.dispatchEvent(new Event("eip6963:requestProvider"));
 const WALLETCONNECT_PROJECT_ID = "0a0744ab9912dfdd69a3e184f20403b2";
 
 let wcProvider = null;
+
+// Wallet logos: loaded at runtime from each wallet's own website icon.
+// If an icon can't load, a 🔗 placeholder is shown instead.
+const walletIcon = domain => `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
+// UPDATED: WalletConnect is now loaded as an ES module (with a second CDN as
+// backup) instead of the old UMD <script>. The UMD build couldn't load
+// WalletConnect's QR/wallet-list modal, so tapping "Other Wallets" just
+// hung with no reaction. We also no longer depend on that modal at all: we
+// show our own panel (wallet buttons on mobile, QR code on desktop).
+async function loadWalletConnectLib() {
+  const sources = [
+    "https://esm.sh/@walletconnect/ethereum-provider@2.17.0",
+    "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.0/+esm"
+  ];
+  for (const src of sources) {
+    try {
+      const m = await import(src);
+      const EP = m.EthereumProvider || m.default?.EthereumProvider || m.default;
+      if (EP?.init) return EP;
+    } catch (err) {
+      console.warn("WalletConnect load failed from", src, err);
+    }
+  }
+  throw new Error("WalletConnect couldn't load. Paste your wallet address below instead, or open this page inside your wallet app's browser.");
+}
+
 async function getWalletConnectProvider() {
   if (wcProvider) return wcProvider;
-  // UPDATED: the UMD build registers itself as
-  // window["@walletconnect/ethereum-provider"], not window.EthereumProvider,
-  // so the old check always failed and users saw "No wallet detected".
-  const ns = window["@walletconnect/ethereum-provider"];
-  const EP = window.EthereumProvider?.init ? window.EthereumProvider
-           : ns?.EthereumProvider || ns?.default || null;
-  if (!EP?.init) {
-    throw new Error("WalletConnect failed to load. Paste your wallet address below instead, or open this page inside your wallet app's browser.");
-  }
-  wcProvider = await EP.init({
+  const EP = await loadWalletConnectLib();
+  const provider = await EP.init({
     projectId: WALLETCONNECT_PROJECT_ID,
     optionalChains: [56],
     rpcMap: { 56: "https://bsc-dataseed.binance.org/" },
-    showQrModal: true,
+    showQrModal: false,
     metadata: {
       name: "GOLDITY",
       description: "GOLDITY (GDTY) 10K Airdrop",
@@ -53,11 +72,89 @@ async function getWalletConnectProvider() {
       icons: [`${window.location.origin}/favicon.png`]
     }
   });
+  provider.on("display_uri", uri => showWalletConnectPanel(uri));
+  provider.on("connect", () => closeWalletConnectPanel());
+  wcProvider = provider;
   return wcProvider;
 }
 
+let wcPanel = null;
+function closeWalletConnectPanel() {
+  wcPanel?.remove();
+  wcPanel = null;
+}
+
+function loadQrLib() {
+  if (window.QRCode) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    sc.onload = resolve;
+    sc.onerror = reject;
+    document.head.appendChild(sc);
+  });
+}
+
+function iconHtml(src) {
+  return src
+    ? `<img src="${src}" alt="" width="26" height="26" onerror="this.outerHTML='<span class=&quot;wallet-picker-icon-fallback&quot;>🔗</span>'">`
+    : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`;
+}
+
+function showWalletConnectPanel(uri) {
+  closeWalletConnectPanel();
+  const enc = encodeURIComponent(uri);
+  const mobile = isMobileDevice();
+  const apps = [
+    { name: "Trust Wallet", icon: walletIcon("trustwallet.com"), href: `https://link.trustwallet.com/wc?uri=${enc}` },
+    { name: "MetaMask", icon: walletIcon("metamask.io"), href: `https://metamask.app.link/wc?uri=${enc}` },
+    { name: "OKX Wallet", icon: walletIcon("okx.com"), href: `okex://main/wc?uri=${enc}` },
+    { name: "Bitget Wallet", icon: walletIcon("web3.bitget.com"), href: `bitkeep://wc?uri=${enc}` },
+    { name: "Other wallet app", icon: walletIcon("walletconnect.com"), href: uri }
+  ];
+  wcPanel = document.createElement("div");
+  wcPanel.className = "wallet-picker-overlay";
+  wcPanel.innerHTML = `
+    <div class="wallet-picker" role="dialog" aria-label="Connect with WalletConnect">
+      <h3>Connect with WalletConnect</h3>
+      ${mobile ? `
+        <p class="wallet-picker-hint">Tap your wallet app, approve the connection there, then come back to this page.</p>
+        <div class="wallet-picker-list">
+          ${apps.map(a => `<a class="wallet-picker-item" href="${a.href}" rel="noopener">${iconHtml(a.icon)}<span>${a.name}</span></a>`).join("")}
+        </div>` : `
+        <p class="wallet-picker-hint">Scan this QR code with your wallet app (Trust Wallet, MetaMask, OKX…), then approve the connection.</p>
+        <div id="wcQr" style="display:flex;justify-content:center;padding:12px;background:#fff;border-radius:10px"></div>`}
+      <button type="button" class="wallet-picker-cancel" id="wcCopy">Copy connection link</button>
+      <button type="button" class="wallet-picker-cancel" id="wcClose">Cancel</button>
+    </div>`;
+  document.body.appendChild(wcPanel);
+  wcPanel.querySelector("#wcClose").addEventListener("click", () => {
+    closeWalletConnectPanel();
+    resetConnectButton();
+    setState("Connection cancelled. You can try again or paste your address below.");
+  });
+  wcPanel.querySelector("#wcCopy").addEventListener("click", async e => {
+    try { await navigator.clipboard.writeText(uri); e.target.textContent = "Copied ✓"; }
+    catch { window.prompt("Copy this link:", uri); }
+  });
+  if (!mobile) {
+    loadQrLib().then(() => {
+      const box = document.getElementById("wcQr");
+      if (box) new window.QRCode(box, { text: uri, width: 240, height: 240, correctLevel: window.QRCode.CorrectLevel.L });
+    }).catch(() => {
+      const box = document.getElementById("wcQr");
+      if (box) box.outerHTML = `<p class="wallet-picker-hint">QR code couldn't load - use "Copy connection link" and paste it into your wallet app.</p>`;
+    });
+  }
+}
+
+function resetConnectButton() {
+  const btn = $("connectWallet");
+  if (btn && !connectedAddress) { btn.disabled = false; btn.textContent = "Connect Wallet"; }
+}
+
 const WALLETCONNECT_ENTRY = {
-  info: { name: "Other Wallets (WalletConnect)", icon: "" },
+  info: { name: "Other Wallets (WalletConnect)", icon: walletIcon("walletconnect.com") },
   special: "walletconnect"
 };
 
@@ -75,17 +172,17 @@ function buildNamedDeepLinkWallets() {
   const bareUrl = currentUrl.replace(/^https?:\/\//, "");
   return [
     {
-      info: { name: "Trust Wallet", icon: "" },
+      info: { name: "Trust Wallet", icon: walletIcon("trustwallet.com") },
       special: "deeplink",
       url: `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}`
     },
     {
-      info: { name: "MetaMask", icon: "" },
+      info: { name: "MetaMask", icon: walletIcon("metamask.io") },
       special: "deeplink",
       url: `https://metamask.app.link/dapp/${bareUrl}`
     },
     {
-      info: { name: "OKX Wallet", icon: "" },
+      info: { name: "OKX Wallet", icon: walletIcon("okx.com") },
       special: "deeplink",
       url: `https://web3.okx.com/download?deeplink=${encodeURIComponent('okx://wallet/dapp/url?dappUrl=' + encodeURIComponent(currentUrl))}`
     }
@@ -104,6 +201,7 @@ async function connectViaOption(chosen, resolve) {
     return;
   }
   if (chosen.special === "walletconnect") {
+    setState("Starting WalletConnect…");
     try {
       resolve({ provider: await getWalletConnectProvider() });
     } catch (err) {
@@ -153,7 +251,7 @@ function showWalletPicker(wallets, onChoose) {
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
-            ${w.info.icon ? `<img src="${w.info.icon}" alt="" width="26" height="26">` : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`}
+            ${iconHtml(w.info.icon)}
             <span>${w.info.name}</span>
           </button>
         `).join("")}
@@ -175,6 +273,7 @@ function setState(message, error = false) {
   if (!el) return;
   el.textContent = message || "";
   el.classList.toggle("error", error);
+  if (message) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function markStep(id) {
@@ -206,8 +305,12 @@ async function loadStatus() {
 }
 
 $("connectWallet")?.addEventListener("click", async () => {
+  const btn = $("connectWallet");
+  btn.disabled = true;
+  btn.textContent = "Connecting…";
   const picked = await pickWalletProvider();
   if (!picked?.provider) {
+    resetConnectButton();
     if (picked?.reason === "error") {
       setState(picked.message, true);
       openManualBox();
@@ -222,7 +325,8 @@ $("connectWallet")?.addEventListener("click", async () => {
   try {
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     connectedAddress = accounts?.[0];
-    if (!connectedAddress) { setState("Your wallet didn't share an address. Unlock it and try again, or paste your address below.", true); openManualBox(); return; }
+    closeWalletConnectPanel();
+    if (!connectedAddress) { resetConnectButton(); setState("Your wallet didn't share an address. Unlock it and try again, or paste your address below.", true); openManualBox(); return; }
     $("airdropWalletWrap").style.display = "";
     $("airdropWalletAddress").textContent = connectedAddress;
     $("addGdtyToken").disabled = false;
@@ -232,6 +336,8 @@ $("connectWallet")?.addEventListener("click", async () => {
     setState("Wallet connected. Add GDTY to your wallet, then claim.");
     markStep("stepAdd");
   } catch (err) {
+    closeWalletConnectPanel();
+    resetConnectButton();
     setState(err?.code === 4001
       ? "Connection request was rejected in your wallet. Try again, or paste your address below."
       : (err?.message || "Could not connect wallet.") + " You can also paste your address below.", true);
