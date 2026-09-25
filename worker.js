@@ -249,6 +249,36 @@ async function requireOrigin(e,req,opts) {
   return true;
 }
 
+// Verifies a Cloudflare Turnstile token against Cloudflare's siteverify API,
+// used to keep bots from mass-claiming the airdrop. If TURNSTILE_SECRET_KEY
+// hasn't been configured yet, this fails OPEN (returns true) so the claim
+// flow keeps working while it's being set up - as soon as the secret is
+// added, verification becomes mandatory automatically.
+async function verifyTurnstile(e, token, remoteIp) {
+  if (!e.TURNSTILE_SECRET_KEY) {
+    console.warn("GOLDITY: TURNSTILE_SECRET_KEY not set - airdrop captcha check is disabled");
+    return true;
+  }
+  if (!token || typeof token !== "string") return false;
+  try {
+    const body = new URLSearchParams();
+    body.append("secret", e.TURNSTILE_SECRET_KEY);
+    body.append("response", token);
+    if (remoteIp) body.append("remoteip", remoteIp);
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+      signal: AbortSignal.timeout(8000)
+    });
+    const data = await res.json().catch(() => ({}));
+    return data?.success === true;
+  } catch (err) {
+    console.error("GOLDITY turnstile verify error", err);
+    return false;
+  }
+}
+
 // Atomic fixed-window rate limiter. The previous version was
 // check-then-write (SELECT, then a separate INSERT/UPDATE), so two
 // near-simultaneous requests for the same key could both read "under the
@@ -1180,6 +1210,10 @@ async function claimAirdrop(e,req) {
   const d=await req.json().catch(()=>({}));
   const address=String(d.address||"").toLowerCase();
   if(!walletRe.test(address))return {ok:false,error:"invalid_wallet"};
+
+  // Cloudflare Turnstile check - blocks scripted/bot claims before they ever
+  // touch the rate limiter or the reservation counters.
+  if(!await verifyTurnstile(e,d.turnstileToken,ip(req)))return {ok:false,error:"captcha_failed"};
 
   const ipHash=await hashIp(e,ip(req));
   if(!await rateLimit(e,`airdrop:${ipHash}`,20,3600000))return {ok:false,error:"rate_limited"};
