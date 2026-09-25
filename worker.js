@@ -1252,10 +1252,14 @@ const AIRDROP_GLOBAL_PER_MINUTE=20;
 // thousands of bot wallets no longer works - each wallet needs real value.
 // GDTY also counts, at its real market price (0.03 GDTY from a previous
 // claim is not enough on its own unless GDTY is worth > ~33$).
-const AIRDROP_MIN_WALLET_USD=1;
-// ...AND the wallet must have sent at least this many transactions on BSC
-// (a freshly made bot wallet has 0). Only sent transactions can be counted.
+const AIRDROP_MIN_WALLET_USD=2;
+// ...AND the wallet must have at least this many transactions on BSC,
+// sent or received (see airdropWalletEligible).
 const AIRDROP_MIN_WALLET_TXS=2;
+// ...AND hold at least this many DIFFERENT currencies (BNB and the tokens
+// listed below each count as one). Each currency held had to be received in a
+// transaction, so this also proves received transactions.
+const AIRDROP_MIN_ASSET_TYPES=2;
 const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
 const AIRDROP_STABLE_TOKENS=[
   "0x55d398326f99059ff775485246999027b3197955", // USDT
@@ -1311,20 +1315,15 @@ async function releaseAirdropSlot(e) {
   await e.DB.prepare("UPDATE airdrop_state SET value_int=MAX(0,value_int-1) WHERE key='claimed_count'").run();
 }
 
-// Atomically reserves one of the AIRDROP_MAX_CLAIMS_PER_IP claim slots for a
-// given IP, using the same UPDATE...WHERE pattern as reserveAirdropSlot above.
-// This closes the check-then-write race window that a plain
-// "SELECT COUNT(*) ... WHERE ip_hash=?" then "if(count>=cap)reject" has under
-// concurrent requests from the same IP.
+// Each IP (IPv6: each /64 block) may make 1 successful claim per hour.
+// The slot is taken only once every check has passed, and is given back if
+// the transfer then can't be sent, so rejected attempts don't use it up.
+const AIRDROP_CLAIMS_PER_IP_PER_HOUR=1;
 async function reserveAirdropIpSlot(e,ipHash) {
-  const now=nowIso();
-  await e.DB.prepare("INSERT INTO airdrop_ip_state(ip_hash,claim_count,updated_at) VALUES(?,0,?) ON CONFLICT(ip_hash) DO NOTHING").bind(ipHash,now).run();
-  const res=await e.DB.prepare("UPDATE airdrop_ip_state SET claim_count=claim_count+1,updated_at=? WHERE ip_hash=? AND claim_count<?")
-    .bind(now,ipHash,AIRDROP_MAX_CLAIMS_PER_IP).run();
-  return !!res?.meta?.changes;
+  return rateLimit(e,`airdrop:ip-hour:${ipHash}`,AIRDROP_CLAIMS_PER_IP_PER_HOUR,3600000);
 }
 async function releaseAirdropIpSlot(e,ipHash) {
-  await e.DB.prepare("UPDATE airdrop_ip_state SET claim_count=MAX(0,claim_count-1) WHERE ip_hash=?").bind(ipHash).run();
+  await e.DB.prepare("UPDATE rate_limits SET attempts=MAX(0,attempts-1) WHERE key=?").bind(`airdrop:ip-hour:${ipHash}`).run();
 }
 
 const tokenDecimalsCache=new Map();
@@ -1349,55 +1348,75 @@ async function poolPrice(e,token,quote){
 }
 
 // Live USD prices, cached for 5 minutes per Worker instance.
-let airdropPriceCache={at:0,prices:null};
+// FIX: a token whose price lookup FAILED (RPC error) is now reported in
+// `failed` instead of being silently dropped - before, the user's holdings
+// in that token counted as $0 and a real user could be wrongly rejected.
+// Results with failures are not cached, so one hiccup can't stick for 5 min.
+// (A token with no pool / too little liquidity is not a failure: it's just
+// left unpriced, as before.)
+let airdropPriceCache={at:0,data:null};
 async function airdropUsdPrices(e){
-  if(airdropPriceCache.prices&&Date.now()-airdropPriceCache.at<300000)return airdropPriceCache.prices;
+  if(airdropPriceCache.data&&Date.now()-airdropPriceCache.at<300000)return airdropPriceCache.data;
   const bnb=await poolPrice(e,WBNB_ADDR,A.U);
   if(!bnb||bnb.quoteLiq<AIRDROP_MIN_POOL_LIQ_USD)throw new Error("bnb_price_unavailable");
   const prices={bnb:bnb.price,[WBNB_ADDR]:bnb.price};
+  const failed=new Set();
   await Promise.all(AIRDROP_PRICED_TOKENS.filter(t=>t!==WBNB_ADDR).map(async t=>{
     try{
       const viaUsdt=await poolPrice(e,t,A.U);
       if(viaUsdt&&viaUsdt.quoteLiq>=AIRDROP_MIN_POOL_LIQ_USD){prices[t]=viaUsdt.price;return;}
       const viaBnb=await poolPrice(e,t,WBNB_ADDR);
       if(viaBnb&&viaBnb.quoteLiq*bnb.price>=AIRDROP_MIN_POOL_LIQ_USD)prices[t]=viaBnb.price*bnb.price;
-    }catch{}
+    }catch{failed.add(t);}
   }));
-  airdropPriceCache={at:Date.now(),prices};
-  return prices;
+  const data={prices,failed};
+  if(!failed.size)airdropPriceCache={at:Date.now(),data};
+  return data;
 }
 
-// Checks that the receiving wallet holds real value (>= AIRDROP_MIN_WALLET_USD
-// in total) rather than being an empty or dust-filled bot wallet.
+// A wallet qualifies only if ALL of these are true:
+//  - total value >= AIRDROP_MIN_WALLET_USD
+//  - it holds >= AIRDROP_MIN_ASSET_TYPES different currencies
+//  - it has >= AIRDROP_MIN_WALLET_TXS transactions, sent or received
+//    (sent = from the network; received = at least one per currency held)
+// If some lookups fail, the result is "try again", never a wrong rejection.
 async function airdropWalletEligible(e,address){
   const code=await rpc(e,"eth_getCode",[address,"latest"]).catch(()=>"0x");
   // Contracts can't be a personal wallet. "0xef0100..." is an EIP-7702
   // delegated normal wallet (e.g. MetaMask smart account) - allowed.
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
 
-  const sentTxs=parseInt(await rpc(e,"eth_getTransactionCount",[address,"latest"]),16);
-  if(!(sentTxs>=AIRDROP_MIN_WALLET_TXS))return false;
-
-  const prices=await airdropUsdPrices(e);
-  const bnbWei=BigInt(await rpc(e,"eth_getBalance",[address,"latest"]));
+  const [sentHex,bnbHex,{prices,failed}]=await Promise.all([
+    rpc(e,"eth_getTransactionCount",[address,"latest"]),
+    rpc(e,"eth_getBalance",[address,"latest"]),
+    airdropUsdPrices(e)
+  ]);
+  const sentTxs=parseInt(sentHex,16)||0;
+  const bnbWei=BigInt(bnbHex);
   let usd=Number(bnbWei)/1e18*prices.bnb;
-  if(usd>=AIRDROP_MIN_WALLET_USD)return true;
+  let assetsHeld=bnbWei>0n?1:0;
+  let uncertain=false;
 
-  const tokens=[
-    ...AIRDROP_STABLE_TOKENS.map(t=>[t,1]),
-    ...AIRDROP_PRICED_TOKENS.filter(t=>prices[t]).map(t=>[t,prices[t]])
-  ];
-  const results=await Promise.allSettled(tokens.map(async([t,price])=>{
+  const tokens=[...AIRDROP_STABLE_TOKENS,...AIRDROP_PRICED_TOKENS];
+  const results=await Promise.allSettled(tokens.map(async t=>{
     const bal=await tokenBalance(e,t,address);
-    if(bal===0n)return 0;
-    return Number(bal)/10**(await tokenDecimals(e,t))*price;
+    if(bal===0n)return {held:false,usd:0};
+    const amount=Number(bal)/10**(await tokenDecimals(e,t));
+    if(AIRDROP_STABLE_TOKENS.includes(t))return {held:true,usd:amount};
+    if(prices[t])return {held:true,usd:amount*prices[t]};
+    if(failed.has(t))uncertain=true; // holds it, but its price couldn't be read
+    return {held:true,usd:0};
   }));
-  for(const r of results)if(r.status==="fulfilled")usd+=r.value;
-  if(usd>=AIRDROP_MIN_WALLET_USD)return true;
-  // Every lookup failed = RPC problem, not an ineligible wallet: let the
-  // caller show "try again" instead of wrongly rejecting the user.
-  if(results.every(r=>r.status==="rejected"))throw new Error("token_balance_lookup_failed");
-  return false;
+  for(const r of results){
+    if(r.status==="rejected"){uncertain=true;continue;}
+    if(r.value.held)assetsHeld++;
+    usd+=r.value.usd;
+  }
+
+  const txs=sentTxs+assetsHeld;
+  const ok=usd>=AIRDROP_MIN_WALLET_USD&&assetsHeld>=AIRDROP_MIN_ASSET_TYPES&&txs>=AIRDROP_MIN_WALLET_TXS;
+  if(!ok&&uncertain)throw new Error("balance_lookup_incomplete"); // -> "try again"
+  return ok;
 }
 
 async function airdropStatus(e) {
@@ -1444,10 +1463,6 @@ async function claimAirdropInner(e,req,attempt) {
     if(!await verifyTurnstile(e,d.turnstileToken,ip(req),"airdrop"))return {ok:false,error:"captcha_failed"};
 
     ipHash=await hashIp(e,ipBucket(ip(req)));
-    // Lifetime attempt counter: the window is 100 years, so it never resets.
-    const lifeKey=`airdrop:life:${ipHash}`;
-    if(!await rateLimit(e,lifeKey,AIRDROP_MAX_ATTEMPTS_PER_IP,100*365*24*3600*1000))return {ok:false,error:"ip_attempts_exhausted"};
-    attempt.key=lifeKey;
 
     const byWallet=await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
     if(byWallet)return {ok:false,error:"wallet_already_claimed"};
