@@ -32,13 +32,19 @@ const WALLETCONNECT_PROJECT_ID = "0a0744ab9912dfdd69a3e184f20403b2";
 let wcProvider = null;
 async function getWalletConnectProvider() {
   if (wcProvider) return wcProvider;
-  if (!window.EthereumProvider) {
-    throw new Error("WalletConnect failed to load. Please check your connection and try again.");
+  // UPDATED: the UMD build registers itself as
+  // window["@walletconnect/ethereum-provider"], not window.EthereumProvider,
+  // so the old check always failed and users saw "No wallet detected".
+  const ns = window["@walletconnect/ethereum-provider"];
+  const EP = window.EthereumProvider?.init ? window.EthereumProvider
+           : ns?.EthereumProvider || ns?.default || null;
+  if (!EP?.init) {
+    throw new Error("WalletConnect failed to load. Paste your wallet address below instead, or open this page inside your wallet app's browser.");
   }
-  wcProvider = await window.EthereumProvider.init({
+  wcProvider = await EP.init({
     projectId: WALLETCONNECT_PROJECT_ID,
-    chains: [56],
     optionalChains: [56],
+    rpcMap: { 56: "https://bsc-dataseed.binance.org/" },
     showQrModal: true,
     metadata: {
       name: "GOLDITY",
@@ -86,34 +92,41 @@ function buildNamedDeepLinkWallets() {
   ];
 }
 
+// UPDATED: resolves { provider } or { reason } so a cancelled picker, a
+// deep-link redirect and a real failure each show their own message instead
+// of all ending in "No wallet detected".
 async function connectViaOption(chosen, resolve) {
-  if (!chosen) { resolve(null); return; }
+  if (!chosen) { resolve({ reason: "cancelled" }); return; }
   if (chosen.special === "deeplink") {
+    setState(`Opening ${chosen.info.name}… If nothing happens, make sure the app is installed.`);
     window.location.href = chosen.url;
-    resolve(null);
+    resolve({ reason: "redirect" });
     return;
   }
   if (chosen.special === "walletconnect") {
     try {
-      const p = await getWalletConnectProvider();
-      resolve(p);
+      resolve({ provider: await getWalletConnectProvider() });
     } catch (err) {
-      setState(err?.message || "Could not start WalletConnect. Please refresh the page and try again.", true);
-      resolve(null);
+      resolve({ reason: "error", message: err?.message || "Could not start WalletConnect. Please refresh the page and try again." });
     }
     return;
   }
-  resolve(chosen.provider);
+  resolve({ provider: chosen.provider });
 }
 
 function pickWalletProvider() {
+  // Ask again at click time: some in-app wallet browsers inject late.
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
   return new Promise(resolve => {
     setTimeout(() => {
       const options = [...discoveredWallets];
       if (window.ethereum && !options.length) {
         options.push({ info: { name: "Browser Wallet", icon: "" }, provider: window.ethereum });
       }
-      if (isMobileDevice()) {
+      // Only offer "open in wallet app" links when we're NOT already inside
+      // a wallet browser - tapping them from inside Trust/MetaMask just
+      // reloaded the page and looked like an error.
+      if (isMobileDevice() && !window.ethereum && !discoveredWallets.length) {
         options.push(...buildNamedDeepLinkWallets());
       }
       options.push(WALLETCONNECT_ENTRY);
@@ -126,7 +139,7 @@ function pickWalletProvider() {
         return;
       }
       showWalletPicker(options, chosen => connectViaOption(chosen, resolve));
-    }, 150);
+    }, 300);
   });
 }
 
@@ -193,16 +206,23 @@ async function loadStatus() {
 }
 
 $("connectWallet")?.addEventListener("click", async () => {
-  const provider = await pickWalletProvider();
-  if (!provider) {
-    setState("No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first.", true);
-    return;
+  const picked = await pickWalletProvider();
+  if (!picked?.provider) {
+    if (picked?.reason === "error") {
+      setState(picked.message, true);
+      openManualBox();
+    } else if (picked?.reason === "cancelled") {
+      setState("No wallet selected. You can also paste your wallet address below.");
+      openManualBox();
+    }
+    return; // "redirect": the page is leaving for the wallet app
   }
+  const provider = picked.provider;
   activeProvider = provider;
   try {
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     connectedAddress = accounts?.[0];
-    if (!connectedAddress) { setState("No wallet account available.", true); return; }
+    if (!connectedAddress) { setState("Your wallet didn't share an address. Unlock it and try again, or paste your address below.", true); openManualBox(); return; }
     $("airdropWalletWrap").style.display = "";
     $("airdropWalletAddress").textContent = connectedAddress;
     $("addGdtyToken").disabled = false;
@@ -212,8 +232,34 @@ $("connectWallet")?.addEventListener("click", async () => {
     setState("Wallet connected. Add GDTY to your wallet, then claim.");
     markStep("stepAdd");
   } catch (err) {
-    setState(err.message || "Could not connect wallet.", true);
+    setState(err?.code === 4001
+      ? "Connection request was rejected in your wallet. Try again, or paste your address below."
+      : (err?.message || "Could not connect wallet.") + " You can also paste your address below.", true);
+    openManualBox();
   }
+});
+
+function openManualBox() {
+  const box = $("manualAddressBox");
+  if (box) box.open = true;
+}
+
+// Manual address fallback: the claim endpoint only needs the receiving
+// address, so users whose wallet won't connect can still claim.
+$("useManualAddress")?.addEventListener("click", () => {
+  const value = String($("manualAddress")?.value || "").trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+    setState("That doesn't look like a valid BSC address. It should start with 0x and be 42 characters long.", true);
+    return;
+  }
+  connectedAddress = value;
+  activeProvider = null;
+  $("airdropWalletWrap").style.display = "";
+  $("airdropWalletAddress").textContent = connectedAddress;
+  $("addGdtyToken").disabled = true;
+  $("claimAirdrop").disabled = false;
+  setState("Address set. Complete the verification check, then press \"Claim 0.03 GDTY\". Add GDTY to your wallet manually using the contract address to see it.");
+  markStep("stepClaim");
 });
 
 async function ensureBscNetwork(provider) {
@@ -286,7 +332,7 @@ $("addGdtyToken")?.addEventListener("click", async () => {
 $("claimAirdrop")?.addEventListener("click", async () => {
   if (!connectedAddress) return;
   if (!turnstileToken) {
-    setState("Please complete the verification check below, then try again.", true);
+    setState("Please complete the verification check (\"Verify you are human\") above, then try again.", true);
     return;
   }
   $("claimAirdrop").disabled = true;
@@ -305,7 +351,10 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     if (!res.ok || !data.ok) {
       const messages = {
         wallet_already_claimed: "This wallet has already claimed the airdrop.",
-        ip_limit_reached: "You've reached the maximum number of claims allowed from your network (100).",
+        ip_limit_reached: "You've reached the maximum number of claims allowed from your network.",
+        wallet_not_eligible: "This wallet isn't eligible: it must have at least one past transaction on BNB Smart Chain or hold a small amount of BNB (0.0005). Please use your regular wallet.",
+        eligibility_check_failed: "We couldn't check your wallet on BNB Smart Chain right now. Please try again in a moment.",
+        airdrop_busy: "Lots of people are claiming right now. Please wait a minute and try again.",
         airdrop_full: "All 10,000 claims have been taken. Thanks for your interest!",
         airdrop_paused: "The airdrop is currently paused. Please check back later.",
         rate_limited: "Too many attempts. Please wait a moment and try again.",
@@ -314,7 +363,8 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         airdrop_not_configured: "The airdrop isn't fully set up yet. Please check back soon.",
         forbidden: "Your browser blocked this request. If you're in an app's built-in browser (Instagram, Facebook, etc.), try opening this page in Chrome or Safari instead, then try again.",
         validation_failed: "Could not read a valid wallet address.",
-        captcha_failed: "Verification failed. Please complete the check below and try again.",
+        captcha_failed: "Verification failed. Please complete the check above and try again.",
+        airdrop_send_failed: "The network was busy and your claim wasn't sent. Nothing was used up - please try again.",
         db_busy: "The airdrop is experiencing very high traffic right now. Please wait a moment and try again."
       };
       setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
