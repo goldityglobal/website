@@ -15,7 +15,9 @@
 <meta name="description" content="Claim 0.03 GDTY free. First 10,000 eligible wallets only.">
 <link rel="canonical" href="https://goldityglobal.com/airdrop.html">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" type="image/png" sizes="512x512" href="/favicon.png"></head>
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
 <body>
 <header>
 <a class="brand" href="/"><span class="mark">G</span><span>GOLDITY <b>GDTY</b></span></a>
@@ -75,6 +77,8 @@
     <button id="addGdtyToken" class="btn btn-outline" type="button" disabled>Add GDTY to Wallet</button>
     <button id="claimAirdrop" class="btn btn-gold" type="button" disabled>Claim 0.03 GDTY</button>
   </div>
+
+  <div class="cf-turnstile" id="turnstileWidget" data-sitekey="YOUR_TURNSTILE_SITE_KEY_HERE" data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired" data-error-callback="onTurnstileExpired" data-theme="dark"></div>
 
   <div class="wallet-address-wrap" id="airdropWalletWrap" style="display:none">
     <span class="card-label">Connected Wallet</span>
