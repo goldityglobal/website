@@ -324,7 +324,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         validation_failed: "Could not read a valid wallet address.",
         captcha_failed: "Verification failed. Please complete the check below and try again.",
         ip_attempts_exhausted: "Your network has used all 5 claim attempts allowed. No more claims can be made from this connection.",
-        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet on BNB Smart Chain must hold at least 2 different currencies, have at least 2 transactions, and be worth at least $2 in total (BNB, USDT, USDC, ETH, BTCB, CAKE, XRP and other popular tokens all count).",
+        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet needs at least 2 currencies, $2 in value, and 2 transactions.",
         eligibility_check_failed: "We couldn't check your wallet on BNB Smart Chain right now. Please try again in a moment.",
         airdrop_busy: "Lots of people are claiming right now. Please wait a minute and try again.",
         claim_pending_check: "Your claim is being processed by the network. Please don't claim again - check your wallet in a few minutes.",
