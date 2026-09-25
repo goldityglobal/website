@@ -368,7 +368,17 @@ $("connectWallet")?.addEventListener("click", async () => {
   activeProvider = provider;
   try {
     const wcApp = pendingWcApp;
-    const accounts = await provider.request({ method: "eth_requestAccounts" });
+    let accounts;
+    if (provider === wcProvider) {
+      // WalletConnect needs a session BEFORE any request: connect() pairs
+      // with the wallet app (this is what opens it), then the approved
+      // accounts are read from the session. Calling request() first throws
+      // "Please call connect() before request()".
+      if (!provider.session) await provider.connect();
+      accounts = provider.accounts?.length ? provider.accounts : await provider.request({ method: "eth_accounts" });
+    } else {
+      accounts = await provider.request({ method: "eth_requestAccounts" });
+    }
     if (attempt !== connectAttempt) return; // user cancelled this attempt
     connectedAddress = accounts?.[0];
     closeWalletConnectPanel();
