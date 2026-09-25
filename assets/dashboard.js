@@ -1830,11 +1830,20 @@ function renderAirdropAdmin(stats) {
 
 function setupAirdropAdmin() {
   $("toggleAirdropPause")?.addEventListener("click", async () => {
+    const btn = $("toggleAirdropPause");
+    const original = btn?.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = "Working…"; }
     try {
       await api("/api/airdrop/toggle-pause", { method: "POST" });
       await load();
     } catch (error) {
+      // Previously this only logged to the console, so a failure (e.g. an
+      // expired session, or this account not having admin role) looked
+      // exactly like the button "not responding" - now it's shown on screen.
       console.error("Toggle airdrop pause:", error);
+      alert(`Could not change the airdrop pause state: ${error.message || "unknown error"}`);
+    } finally {
+      if (btn) { btn.disabled = false; if (btn.textContent === "Working…") btn.textContent = original; }
     }
   });
 }
