@@ -1349,6 +1349,37 @@ async function ankrHasTxBefore(e,address,beforeSec){
   return false;
 }
 
+// Bot farms move the same coins from wallet to wallet: a wallet that just
+// claimed funds the next one, and every claim is forwarded to one collector.
+// So a wallet whose counterparties in the last AIRDROP_LINK_DAYS days include
+// an already-claimed wallet or a known collector is rejected.
+const AIRDROP_LINK_DAYS=7;
+const AIRDROP_BLOCKED_ADDRESSES=new Set([
+  "0xdffc1b24b5ac219f73feed7017721819d0315649" // collector seen 2026-09-26
+]);
+async function airdropLinkedToFarm(e,address){
+  const me=String(address).toLowerCase();
+  const q={address:[address],blockchain:ANKR_CHAINS,fromTimestamp:Math.floor(Date.now()/1000)-AIRDROP_LINK_DAYS*86400,descOrder:true,pageSize:100};
+  const [txs,tr]=await Promise.all([
+    ankrCall(e,"ankr_getTransactionsByAddress",q),
+    ankrCall(e,"ankr_getTokenTransfers",q)
+  ]);
+  const peers=new Set();
+  const add=(a,b)=>{a=String(a||"").toLowerCase();b=String(b||"").toLowerCase();
+    if(a===me&&walletRe.test(b))peers.add(b); else if(b===me&&walletRe.test(a))peers.add(a);};
+  for(const t of (txs.transactions||[]))add(t.from,t.to);
+  for(const t of (tr.transfers||[]))add(t.fromAddress,t.toAddress);
+  peers.delete(me);
+  const list=[...peers];
+  if(list.some(a=>AIRDROP_BLOCKED_ADDRESSES.has(a))){console.log("GOLDITY_DIAG farm_link",me,"collector");return true;}
+  for(let i=0;i<list.length;i+=50){
+    const part=list.slice(i,i+50);
+    const row=await e.DB.prepare(`SELECT wallet_address FROM airdrop_claims WHERE wallet_address IN (${part.map(()=>"?").join(",")}) LIMIT 1`).bind(...part).first();
+    if(row){console.log("GOLDITY_DIAG farm_link",me,row.wallet_address);return true;}
+  }
+  return false;
+}
+
 // A wallet qualifies if it holds >= AIRDROP_MIN_ASSET_TYPES different tokens
 // worth >= AIRDROP_MIN_WALLET_USD in total AND had a transaction at least
 // AIRDROP_MIN_WALLET_AGE_DAYS days ago. Any lookup failure throws,
@@ -1369,7 +1400,8 @@ async function airdropWalletEligible(e,address){
   console.log("GOLDITY_DIAG summary",address,"types",types,"usd",usd);
   if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to check history
   const cutoff=Math.floor(Date.now()/1000)-AIRDROP_MIN_WALLET_AGE_DAYS*86400;
-  return await ankrHasTxBefore(e,address,cutoff);
+  if(!await ankrHasTxBefore(e,address,cutoff))return false;
+  return !await airdropLinkedToFarm(e,address);
 }
 
 async function airdropStatus(e) {
