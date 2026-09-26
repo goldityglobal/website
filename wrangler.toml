@@ -23,3 +23,5 @@ migrations_dir = "migrations"
 
 [triggers]
 crons = ["*/3 * * * *"]
+[observability]
+enabled = true
