@@ -1330,7 +1330,10 @@ async function ankrHasTxBefore(e,address,beforeSec){
   const me=String(address).toLowerCase();
   const q={address:[address],blockchain:ANKR_CHAINS,toTimestamp:beforeSec,descOrder:false,pageSize:20};
   const counts=(list,fromKey,toKey)=>(list||[]).some(t=>{
-    const mine=String(t[fromKey]||"").toLowerCase()===me||String(t[toKey]||"").toLowerCase()===me;
+    // Only transactions SENT by this wallet count. Anyone can send a tx TO
+    // any address (bots pre-age wallets that way for a fraction of a cent),
+    // but sending FROM it needs its private key and gas at that time.
+    const mine=String(t[fromKey]||"").toLowerCase()===me;
     const ts=ankrTs(t.timestamp);
     const ok=mine&&ts!==null&&ts<=beforeSec;
     if(ok)console.log("GOLDITY_DIAG old_tx",me,t.blockchain,t.hash||t.transactionHash,t.timestamp,t[fromKey],t[toKey]);
