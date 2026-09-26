@@ -1244,9 +1244,10 @@ const AIRDROP_REFUNDED_ERRORS=new Set([
 // never come close; a bot farm hits it immediately, which turns a drain of
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
-// Airdrop wallet rule: at least AIRDROP_MIN_ASSET_TYPES different tokens
-// (from any network) AND at least AIRDROP_MIN_WALLET_TXS transactions (any
-// network, sent or received). No minimum dollar value.
+// Airdrop wallet rule, all on ANY network: total value >= AIRDROP_MIN_WALLET_USD
+// AND at least AIRDROP_MIN_ASSET_TYPES different tokens AND at least
+// AIRDROP_MIN_WALLET_TXS transactions (sent or received).
+const AIRDROP_MIN_WALLET_USD=2;
 const AIRDROP_MIN_ASSET_TYPES=2;
 const AIRDROP_MIN_WALLET_TXS=3;
 const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
@@ -1408,18 +1409,22 @@ async function ankrCall(e,method,params){
   if(!r.ok||j.error||!j.result)throw new Error(`ankr_${method}: ${j.error?.message||r.status}`);
   return j.result;
 }
-// Different tokens held on ANY network. Only CoinGecko-listed tokens count
-// (onlyWhitelisted), so a worthless token a bot creates itself doesn't. The
-// same token on two networks (e.g. USDT on BSC and on Ethereum) is one type.
-async function ankrTokenTypes(e,address){
+// Different tokens held + total USD value, on ANY network, in one request.
+// Only CoinGecko-listed tokens count (onlyWhitelisted), so a worthless token a
+// bot creates itself adds neither a type nor value. The same token on two
+// networks (e.g. USDT on BSC and on Ethereum) is one type.
+async function ankrWalletSummary(e,address){
   const res=await ankrCall(e,"ankr_getAccountBalance",{walletAddress:address,onlyWhitelisted:true});
   const types=new Set();
+  let usd=0;
   for(const a of (res.assets||[])){
     if(String(a.balanceRawInteger||"0")==="0")continue;
     const sym=String(a.tokenSymbol||"").trim().toUpperCase();
     types.add(sym||`${a.blockchain}:${a.contractAddress||"native"}`);
+    const v=Number(a.balanceUsd);
+    if(Number.isFinite(v)&&v>0)usd+=v;
   }
-  return types.size;
+  return {types:types.size,usd};
 }
 // Distinct transactions on the main networks, sent OR received (normal
 // transactions + token transfers, merged by transaction hash so nothing is
@@ -1434,27 +1439,9 @@ async function ankrTxCount(e,address,need){
   return hashes.size;
 }
 
-// BSC-only fallback, used while ANKR_API_KEY isn't set: the fixed token list
-// above (one Multicall request) + BNB; transactions = sent (from the network)
-// + one received per token held.
-async function bscTokenTypesAndTxs(e,address){
-  const tokens=[...AIRDROP_STABLE_TOKENS,...AIRDROP_PRICED_TOKENS];
-  const [sentHex,bnbHex,results]=await Promise.all([
-    rpc(e,"eth_getTransactionCount",[address,"latest"]),
-    rpc(e,"eth_getBalance",[address,"latest"]),
-    multicall(e,tokens.map(t=>({target:t,data:S.balanceOf+pad(address)})))
-  ]);
-  let types=BigInt(bnbHex)>0n?1:0;
-  tokens.forEach((t,i)=>{
-    const r=results[i];
-    // a token contract that fails inside the multicall = not held
-    if(r.success&&r.data.length>=66&&BigInt(r.data.slice(0,66))>0n)types++;
-  });
-  return {types,txs:(parseInt(sentHex,16)||0)+types};
-}
-
 // A wallet qualifies if it holds >= AIRDROP_MIN_ASSET_TYPES different tokens
-// AND has >= AIRDROP_MIN_WALLET_TXS transactions. Any lookup failure throws,
+// worth >= AIRDROP_MIN_WALLET_USD in total AND has >= AIRDROP_MIN_WALLET_TXS
+// transactions. Any lookup failure throws,
 // so the user sees "try again" - never a wrong rejection.
 async function airdropWalletEligible(e,address){
   const code=await rpc(e,"eth_getCode",[address,"latest"]).catch(()=>"0x");
@@ -1463,12 +1450,13 @@ async function airdropWalletEligible(e,address){
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
 
   if(!e.ANKR_API_KEY){
-    console.error("GOLDITY: ANKR_API_KEY not set - airdrop check is BSC-only");
-    const {types,txs}=await bscTokenTypesAndTxs(e,address);
-    return types>=AIRDROP_MIN_ASSET_TYPES&&txs>=AIRDROP_MIN_WALLET_TXS;
+    // Without Ankr the dollar value can't be checked -> "try again" (never a
+    // wrong approval or rejection) until the secret is set.
+    console.error("GOLDITY: ANKR_API_KEY not set - airdrop eligibility can't be checked");
+    throw new Error("ankr_not_configured");
   }
-  const types=await ankrTokenTypes(e,address);
-  if(types<AIRDROP_MIN_ASSET_TYPES)return false; // no need to count transactions
+  const {types,usd}=await ankrWalletSummary(e,address);
+  if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to count transactions
   const [sentHex,txs]=await Promise.all([
     rpc(e,"eth_getTransactionCount",[address,"latest"]),
     ankrTxCount(e,address,AIRDROP_MIN_WALLET_TXS)
