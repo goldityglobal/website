@@ -1298,15 +1298,12 @@ async function ankrCall(e,method,params){
 // Different tokens held + total USD value on all networks, in one request.
 // Only CoinGecko-listed tokens count (onlyWhitelisted), so a worthless token a
 // bot creates itself adds neither a type nor value. The same token on two
-// networks (e.g. USDT on BSC and on Ethereum) is one type. SECURITY: an asset
-// only counts if Ankr reports it for THIS wallet (holderAddress), re-checked here.
+// networks (e.g. USDT on BSC and on Ethereum) is one type.
 async function ankrWalletSummary(e,address){
-  const me=String(address).toLowerCase();
   const res=await ankrCall(e,"ankr_getAccountBalance",{walletAddress:address,onlyWhitelisted:true});
   const types=new Set();
   let usd=0;
   for(const a of (res.assets||[])){
-    if(a.holderAddress&&String(a.holderAddress).toLowerCase()!==me)continue;
     if(String(a.balanceRawInteger||"0")==="0")continue;
     const sym=String(a.tokenSymbol||"").trim().toUpperCase();
     types.add(sym||`${a.blockchain}:${a.contractAddress||"native"}`);
