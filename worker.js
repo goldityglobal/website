@@ -1229,91 +1229,15 @@ async function scanForNewTrades(e) {
 
 const AIRDROP_REWARD_WEI=3n*10n**16n; // 0.03 GDTY
 const AIRDROP_MAX_CLAIMS=10000;
-const AIRDROP_MAX_CLAIMS_PER_IP=10;
-// Each IP gets this many claim attempts FOREVER - successful or not (a
-// wrong/ineligible wallet or an already-claimed wallet also uses one).
-// Attempts that fail because of our side (network busy, RPC problem, pool
-// empty...) are given back - see AIRDROP_REFUNDED_ERRORS.
-const AIRDROP_MAX_ATTEMPTS_PER_IP=5;
-const AIRDROP_REFUNDED_ERRORS=new Set([
-  "eligibility_check_failed","airdrop_busy","airdrop_send_failed",
-  "airdrop_treasury_empty","airdrop_not_configured","db_busy","airdrop_full"
-]);
 // --- Anti-bot settings (UPDATED) ---
 // Max successful-path claims per minute across the whole site. Real users
 // never come close; a bot farm hits it immediately, which turns a drain of
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
-// Airdrop wallet rule, all on ANY network: total value >= AIRDROP_MIN_WALLET_USD
-// AND at least AIRDROP_MIN_ASSET_TYPES different tokens AND at least one
-// transaction (sent or received) older than AIRDROP_MIN_WALLET_AGE_DAYS -
-// so a wallet a bot created just now doesn't qualify.
-const AIRDROP_MIN_WALLET_USD=1;
-const AIRDROP_MIN_ASSET_TYPES=2;
-const AIRDROP_MIN_WALLET_AGE_DAYS=3;
-const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
-// Tokens counted for the airdrop wallet check (BNB itself is always counted).
-// Every address below was verified on DexScreener (BNB Smart Chain) on
-// 2026-09-26. Only this fixed list is counted - never "any token" - so a bot
-// can't make its wallets look valuable with a worthless token it created.
-const AIRDROP_STABLE_TOKENS=[ // counted at $1
-  "0x55d398326f99059ff775485246999027b3197955", // USDT
-  "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // USDC
-  "0xe9e7cea3dedca5984780bafc599bd69add087d56", // BUSD
-  "0xc5f0f7b66764f6ec8c8dff7ba683102295e16409", // FDUSD
-  "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3"  // DAI
-];
-const AIRDROP_PRICED_TOKENS=[ // priced live (DexScreener, fallback PancakeSwap V2)
-  "0x76d89e26502d0aa9bf83da222cfcf12a27ead801", // GDTY
-  WBNB_ADDR,                                    // WBNB
-  "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c", // BTCB
-  "0x2170ed0880ac9a755fd29b2688956bd959f933f8", // ETH
-  "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82", // CAKE
-  "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe", // XRP
-  "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47", // ADA
-  "0xba2ae424d960c26247dd6c32edc70b295c744c43", // DOGE
-  "0xf8a0bf9cf54bb92f17374d9e9a321e6a111a51bd", // LINK
-  "0x7083609fce4d1d8dc0c979aab8c869ea2c873402", // DOT
-  "0x4338665cbb7b2485a8855a139b75d5e34ab0db94", // LTC
-  "0x8ff795a6f4d97e7887c79bea79aba5cc76444adf", // BCH
-  "0xbf5140a22578168fd562dccf235e5d43a02ce9b1", // UNI
-  "0x1ce0c2827e2ef14d5c4f29a091d735a204794041", // AVAX
-  "0x0eb3a705fc54725037cc9e008bdede697f62f335", // ATOM
-  "0xcc42724c6683b7e57334c4e856f4c9965ed682bd", // MATIC
-  "0x2859e4544c4bb03966803b044a93563bd2d0dd4d", // SHIB
-  "0xce7de646e7208a4ef112cb6ed5038fa6cc6b12e3", // TRX
-  "0x0d8ce2a99bb6e3b7db580ed848240e4a0f9ae153", // FIL
-  "0x3d6545b08693dae087e957cb1180ee38b9e3c25e", // ETC
-  "0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63", // XVS
-  "0x4b0f1812e5df2a09796481ff14017e6005508003", // TWT
-  "0xd41fdb03ba84762dd66a0af1a6c8540ff1ba5dfb", // SFP
-  "0xfb6115445bff7b52feb98650c87f44907e58f802", // AAVE
-  "0x52ce071bd9b1c4b00a0b92d298c512478cad67e8", // COMP
-  "0x88f1a5ae2a3bf98aeaf342d26b30a79438c9142e", // YFI
-  "0x947950bcc74888a40ffa2593c5798f11fc9124c4", // SUSHI
-  "0x111111111117dc0aa78b770fa6a738034120c302", // 1INCH
-  "0x101d82428437127bf1608f699cd651e6abf9766e", // BAT
-  "0xb86abcb37c3a4b64f74f59301aff131a1becc787", // ZIL
-  "0x56b6fb708fc5732dec1afc8d8556423a2edccbd6", // EOS
-  "0x16939ef78684453bfdfb47825f8a5f714f12623a", // XTZ
-  "0x1fa4a73a3f0133f0025378af00236f3abdee5d63", // NEAR
-  "0x76a797a59ba2c17726896976b7b3747bfd1d220f", // TON
-  "0x25d887ce7a35172c62febfd67a1856f20faebb00", // PEPE
-  "0xfb5b838b6cfeedc2873ab27866079ac55363d37e", // FLOKI
-  "0xc748673057861a797275cd8a068abb95a902e8de", // BABYDOGE
-  "0x570a5d26f7765ecb712c0924e4de545b89fd43df", // SOL
-  "0x40af3827f39d0eacbf4a168f8d4ee67c121d11c9", // TUSD
-  "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d", // USD1
-  "0x031b41e504677879370e9dbcf937283a8691fa7f", // FET
-  "0xa2b726b1145a4773f68593cf171187d8ebe4d495", // INJ
-  "0x715d400f88c167884bbcc41c5fea407ed4d2f8a0", // AXS
-  "0x3203c9e46ca618c8c1ce5dc67e7e9d75f5da2377", // MBOX
-  "0xaec945e04baf28b135fa7c640f624f8d90f1c3a6", // C98
-  "0xa2e3356610840701bdf5611a53974510ae27e2e1", // wBETH
-  "0xb0b84d294e0c75a6abe60171b70edeb2efd14a1b", // slisBNB
-  "0xa1faa113cbe53436df28ff0aee54275c13b40975", // ALPHA
-  "0xe02df9e3e622debdd69fb838bb799e3f168902c5"  // BAKE
-];
+// Airdrop wallet rule: at least one transaction (sent or received, on the
+// main 0x networks) older than AIRDROP_MIN_WALLET_AGE_DAYS - so a wallet a
+// bot created just now doesn't qualify.
+const AIRDROP_MIN_WALLET_AGE_DAYS=7;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1357,47 +1281,6 @@ async function releaseAirdropIpSlot(e,ipHash) {
   await e.DB.prepare("UPDATE rate_limits SET attempts=MAX(0,attempts-1) WHERE key=?").bind(`airdrop:ip-hour:${ipHash}`).run();
 }
 
-// --- Multicall3 (verified deployed on BNB Smart Chain at this address,
-// github.com/mds1/multicall3 deployments.json). Lets the check read every
-// token balance in ONE request instead of one request per token.
-const MULTICALL3="0xca11bde05977b3631167028862be2a173976ca11";
-const hexWord=n=>BigInt(n).toString(16).padStart(64,"0");
-// aggregate3((address target,bool allowFailure,bytes callData)[]), allowFailure=true
-function encodeAggregate3(calls){
-  const n=calls.length;
-  const elems=calls.map(({target,data})=>{
-    const d=String(data).replace(/^0x/,"");
-    const len=d.length/2;
-    const padded=d.padEnd(Math.ceil(len/32)*64,"0");
-    return hexWord(BigInt(target))+hexWord(1)+hexWord(0x60)+hexWord(len)+padded;
-  });
-  let offsets="",off=32*n;
-  for(const el of elems){offsets+=hexWord(off);off+=el.length/2;}
-  return "0x82ad56cb"+hexWord(0x20)+hexWord(n)+offsets+elems.join("");
-}
-// returns [{success:boolean, data:"0x..."}] from Result[] (bool success, bytes returnData)
-function decodeAggregate3(ret){
-  const h=String(ret).replace(/^0x/,"");
-  const word=pos=>BigInt("0x"+(h.slice(pos*2,pos*2+64)||"0"));
-  const arr=Number(word(0));
-  const n=Number(word(arr));
-  const base=arr+32;
-  const out=[];
-  for(let i=0;i<n;i++){
-    const el=base+Number(word(base+32*i));
-    const success=word(el)!==0n;
-    const b=el+Number(word(el+32));
-    const len=Number(word(b));
-    out.push({success,data:"0x"+h.slice((b+32)*2,(b+32+len)*2)});
-  }
-  return out;
-}
-async function multicall(e,calls){
-  const res=decodeAggregate3(await call(e,MULTICALL3,encodeAggregate3(calls)));
-  if(res.length!==calls.length)throw new Error("multicall_bad_response");
-  return res;
-}
-
 // --- Ankr Advanced API (free "Freemium" plan, needs ANKR_API_KEY secret).
 // Reads a wallet across many networks. Docs: ankr.com/docs/advanced-api.
 const ANKR_CHAINS=["eth","bsc","polygon","arbitrum","optimism","base","avalanche"];
@@ -1410,23 +1293,6 @@ async function ankrCall(e,method,params){
   if(!r.ok||j.error||!j.result)throw new Error(`ankr_${method}: ${j.error?.message||r.status}`);
   return j.result;
 }
-// Different tokens held + total USD value, on ANY network, in one request.
-// Only CoinGecko-listed tokens count (onlyWhitelisted), so a worthless token a
-// bot creates itself adds neither a type nor value. The same token on two
-// networks (e.g. USDT on BSC and on Ethereum) is one type.
-async function ankrWalletSummary(e,address){
-  const res=await ankrCall(e,"ankr_getAccountBalance",{walletAddress:address,onlyWhitelisted:true});
-  const types=new Set();
-  let usd=0;
-  for(const a of (res.assets||[])){
-    if(String(a.balanceRawInteger||"0")==="0")continue;
-    const sym=String(a.tokenSymbol||"").trim().toUpperCase();
-    types.add(sym||`${a.blockchain}:${a.contractAddress||"native"}`);
-    const v=Number(a.balanceUsd);
-    if(Number.isFinite(v)&&v>0)usd+=v;
-  }
-  return {types:types.size,usd};
-}
 // true if the wallet has at least one transaction (normal tx or token
 // transfer, sent or received) on the main networks at or before `beforeSec`
 // (unix seconds). Uses Ankr's documented toTimestamp filter.
@@ -1438,8 +1304,7 @@ async function ankrHasTxBefore(e,address,beforeSec){
   return (tr.transfers||[]).length>0;
 }
 
-// A wallet qualifies if it holds >= AIRDROP_MIN_ASSET_TYPES different tokens
-// worth >= AIRDROP_MIN_WALLET_USD in total AND had a transaction at least
+// A wallet qualifies if it had a transaction at least
 // AIRDROP_MIN_WALLET_AGE_DAYS days ago. Any lookup failure throws,
 // so the user sees "try again" - never a wrong rejection.
 async function airdropWalletEligible(e,address){
@@ -1449,13 +1314,11 @@ async function airdropWalletEligible(e,address){
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
 
   if(!e.ANKR_API_KEY){
-    // Without Ankr the dollar value can't be checked -> "try again" (never a
-    // wrong approval or rejection) until the secret is set.
+    // Without Ankr the wallet's history can't be checked -> "try again"
+    // (never a wrong approval or rejection) until the secret is set.
     console.error("GOLDITY: ANKR_API_KEY not set - airdrop eligibility can't be checked");
     throw new Error("ankr_not_configured");
   }
-  const {types,usd}=await ankrWalletSummary(e,address);
-  if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to check history
   const cutoff=Math.floor(Date.now()/1000)-AIRDROP_MIN_WALLET_AGE_DAYS*86400;
   return await ankrHasTxBefore(e,address,cutoff);
 }
@@ -1470,15 +1333,6 @@ async function airdropStatus(e) {
 }
 
 async function claimAirdrop(e,req) {
-  const attempt={key:null};
-  const result=await claimAirdropInner(e,req,attempt);
-  if(!result.ok&&attempt.key&&AIRDROP_REFUNDED_ERRORS.has(result.error)){
-    await e.DB.prepare("UPDATE rate_limits SET attempts=MAX(0,attempts-1) WHERE key=?").bind(attempt.key).run().catch(()=>{});
-  }
-  return result;
-}
-
-async function claimAirdropInner(e,req,attempt) {
   // allowNullOrigin: this endpoint takes only a wallet address (no session
   // cookie), so a "null" Origin from an in-app browser's webview isn't a
   // CSRF risk here the way it would be for a cookie-authenticated endpoint.
