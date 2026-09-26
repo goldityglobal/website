@@ -1234,10 +1234,12 @@ const AIRDROP_MAX_CLAIMS=10000;
 // never come close; a bot farm hits it immediately, which turns a drain of
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
-// Airdrop wallet rule: at least one transaction (sent or received, on the
-// main 0x networks) older than AIRDROP_MIN_WALLET_AGE_DAYS - so a wallet a
-// bot created just now doesn't qualify.
+// Airdrop wallet rule (0x networks): at least one transaction (sent or
+// received) older than AIRDROP_MIN_WALLET_AGE_DAYS, AND at least
+// AIRDROP_MIN_ASSET_TYPES different tokens, AND total value >= AIRDROP_MIN_WALLET_USD.
 const AIRDROP_MIN_WALLET_AGE_DAYS=7;
+const AIRDROP_MIN_ASSET_TYPES=2;
+const AIRDROP_MIN_WALLET_USD=1;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1293,18 +1295,60 @@ async function ankrCall(e,method,params){
   if(!r.ok||j.error||!j.result)throw new Error(`ankr_${method}: ${j.error?.message||r.status}`);
   return j.result;
 }
-// true if the wallet has at least one transaction (normal tx or token
-// transfer, sent or received) on the main networks at or before `beforeSec`
-// (unix seconds). Uses Ankr's documented toTimestamp filter.
-async function ankrHasTxBefore(e,address,beforeSec){
-  const q={address:[address],blockchain:ANKR_CHAINS,toTimestamp:beforeSec,pageSize:1};
-  const txs=await ankrCall(e,"ankr_getTransactionsByAddress",q);
-  if((txs.transactions||[]).length)return true;
-  const tr=await ankrCall(e,"ankr_getTokenTransfers",q);
-  return (tr.transfers||[]).length>0;
+// Different tokens held + total USD value on all networks, in one request.
+// Only CoinGecko-listed tokens count (onlyWhitelisted), so a worthless token a
+// bot creates itself adds neither a type nor value. The same token on two
+// networks (e.g. USDT on BSC and on Ethereum) is one type. SECURITY: an asset
+// only counts if Ankr reports it for THIS wallet (holderAddress), re-checked here.
+async function ankrWalletSummary(e,address){
+  const me=String(address).toLowerCase();
+  const res=await ankrCall(e,"ankr_getAccountBalance",{walletAddress:address,onlyWhitelisted:true});
+  const types=new Set();
+  let usd=0;
+  for(const a of (res.assets||[])){
+    if(a.holderAddress&&String(a.holderAddress).toLowerCase()!==me)continue;
+    if(String(a.balanceRawInteger||"0")==="0")continue;
+    const sym=String(a.tokenSymbol||"").trim().toUpperCase();
+    types.add(sym||`${a.blockchain}:${a.contractAddress||"native"}`);
+    const v=Number(a.balanceUsd);
+    if(Number.isFinite(v)&&v>0)usd+=v;
+  }
+  return {types:types.size,usd};
 }
 
-// A wallet qualifies if it had a transaction at least
+// Ankr timestamps come as unix seconds, either a number or a hex string.
+function ankrTs(v){
+  if(typeof v==="number")return v;
+  const s=String(v??"");
+  const n=s.startsWith("0x")?parseInt(s,16):Number(s);
+  return Number.isFinite(n)&&n>0?n:null;
+}
+// true if the wallet has at least one transaction (normal tx or token
+// transfer, sent or received) on the main networks at or before `beforeSec`
+// (unix seconds). SECURITY: every item Ankr returns is re-checked HERE -
+// it only counts if this wallet is really its sender or receiver AND its
+// timestamp is really old enough. The result never depends on Ankr applying
+// its address or date filters. Items missing either field never count.
+async function ankrHasTxBefore(e,address,beforeSec){
+  const me=String(address).toLowerCase();
+  const q={address:[address],blockchain:ANKR_CHAINS,toTimestamp:beforeSec,descOrder:false,pageSize:20};
+  const counts=(list,fromKey,toKey)=>(list||[]).some(t=>{
+    const mine=String(t[fromKey]||"").toLowerCase()===me||String(t[toKey]||"").toLowerCase()===me;
+    const ts=ankrTs(t.timestamp);
+    return mine&&ts!==null&&ts<=beforeSec;
+  });
+  const txs=await ankrCall(e,"ankr_getTransactionsByAddress",q);
+  if(counts(txs.transactions,"from","to"))return true;
+  const tr=await ankrCall(e,"ankr_getTokenTransfers",q);
+  if(counts(tr.transfers,"fromAddress","toAddress"))return true;
+  // diagnostic: Ankr answered with items that don't belong to this wallet
+  const foreign=[...(txs.transactions||[]),...(tr.transfers||[])].filter(t=>![t.from,t.to,t.fromAddress,t.toAddress].some(x=>String(x||"").toLowerCase()===me)).length;
+  if(foreign)console.warn("GOLDITY ankr_history: returned",foreign,"items not belonging to",me);
+  return false;
+}
+
+// A wallet qualifies if it holds >= AIRDROP_MIN_ASSET_TYPES different tokens
+// worth >= AIRDROP_MIN_WALLET_USD in total AND had a transaction at least
 // AIRDROP_MIN_WALLET_AGE_DAYS days ago. Any lookup failure throws,
 // so the user sees "try again" - never a wrong rejection.
 async function airdropWalletEligible(e,address){
@@ -1319,6 +1363,8 @@ async function airdropWalletEligible(e,address){
     console.error("GOLDITY: ANKR_API_KEY not set - airdrop eligibility can't be checked");
     throw new Error("ankr_not_configured");
   }
+  const {types,usd}=await ankrWalletSummary(e,address);
+  if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to check history
   const cutoff=Math.floor(Date.now()/1000)-AIRDROP_MIN_WALLET_AGE_DAYS*86400;
   return await ankrHasTxBefore(e,address,cutoff);
 }
