@@ -1332,7 +1332,9 @@ async function ankrHasTxBefore(e,address,beforeSec){
   const counts=(list,fromKey,toKey)=>(list||[]).some(t=>{
     const mine=String(t[fromKey]||"").toLowerCase()===me||String(t[toKey]||"").toLowerCase()===me;
     const ts=ankrTs(t.timestamp);
-    return mine&&ts!==null&&ts<=beforeSec;
+    const ok=mine&&ts!==null&&ts<=beforeSec;
+    if(ok)console.log("GOLDITY_DIAG old_tx",me,t.blockchain,t.hash||t.transactionHash,t.timestamp,t[fromKey],t[toKey]);
+    return ok;
   });
   const txs=await ankrCall(e,"ankr_getTransactionsByAddress",q);
   if(counts(txs.transactions,"from","to"))return true;
@@ -1361,6 +1363,7 @@ async function airdropWalletEligible(e,address){
     throw new Error("ankr_not_configured");
   }
   const {types,usd}=await ankrWalletSummary(e,address);
+  console.log("GOLDITY_DIAG summary",address,"types",types,"usd",usd);
   if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to check history
   const cutoff=Math.floor(Date.now()/1000)-AIRDROP_MIN_WALLET_AGE_DAYS*86400;
   return await ankrHasTxBefore(e,address,cutoff);
@@ -1409,6 +1412,7 @@ async function claimAirdrop(e,req) {
     let eligible;
     try{eligible=await airdropWalletEligible(e,address);}
     catch(err){console.error("GOLDITY airdrop eligibility RPC error",err);return {ok:false,error:"eligibility_check_failed"};}
+    console.log("GOLDITY_DIAG v4 claim",address,"eligible",eligible);
     if(!eligible)return {ok:false,error:"wallet_not_eligible"};
 
     // Site-wide speed limit (see AIRDROP_GLOBAL_PER_MINUTE).
