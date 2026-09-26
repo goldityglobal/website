@@ -1245,11 +1245,12 @@ const AIRDROP_REFUNDED_ERRORS=new Set([
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
 // Airdrop wallet rule, all on ANY network: total value >= AIRDROP_MIN_WALLET_USD
-// AND at least AIRDROP_MIN_ASSET_TYPES different tokens AND at least
-// AIRDROP_MIN_WALLET_TXS transactions (sent or received).
-const AIRDROP_MIN_WALLET_USD=2;
+// AND at least AIRDROP_MIN_ASSET_TYPES different tokens AND at least one
+// transaction (sent or received) older than AIRDROP_MIN_WALLET_AGE_DAYS -
+// so a wallet a bot created just now doesn't qualify.
+const AIRDROP_MIN_WALLET_USD=1;
 const AIRDROP_MIN_ASSET_TYPES=2;
-const AIRDROP_MIN_WALLET_TXS=3;
+const AIRDROP_MIN_WALLET_AGE_DAYS=3;
 const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
 // Tokens counted for the airdrop wallet check (BNB itself is always counted).
 // Every address below was verified on DexScreener (BNB Smart Chain) on
@@ -1426,22 +1427,20 @@ async function ankrWalletSummary(e,address){
   }
   return {types:types.size,usd};
 }
-// Distinct transactions on the main networks, sent OR received (normal
-// transactions + token transfers, merged by transaction hash so nothing is
-// counted twice). Stops as soon as `need` is reached.
-async function ankrTxCount(e,address,need){
-  const hashes=new Set();
-  const txs=await ankrCall(e,"ankr_getTransactionsByAddress",{address:[address],blockchain:ANKR_CHAINS,pageSize:need,descOrder:true});
-  for(const t of (txs.transactions||[]))if(t.hash)hashes.add(String(t.hash).toLowerCase());
-  if(hashes.size>=need)return hashes.size;
-  const tr=await ankrCall(e,"ankr_getTokenTransfers",{address:[address],blockchain:ANKR_CHAINS,pageSize:need,descOrder:true});
-  for(const t of (tr.transfers||[]))if(t.transactionHash)hashes.add(String(t.transactionHash).toLowerCase());
-  return hashes.size;
+// true if the wallet has at least one transaction (normal tx or token
+// transfer, sent or received) on the main networks at or before `beforeSec`
+// (unix seconds). Uses Ankr's documented toTimestamp filter.
+async function ankrHasTxBefore(e,address,beforeSec){
+  const q={address:[address],blockchain:ANKR_CHAINS,toTimestamp:beforeSec,pageSize:1};
+  const txs=await ankrCall(e,"ankr_getTransactionsByAddress",q);
+  if((txs.transactions||[]).length)return true;
+  const tr=await ankrCall(e,"ankr_getTokenTransfers",q);
+  return (tr.transfers||[]).length>0;
 }
 
 // A wallet qualifies if it holds >= AIRDROP_MIN_ASSET_TYPES different tokens
-// worth >= AIRDROP_MIN_WALLET_USD in total AND has >= AIRDROP_MIN_WALLET_TXS
-// transactions. Any lookup failure throws,
+// worth >= AIRDROP_MIN_WALLET_USD in total AND had a transaction at least
+// AIRDROP_MIN_WALLET_AGE_DAYS days ago. Any lookup failure throws,
 // so the user sees "try again" - never a wrong rejection.
 async function airdropWalletEligible(e,address){
   const code=await rpc(e,"eth_getCode",[address,"latest"]).catch(()=>"0x");
@@ -1456,12 +1455,9 @@ async function airdropWalletEligible(e,address){
     throw new Error("ankr_not_configured");
   }
   const {types,usd}=await ankrWalletSummary(e,address);
-  if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to count transactions
-  const [sentHex,txs]=await Promise.all([
-    rpc(e,"eth_getTransactionCount",[address,"latest"]),
-    ankrTxCount(e,address,AIRDROP_MIN_WALLET_TXS)
-  ]);
-  return Math.max(txs,parseInt(sentHex,16)||0)>=AIRDROP_MIN_WALLET_TXS;
+  if(types<AIRDROP_MIN_ASSET_TYPES||usd<AIRDROP_MIN_WALLET_USD)return false; // no need to check history
+  const cutoff=Math.floor(Date.now()/1000)-AIRDROP_MIN_WALLET_AGE_DAYS*86400;
+  return await ankrHasTxBefore(e,address,cutoff);
 }
 
 async function airdropStatus(e) {
