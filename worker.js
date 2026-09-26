@@ -1244,22 +1244,11 @@ const AIRDROP_REFUNDED_ERRORS=new Set([
 // never come close; a bot farm hits it immediately, which turns a drain of
 // thousands of claims in minutes into a slow trickle you can see and pause.
 const AIRDROP_GLOBAL_PER_MINUTE=20;
-// A wallet qualifies if the TOTAL value of what it holds is at least
-// AIRDROP_MIN_WALLET_USD (UPDATED). Everything below is added together:
-// BNB + stablecoins + the popular tokens list, each priced live from its
-// PancakeSwap pool. So 0.4$ of BNB + 0.7$ of USDT = 1.1$ -> eligible.
-// Dust (0.000001 of a token) is worth ~0$, so splitting tokens into
-// thousands of bot wallets no longer works - each wallet needs real value.
-// GDTY also counts, at its real market price (0.03 GDTY from a previous
-// claim is not enough on its own unless GDTY is worth > ~33$).
-const AIRDROP_MIN_WALLET_USD=2;
-// ...AND the wallet must have at least this many transactions on BSC,
-// sent or received (see airdropWalletEligible).
-const AIRDROP_MIN_WALLET_TXS=2;
-// ...AND hold at least this many DIFFERENT currencies (BNB and the tokens
-// listed below each count as one). Each currency held had to be received in a
-// transaction, so this also proves received transactions.
+// Airdrop wallet rule: at least AIRDROP_MIN_ASSET_TYPES different tokens
+// (from any network) AND at least AIRDROP_MIN_WALLET_TXS transactions (any
+// network, sent or received). No minimum dollar value.
 const AIRDROP_MIN_ASSET_TYPES=2;
+const AIRDROP_MIN_WALLET_TXS=3;
 const WBNB_ADDR="0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
 // Tokens counted for the airdrop wallet check (BNB itself is always counted).
 // Every address below was verified on DexScreener (BNB Smart Chain) on
@@ -1323,12 +1312,6 @@ const AIRDROP_PRICED_TOKENS=[ // priced live (DexScreener, fallback PancakeSwap 
   "0xa1faa113cbe53436df28ff0aee54275c13b40975", // ALPHA
   "0xe02df9e3e622debdd69fb838bb799e3f168902c5"  // BAKE
 ];
-// A DexScreener price is only used from a pool with at least this much
-// liquidity, so a thin pool can't be used to fake a price.
-const AIRDROP_MIN_DEX_LIQ_USD=10000;
-// A pool must hold at least this much (in USD) on its quote side for its
-// price to be trusted - stops a tiny fake pool from inflating a price.
-const AIRDROP_MIN_POOL_LIQ_USD=500;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
 const AIRDROP_CONTRACT_OWNER="0x4908ab7fcceb4d762b71c765c17dea4456cbf22d";
 
@@ -1372,27 +1355,6 @@ async function releaseAirdropIpSlot(e,ipHash) {
   await e.DB.prepare("UPDATE rate_limits SET attempts=MAX(0,attempts-1) WHERE key=?").bind(`airdrop:ip-hour:${ipHash}`).run();
 }
 
-const tokenDecimalsCache=new Map();
-async function tokenDecimals(e,t){
-  if(tokenDecimalsCache.has(t))return tokenDecimalsCache.get(t);
-  const d=Number(BigInt(await call(e,t,S.dec)));
-  tokenDecimalsCache.set(t,d);
-  return d;
-}
-
-// Price of 1 `token` in `quote` units from its PancakeSwap V2 pool, plus how
-// much of `quote` the pool holds (used as a liquidity sanity check).
-async function poolPrice(e,token,quote){
-  const p=addr(await call(e,A.PF,S.pair+pad(token)+pad(quote)));
-  if(!p||p===Z)return null;
-  const [x0,rr,td,qd]=await Promise.all([call(e,p,S.t0),call(e,p,S.r),tokenDecimals(e,token),tokenDecimals(e,quote)]);
-  const r0=BigInt("0x"+rr.slice(2,66)),r1=BigInt("0x"+rr.slice(66,130));
-  const tokenIs0=addr(x0)===token;
-  const tRes=Number(tokenIs0?r0:r1)/10**td, qRes=Number(tokenIs0?r1:r0)/10**qd;
-  if(!(tRes>0)||!(qRes>0))return null;
-  return {price:qRes/tRes,quoteLiq:qRes};
-}
-
 // --- Multicall3 (verified deployed on BNB Smart Chain at this address,
 // github.com/mds1/multicall3 deployments.json). Lets the check read every
 // token balance in ONE request instead of one request per token.
@@ -1434,124 +1396,84 @@ async function multicall(e,calls){
   return res;
 }
 
-// --- Prices. BNB: PancakeSwap V2 WBNB/USDT pool (deep, reliable). Other
-// tokens: DexScreener (all pools, V2 + V3) using only pools with enough
-// liquidity; if DexScreener has no usable price, PancakeSwap V2 on-chain.
-// Only tokens the wallet actually holds are priced. Successful prices are
-// cached 10 minutes; failures are never cached.
-const airdropPriceCache=new Map(); // token -> {at, price|null}
-let airdropBnbPrice={at:0,price:0};
-async function airdropBnbUsd(e){
-  if(airdropBnbPrice.price&&Date.now()-airdropBnbPrice.at<600000)return airdropBnbPrice.price;
-  const bnb=await poolPrice(e,WBNB_ADDR,A.U);
-  if(!bnb||bnb.quoteLiq<AIRDROP_MIN_POOL_LIQ_USD)throw new Error("bnb_price_unavailable");
-  airdropBnbPrice={at:Date.now(),price:bnb.price};
-  return bnb.price;
+// --- Ankr Advanced API (free "Freemium" plan, needs ANKR_API_KEY secret).
+// Reads a wallet across many networks. Docs: ankr.com/docs/advanced-api.
+const ANKR_CHAINS=["eth","bsc","polygon","arbitrum","optimism","base","avalanche"];
+async function ankrCall(e,method,params){
+  const r=await fetch(`https://rpc.ankr.com/multichain/${e.ANKR_API_KEY}/?${method}`,{
+    method:"POST",headers:{"content-type":"application/json"},signal:AbortSignal.timeout(8000),
+    body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.error||!j.result)throw new Error(`ankr_${method}: ${j.error?.message||r.status}`);
+  return j.result;
 }
-// returns a USD price, null if the token has no usable market, or throws if
-// the price sources can't be reached right now
-async function airdropTokenUsd(e,t,bnbUsd){
-  if(t===WBNB_ADDR)return bnbUsd;
-  const c=airdropPriceCache.get(t);
-  if(c&&Date.now()-c.at<600000)return c.price;
-  let price=null,dexOk=false;
-  try{
-    const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${t}`,{signal:AbortSignal.timeout(6000)});
-    if(r.ok){
-      const j=await r.json();
-      dexOk=true;
-      let best=null;
-      for(const p of (j?.pairs||[])){
-        if(p?.chainId!=="bsc"||String(p?.baseToken?.address||"").toLowerCase()!==t)continue;
-        const liq=Number(p?.liquidity?.usd),px=Number(p?.priceUsd);
-        if(!(liq>=AIRDROP_MIN_DEX_LIQ_USD)||!(px>0)||!Number.isFinite(px))continue;
-        if(!best||liq>best.liq)best={liq,px};
-      }
-      if(best)price=best.px;
-    }
-  }catch{}
-  if(price===null){
-    try{
-      const viaUsdt=await poolPrice(e,t,A.U);
-      if(viaUsdt&&viaUsdt.quoteLiq>=AIRDROP_MIN_POOL_LIQ_USD)price=viaUsdt.price;
-      else{
-        const viaBnb=await poolPrice(e,t,WBNB_ADDR);
-        if(viaBnb&&viaBnb.quoteLiq*bnbUsd>=AIRDROP_MIN_POOL_LIQ_USD)price=viaBnb.price*bnbUsd;
-      }
-    }catch(err){
-      if(!dexOk)throw err; // neither source reachable -> caller says "try again"
-    }
-    // DexScreener didn't answer and PancakeSwap V2 has no usable pool: the
-    // value is UNKNOWN, not zero - say "try again" and don't cache anything.
-    if(price===null&&!dexOk)throw new Error("price_unavailable");
+// Different tokens held on ANY network. Only CoinGecko-listed tokens count
+// (onlyWhitelisted), so a worthless token a bot creates itself doesn't. The
+// same token on two networks (e.g. USDT on BSC and on Ethereum) is one type.
+async function ankrTokenTypes(e,address){
+  const res=await ankrCall(e,"ankr_getAccountBalance",{walletAddress:address,onlyWhitelisted:true});
+  const types=new Set();
+  for(const a of (res.assets||[])){
+    if(String(a.balanceRawInteger||"0")==="0")continue;
+    const sym=String(a.tokenSymbol||"").trim().toUpperCase();
+    types.add(sym||`${a.blockchain}:${a.contractAddress||"native"}`);
   }
-  airdropPriceCache.set(t,{at:Date.now(),price});
-  return price;
+  return types.size;
+}
+// Distinct transactions on the main networks, sent OR received (normal
+// transactions + token transfers, merged by transaction hash so nothing is
+// counted twice). Stops as soon as `need` is reached.
+async function ankrTxCount(e,address,need){
+  const hashes=new Set();
+  const txs=await ankrCall(e,"ankr_getTransactionsByAddress",{address:[address],blockchain:ANKR_CHAINS,pageSize:need,descOrder:true});
+  for(const t of (txs.transactions||[]))if(t.hash)hashes.add(String(t.hash).toLowerCase());
+  if(hashes.size>=need)return hashes.size;
+  const tr=await ankrCall(e,"ankr_getTokenTransfers",{address:[address],blockchain:ANKR_CHAINS,pageSize:need,descOrder:true});
+  for(const t of (tr.transfers||[]))if(t.transactionHash)hashes.add(String(t.transactionHash).toLowerCase());
+  return hashes.size;
 }
 
-const airdropDecimalsCache=new Map();
+// BSC-only fallback, used while ANKR_API_KEY isn't set: the fixed token list
+// above (one Multicall request) + BNB; transactions = sent (from the network)
+// + one received per token held.
+async function bscTokenTypesAndTxs(e,address){
+  const tokens=[...AIRDROP_STABLE_TOKENS,...AIRDROP_PRICED_TOKENS];
+  const [sentHex,bnbHex,results]=await Promise.all([
+    rpc(e,"eth_getTransactionCount",[address,"latest"]),
+    rpc(e,"eth_getBalance",[address,"latest"]),
+    multicall(e,tokens.map(t=>({target:t,data:S.balanceOf+pad(address)})))
+  ]);
+  let types=BigInt(bnbHex)>0n?1:0;
+  tokens.forEach((t,i)=>{
+    const r=results[i];
+    // a token contract that fails inside the multicall = not held
+    if(r.success&&r.data.length>=66&&BigInt(r.data.slice(0,66))>0n)types++;
+  });
+  return {types,txs:(parseInt(sentHex,16)||0)+types};
+}
 
-// A wallet qualifies only if ALL of these are true:
-//  - total value >= AIRDROP_MIN_WALLET_USD
-//  - it holds >= AIRDROP_MIN_ASSET_TYPES different currencies
-//  - it has >= AIRDROP_MIN_WALLET_TXS transactions, sent or received
-//    (sent = from the network; received = at least one per currency held)
-// If some lookups fail, the result is "try again", never a wrong rejection.
+// A wallet qualifies if it holds >= AIRDROP_MIN_ASSET_TYPES different tokens
+// AND has >= AIRDROP_MIN_WALLET_TXS transactions. Any lookup failure throws,
+// so the user sees "try again" - never a wrong rejection.
 async function airdropWalletEligible(e,address){
   const code=await rpc(e,"eth_getCode",[address,"latest"]).catch(()=>"0x");
   // Contracts can't be a personal wallet. "0xef0100..." is an EIP-7702
   // delegated normal wallet (e.g. MetaMask smart account) - allowed.
   if(code&&code!=="0x"&&!String(code).toLowerCase().startsWith("0xef0100"))return false;
 
-  const tokens=[...AIRDROP_STABLE_TOKENS,...AIRDROP_PRICED_TOKENS];
-  const needDec=tokens.filter(t=>!airdropDecimalsCache.has(t));
-  const calls=[
-    ...tokens.map(t=>({target:t,data:S.balanceOf+pad(address)})),
-    ...needDec.map(t=>({target:t,data:S.dec}))
-  ];
-  const [sentHex,bnbHex,results]=await Promise.all([
+  if(!e.ANKR_API_KEY){
+    console.error("GOLDITY: ANKR_API_KEY not set - airdrop check is BSC-only");
+    const {types,txs}=await bscTokenTypesAndTxs(e,address);
+    return types>=AIRDROP_MIN_ASSET_TYPES&&txs>=AIRDROP_MIN_WALLET_TXS;
+  }
+  const types=await ankrTokenTypes(e,address);
+  if(types<AIRDROP_MIN_ASSET_TYPES)return false; // no need to count transactions
+  const [sentHex,txs]=await Promise.all([
     rpc(e,"eth_getTransactionCount",[address,"latest"]),
-    rpc(e,"eth_getBalance",[address,"latest"]),
-    multicall(e,calls) // one request for every token; throws -> "try again"
+    ankrTxCount(e,address,AIRDROP_MIN_WALLET_TXS)
   ]);
-  needDec.forEach((t,i)=>{
-    const r=results[tokens.length+i];
-    if(r.success&&r.data.length>=66){const d=Number(BigInt(r.data.slice(0,66)));if(d>=0&&d<=36)airdropDecimalsCache.set(t,d);}
-  });
-
-  const sentTxs=parseInt(sentHex,16)||0;
-  const bnbWei=BigInt(bnbHex);
-  let assetsHeld=bnbWei>0n?1:0;
-  let usd=0,uncertain=false;
-  const bnbUsd=await airdropBnbUsd(e);
-  usd+=Number(bnbWei)/1e18*bnbUsd;
-
-  const held=[];
-  tokens.forEach((t,i)=>{
-    const r=results[i];
-    // A token call that fails inside the multicall = that contract didn't
-    // answer balanceOf normally: treat as not held (the network itself answered).
-    if(!r.success||r.data.length<66)return;
-    const bal=BigInt(r.data.slice(0,66));
-    if(bal>0n)held.push({t,bal});
-  });
-  assetsHeld+=held.length;
-
-  await Promise.all(held.map(async({t,bal})=>{
-    const dec=airdropDecimalsCache.get(t);
-    if(dec===undefined){uncertain=true;return;}
-    const amount=Number(bal)/10**dec;
-    if(AIRDROP_STABLE_TOKENS.includes(t)){usd+=amount;return;}
-    try{
-      const px=await airdropTokenUsd(e,t,bnbUsd);
-      if(px)usd+=amount*px;
-    }catch{uncertain=true;}
-  }));
-
-  const txs=sentTxs+assetsHeld;
-  const ok=usd>=AIRDROP_MIN_WALLET_USD&&assetsHeld>=AIRDROP_MIN_ASSET_TYPES&&txs>=AIRDROP_MIN_WALLET_TXS;
-  if(!ok&&uncertain)throw new Error("balance_lookup_incomplete"); // -> "try again"
-  return ok;
+  return Math.max(txs,parseInt(sentHex,16)||0)>=AIRDROP_MIN_WALLET_TXS;
 }
 
 async function airdropStatus(e) {
