@@ -323,7 +323,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
         forbidden: "Your browser blocked this request. If you're in an app's built-in browser (Instagram, Facebook, etc.), try opening this page in Chrome or Safari instead, then try again.",
         validation_failed: "Could not read a valid wallet address.",
         captcha_failed: "Verification failed. Please complete the check below and try again.",
-        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet needs at least one transaction from a week ago or earlier.",
+        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet needs at least 2 different tokens, $1 in value, and a transaction from a week ago or earlier.",
         eligibility_check_failed: "We couldn't check your wallet on BNB Smart Chain right now. Please try again in a moment.",
         airdrop_busy: "Lots of people are claiming right now. Please wait a minute and try again.",
         claim_pending_check: "Your claim is being processed by the network. Please don't claim again - check your wallet in a few minutes.",
