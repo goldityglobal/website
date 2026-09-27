@@ -1277,8 +1277,33 @@ async function releaseAirdropSlot(e) {
 // the transfer then can't be sent, so rejected attempts don't use it up.
 const AIRDROP_CLAIMS_PER_IP_PER_HOUR=1;
 // Claims are paid AIRDROP_HOLD_HOURS after they are made (see processQueuedAirdrops).
-const AIRDROP_HOLD_HOURS=24;
+const AIRDROP_HOLD_HOURS=24;      // earliest payout
+const AIRDROP_HOLD_MAX_HOURS=24;  // latest payout (same as earliest = fixed 24h)
 const AIRDROP_PAY_PER_RUN=8; // cron runs every 3 min -> up to ~160 payouts/hour
+// Each claim gets its own secret payout time between AIRDROP_HOLD_HOURS and
+// AIRDROP_HOLD_MAX_HOURS (derived from the claim id + IP_HASH_SECRET), so a
+// bot can't refill its wallets just before the check.
+async function airdropPayoutDelayMs(e,claimId){
+  const h=await hashIp(e,"payout-delay:"+claimId);
+  const frac=parseInt(h.slice(0,8),16)/0xffffffff;
+  return Math.round((AIRDROP_HOLD_HOURS+frac*(AIRDROP_HOLD_MAX_HOURS-AIRDROP_HOLD_HOURS))*3600000);
+}
+// true if the wallet sent coins or tokens OUT since `sinceSec`. Bot farms pass
+// the same $1-2 from wallet to wallet right after claiming; a real user just
+// keeps it. Zero-value txs (approve etc.) don't count.
+async function airdropSentOutSince(e,address,sinceSec){
+  const me=String(address).toLowerCase();
+  const q={address:[address],blockchain:ANKR_CHAINS,fromTimestamp:sinceSec,descOrder:true,pageSize:100};
+  const [txs,tr]=await Promise.all([
+    ankrCall(e,"ankr_getTransactionsByAddress",q),
+    ankrCall(e,"ankr_getTokenTransfers",q)
+  ]);
+  const nonZero=v=>{const x=String(v??"0").trim();if(x===""||x==="0"||/^0x0*$/i.test(x))return false;const n=Number(x.startsWith("0x")?parseInt(x,16):x);return !(Number.isFinite(n)&&n===0);};
+  const since=t=>{const ts=ankrTs(t.timestamp);return ts===null||ts>=sinceSec;};
+  const out=(txs.transactions||[]).some(t=>String(t.from||"").toLowerCase()===me&&nonZero(t.value)&&since(t))
+    ||(tr.transfers||[]).some(t=>String(t.fromAddress||"").toLowerCase()===me&&nonZero(t.value??t.valueRawInteger)&&since(t));
+  return out;
+}
 
 async function reserveAirdropIpSlot(e,ipHash) {
   return rateLimit(e,`airdrop:ip-hour:${ipHash}`,AIRDROP_CLAIMS_PER_IP_PER_HOUR,3600000);
@@ -1486,7 +1511,7 @@ async function claimAirdrop(e,req) {
     await releaseAirdropIpSlot(e,ipHash);
     return {ok:false,error:"wallet_already_claimed"};
   }
-  return {ok:true,queued:true,holdHours:AIRDROP_HOLD_HOURS,amountWei:AIRDROP_REWARD_WEI.toString()};
+  return {ok:true,queued:true,holdHours:AIRDROP_HOLD_MAX_HOURS,amountWei:AIRDROP_REWARD_WEI.toString()};
 }
 
 // Sends one claim on-chain. The row must already be locked (status 'paying').
@@ -1541,17 +1566,23 @@ async function payAirdropClaim(e,claim){
 // and is not linked to the bot farm. Nothing is paid while the airdrop is paused.
 async function processQueuedAirdrops(e){
   if(await airdropIsPaused(e))return;
-  const due=new Date(Date.now()-AIRDROP_HOLD_HOURS*3600000).toISOString();
-  const {results}=await e.DB.prepare("SELECT * FROM airdrop_claims WHERE status='queued' AND created_at<=? ORDER BY created_at LIMIT ?").bind(due,AIRDROP_PAY_PER_RUN).all();
+  const earliest=new Date(Date.now()-AIRDROP_HOLD_HOURS*3600000).toISOString();
+  const {results}=await e.DB.prepare("SELECT * FROM airdrop_claims WHERE status='queued' AND created_at<=? ORDER BY created_at LIMIT 200").bind(earliest).all();
+  let done=0;
   for(const claim of (results||[])){
+    if(done>=AIRDROP_PAY_PER_RUN)break;
+    const createdMs=Date.parse(claim.created_at);
+    if(Date.now()<createdMs+await airdropPayoutDelayMs(e,claim.id))continue; // not its time yet
+    done++;
     // Atomic lock: a claim can only ever be picked by one run.
     const lock=await e.DB.prepare("UPDATE airdrop_claims SET status='paying' WHERE id=? AND status='queued'").bind(claim.id).run();
     if(!lock?.meta?.changes)continue;
     let ok;
     try{
       const {types,usd}=await ankrWalletSummary(e,claim.wallet_address);
-      ok=types>=AIRDROP_MIN_ASSET_TYPES&&usd>=AIRDROP_MIN_WALLET_USD&&!await airdropLinkedToFarm(e,claim.wallet_address);
-      console.log("GOLDITY_DIAG payout_check",claim.wallet_address,"types",types,"usd",usd,"ok",ok);
+      const drained=await airdropSentOutSince(e,claim.wallet_address,Math.floor(createdMs/1000));
+      ok=!drained&&types>=AIRDROP_MIN_ASSET_TYPES&&usd>=AIRDROP_MIN_WALLET_USD&&!await airdropLinkedToFarm(e,claim.wallet_address);
+      console.log("GOLDITY_DIAG payout_check",claim.wallet_address,"types",types,"usd",usd,"sent_out",drained,"ok",ok);
     }catch(err){
       console.error("GOLDITY payout re-check error - will retry",claim.wallet_address,err);
       await e.DB.prepare("UPDATE airdrop_claims SET status='queued' WHERE id=? AND status='paying'").bind(claim.id).run();
