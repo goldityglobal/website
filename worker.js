@@ -1276,6 +1276,10 @@ async function releaseAirdropSlot(e) {
 // The slot is taken only once every check has passed, and is given back if
 // the transfer then can't be sent, so rejected attempts don't use it up.
 const AIRDROP_CLAIMS_PER_IP_PER_HOUR=1;
+// Claims are paid AIRDROP_HOLD_HOURS after they are made (see processQueuedAirdrops).
+const AIRDROP_HOLD_HOURS=24;
+const AIRDROP_PAY_PER_RUN=8; // cron runs every 3 min -> up to ~160 payouts/hour
+
 async function reserveAirdropIpSlot(e,ipHash) {
   return rateLimit(e,`airdrop:ip-hour:${ipHash}`,AIRDROP_CLAIMS_PER_IP_PER_HOUR,3600000);
 }
@@ -1467,39 +1471,36 @@ async function claimAirdrop(e,req) {
     return {ok:false,error:"db_busy"};
   }
 
+  // The claim is only QUEUED here. It is paid by the cron job after
+  // AIRDROP_HOLD_HOURS, and only if the wallet still qualifies then (see
+  // processQueuedAirdrops). Bot farms move the same $1-2 from wallet to
+  // wallet within minutes, so they no longer hold it when payout time comes.
   const claimId=id(),now=nowIso();
-  const failBeforeBroadcast=async(error)=>{
-    await releaseAirdropSlot(e);
-    await releaseAirdropIpSlot(e,ipHash);
-    await e.DB.prepare("DELETE FROM airdrop_claims WHERE id=?").bind(claimId).run().catch(()=>{});
-    return {ok:false,error};
-  };
-
   try{
     await e.DB.prepare(`
       INSERT INTO airdrop_claims(id,wallet_address,ip_hash,amount_wei,status,created_at)
       VALUES(?,?,?,?,?,?)
-    `).bind(claimId,address,ipHash,AIRDROP_REWARD_WEI.toString(),"processing",now).run();
+    `).bind(claimId,address,ipHash,AIRDROP_REWARD_WEI.toString(),"queued",now).run();
   }catch{
     await releaseAirdropSlot(e);
     await releaseAirdropIpSlot(e,ipHash);
     return {ok:false,error:"wallet_already_claimed"};
   }
+  return {ok:true,queued:true,holdHours:AIRDROP_HOLD_HOURS,amountWei:AIRDROP_REWARD_WEI.toString()};
+}
 
-  if(!e.REFERRAL_PAYOUT_PRIVATE_KEY)return await failBeforeBroadcast("airdrop_not_configured");
-
+// Sends one claim on-chain. The row must already be locked (status 'paying').
+// Returns "sent", "unknown" (may be on-chain - kept for a manual BscScan
+// check, never retried) or "retry" (definitely not sent - back to the queue).
+async function payAirdropClaim(e,claim){
+  const back=async()=>{await e.DB.prepare("UPDATE airdrop_claims SET status='queued' WHERE id=? AND status='paying'").bind(claim.id).run().catch(()=>{});return "retry";};
+  if(!e.REFERRAL_PAYOUT_PRIVATE_KEY)return back();
   let payoutAddress;
-  try{payoutAddress=addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);}catch{
-    return await failBeforeBroadcast("airdrop_not_configured");
-  }
+  try{payoutAddress=addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);}catch{return back();}
   if(payoutAddress.toLowerCase()!==AIRDROP_CONTRACT_OWNER){
     console.error("GOLDITY airdrop owner mismatch - configured key does not control the airdrop contract");
-    return await failBeforeBroadcast("airdrop_not_configured");
+    return back();
   }
-
-  // Stage A: everything up to and including the broadcast. If anything here
-  // throws, the transaction was never (successfully) sent, so it is still
-  // safe to release the reserved slots and delete the claim row.
   let txHash;
   try{
     const [gdtyBal,bnbRaw]=await Promise.all([
@@ -1507,39 +1508,64 @@ async function claimAirdrop(e,req) {
       rpc(e,"eth_getBalance",[payoutAddress,"latest"])
     ]);
     if(BigInt(gdtyBal)<AIRDROP_REWARD_WEI||BigInt(bnbRaw)<2000000000000000n){
-      return await failBeforeBroadcast("airdrop_treasury_empty");
+      console.error("GOLDITY airdrop treasury empty - queued claims wait");
+      return back();
     }
     const gasPrice=await getGasPrice(e);
-    const gasLimit=150000;
-    const data=singleAirdropData(address,AIRDROP_REWARD_WEI);
+    const data=singleAirdropData(claim.wallet_address,AIRDROP_REWARD_WEI);
     const nonce=await getNonce(e,payoutAddress);
-    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit,to:AIRDROP_CONTRACT,value:0n,data});
+    const signedTx=await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY,{nonce,gasPrice,gasLimit:150000,to:AIRDROP_CONTRACT,value:0n,data});
     const b=await safeBroadcast(e,signedTx);
     if(b.sent==="unknown"){
-      // May already be on-chain: keep the slot + claim row reserved so this
-      // wallet can't claim again; record the hash for a manual BscScan check.
-      await e.DB.prepare("UPDATE airdrop_claims SET tx_hash=? WHERE id=?").bind(b.txHash,claimId).run().catch(()=>{});
-      console.error("GOLDITY airdrop broadcast outcome unknown - check on BscScan",b.txHash,claimId);
-      return {ok:false,error:"claim_pending_check"};
+      await e.DB.prepare("UPDATE airdrop_claims SET status='processing',tx_hash=? WHERE id=?").bind(b.txHash,claim.id).run().catch(()=>{});
+      console.error("GOLDITY airdrop broadcast outcome unknown - check on BscScan",b.txHash,claim.id);
+      return "unknown";
     }
     if(!b.sent)throw b.err;
     txHash=b.txHash;
   }catch(err){
     console.error("GOLDITY airdrop broadcast error",err);
-    return await failBeforeBroadcast("airdrop_send_failed");
+    return back();
   }
-
-  // Stage B: the transaction is on-chain now (we have a txHash). From this
-  // point on we NEVER release the slot, delete the claim, or allow a retry -
-  // doing so could let the same wallet claim again and double the payout.
-  // A failure here only means our own bookkeeping write failed; it is
-  // recorded for manual reconciliation instead.
+  // On-chain now: never re-queue from here on.
   try{
-    await e.DB.prepare("UPDATE airdrop_claims SET status='sent',tx_hash=? WHERE id=?").bind(txHash,claimId).run();
+    await e.DB.prepare("UPDATE airdrop_claims SET status='sent',tx_hash=? WHERE id=?").bind(txHash,claim.id).run();
   }catch(err){
-    console.error("GOLDITY CRITICAL: airdrop broadcast succeeded but DB recording failed - manual reconciliation required",txHash,claimId,err);
+    console.error("GOLDITY CRITICAL: airdrop broadcast succeeded but DB recording failed - manual reconciliation required",txHash,claim.id,err);
   }
-  return {ok:true,txHash,amountWei:AIRDROP_REWARD_WEI.toString()};
+  return "sent";
+}
+
+// Cron: pays claims that have waited AIRDROP_HOLD_HOURS, after checking the
+// wallet STILL has >= AIRDROP_MIN_ASSET_TYPES tokens worth >= AIRDROP_MIN_WALLET_USD
+// and is not linked to the bot farm. Nothing is paid while the airdrop is paused.
+async function processQueuedAirdrops(e){
+  if(await airdropIsPaused(e))return;
+  const due=new Date(Date.now()-AIRDROP_HOLD_HOURS*3600000).toISOString();
+  const {results}=await e.DB.prepare("SELECT * FROM airdrop_claims WHERE status='queued' AND created_at<=? ORDER BY created_at LIMIT ?").bind(due,AIRDROP_PAY_PER_RUN).all();
+  for(const claim of (results||[])){
+    // Atomic lock: a claim can only ever be picked by one run.
+    const lock=await e.DB.prepare("UPDATE airdrop_claims SET status='paying' WHERE id=? AND status='queued'").bind(claim.id).run();
+    if(!lock?.meta?.changes)continue;
+    let ok;
+    try{
+      const {types,usd}=await ankrWalletSummary(e,claim.wallet_address);
+      ok=types>=AIRDROP_MIN_ASSET_TYPES&&usd>=AIRDROP_MIN_WALLET_USD&&!await airdropLinkedToFarm(e,claim.wallet_address);
+      console.log("GOLDITY_DIAG payout_check",claim.wallet_address,"types",types,"usd",usd,"ok",ok);
+    }catch(err){
+      console.error("GOLDITY payout re-check error - will retry",claim.wallet_address,err);
+      await e.DB.prepare("UPDATE airdrop_claims SET status='queued' WHERE id=? AND status='paying'").bind(claim.id).run();
+      continue;
+    }
+    if(!ok){
+      // Row stays (status 'rejected') so the same wallet can't claim again;
+      // its slot in the 10,000 counter is given back.
+      await e.DB.prepare("UPDATE airdrop_claims SET status='rejected' WHERE id=? AND status='paying'").bind(claim.id).run();
+      await releaseAirdropSlot(e);
+      continue;
+    }
+    await payAirdropClaim(e,claim);
+  }
 }
 
 
@@ -1848,5 +1874,6 @@ export default {
     if(!e.DB)return;
     try{await scanForNewTrades(e);}catch(err){console.error("GOLDITY scanner error",err);}
     try{await graduateOverdueRewardsGlobal(e);}catch(err){console.error("GOLDITY global graduate error",err);}
+    try{await processQueuedAirdrops(e);}catch(err){console.error("GOLDITY airdrop payout error",err);}
   }
 };
