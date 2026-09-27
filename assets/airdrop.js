@@ -336,7 +336,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     setState("");
     $("airdropSuccess").style.display = "";
     if (data.queued) {
-      $("airdropSuccess").querySelector("strong").textContent = `✅ Your claim is registered. 0.03 GDTY will be sent to your wallet within ${data.holdHours || 24} hours. Keep your tokens in the wallet until then.`;
+      $("airdropSuccess").querySelector("strong").textContent = `✅ Your claim is registered. 0.03 GDTY will be sent to your wallet within ${data.holdHours || 24} hours. Don't send any coins or tokens out of this wallet until then, or the claim will be cancelled.`;
       $("airdropTxLink").style.display = "none";
     } else {
       $("airdropTxLink").href = `https://bscscan.com/tx/${encodeURIComponent(data.txHash)}`;
