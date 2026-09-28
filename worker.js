@@ -1237,7 +1237,7 @@ const AIRDROP_GLOBAL_PER_MINUTE=20;
 // Airdrop wallet rule (0x networks): at least one transaction (sent or
 // received) older than AIRDROP_MIN_WALLET_AGE_DAYS, AND at least
 // AIRDROP_MIN_ASSET_TYPES different tokens, AND total value >= AIRDROP_MIN_WALLET_USD.
-const AIRDROP_MIN_WALLET_AGE_DAYS=7;
+const AIRDROP_MIN_WALLET_AGE_DAYS=0; // 0 = any sent transaction, no age limit
 const AIRDROP_MIN_ASSET_TYPES=2;
 const AIRDROP_MIN_WALLET_USD=1;
 const AIRDROP_CONTRACT="0xb34b0a10386b559093a0324bfd2c401e0063d4d5";
