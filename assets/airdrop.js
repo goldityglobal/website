@@ -312,22 +312,22 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     window.turnstile?.reset("#turnstileWidget");
     if (!res.ok || !data.ok) {
       const messages = {
-        wallet_already_claimed: "This wallet has already claimed the airdrop.",
-        ip_limit_reached: "Only 1 claim per hour is allowed from your network. Please try again later.",
-        airdrop_full: "All 10,000 claims have been taken. Thanks for your interest!",
-        airdrop_paused: "The airdrop is currently paused. Please check back later.",
-        rate_limited: "Too many attempts. Please wait a moment and try again.",
-        invalid_wallet: "Could not read a valid wallet address.",
-        airdrop_treasury_empty: "The airdrop pool is temporarily unavailable. Please try again later.",
-        airdrop_not_configured: "The airdrop isn't fully set up yet. Please check back soon.",
-        forbidden: "Your browser blocked this request. If you're in an app's built-in browser (Instagram, Facebook, etc.), try opening this page in Chrome or Safari instead, then try again.",
-        validation_failed: "Could not read a valid wallet address.",
-        captcha_failed: "Verification failed. Please complete the check below and try again.",
-        wallet_not_eligible: "This wallet isn't eligible. To claim, your wallet needs at least 2 different tokens, $1 in value, and a transaction sent from it a week ago or earlier.",
-        eligibility_check_failed: "We couldn't check your wallet on BNB Smart Chain right now. Please try again in a moment.",
-        airdrop_busy: "Lots of people are claiming right now. Please wait a minute and try again.",
-        claim_pending_check: "Your claim is being processed by the network. Please don't claim again - check your wallet in a few minutes.",
-        db_busy: "The airdrop is experiencing very high traffic right now. Please wait a moment and try again."
+        wallet_already_claimed: "This wallet already claimed.",
+        ip_limit_reached: "1 claim per hour per network. Try later.",
+        airdrop_full: "All 10,000 claims are taken.",
+        airdrop_paused: "Airdrop is paused. Check back later.",
+        rate_limited: "Too many attempts. Wait a moment.",
+        invalid_wallet: "Invalid wallet address.",
+        airdrop_treasury_empty: "Airdrop pool unavailable. Try later.",
+        airdrop_not_configured: "Airdrop not ready yet. Check back soon.",
+        forbidden: "Blocked by in-app browser. Open in Chrome, Safari or your wallet browser.",
+        validation_failed: "Invalid wallet address.",
+        captcha_failed: "Verification failed. Try again.",
+        wallet_not_eligible: "Not eligible. Needs 2+ tokens, $1+ value and 1 sent transaction.",
+        eligibility_check_failed: "Couldn't check your wallet. Try again.",
+        airdrop_busy: "Very busy. Try again in a minute.",
+        claim_pending_check: "Claim is processing. Don't claim again.",
+        db_busy: "High traffic. Try again shortly."
       };
       setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
       $("claimAirdrop").disabled = false;
@@ -336,7 +336,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     setState("");
     $("airdropSuccess").style.display = "";
     if (data.queued) {
-      $("airdropSuccess").querySelector("strong").textContent = `✅ Your claim is registered. 0.03 GDTY will be sent to your wallet within ${data.holdHours || 24} hours. Don't send any coins or tokens out of this wallet until then, or the claim will be cancelled.`;
+      $("airdropSuccess").querySelector("strong").textContent = `✅ Claim registered. 0.03 GDTY arrives within ${data.holdHours || 24}h. Don't move funds out of this wallet until then.`;
       $("airdropTxLink").style.display = "none";
     } else {
       $("airdropTxLink").href = `https://bscscan.com/tx/${encodeURIComponent(data.txHash)}`;
