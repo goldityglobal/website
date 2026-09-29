@@ -10,6 +10,16 @@ const ref=document.getElementById("referralCode");
 
 const refStatus=document.getElementById("refStatus");
 
+// Cloudflare Turnstile (bot check). The token is sent with the form; the server
+// requires it unless REGISTER_REQUIRE_CAPTCHA=false is set on the Worker.
+let turnstileToken=null;
+window.onTurnstileSuccess=token=>{turnstileToken=token;};
+window.onTurnstileExpired=()=>{turnstileToken=null;};
+function resetTurnstile(){
+  turnstileToken=null;
+  try{window.turnstile&&window.turnstile.reset("#turnstileWidget");}catch{}
+}
+
  
 
 function setState(message){
@@ -120,6 +130,12 @@ if(form){
 
  
 
+    const captchaOk=turnstileToken||(form.querySelector('[name="cf-turnstile-response"]')||{}).value;
+    if(!captchaOk){
+      setState("Please complete the security check above, then press Create Account again.");
+      return;
+    }
+
     setState("Creating account…");
 
  
@@ -139,6 +155,9 @@ if(form){
     data.privacyAccepted=form.termsPrivacyAccepted.checked;
 
     data.marketingConsent=false;
+
+    data.turnstileToken=turnstileToken||data["cf-turnstile-response"]||"";
+    delete data["cf-turnstile-response"];
 
  
 
@@ -169,6 +188,8 @@ if(form){
  
 
       const result=await readJson(response);
+
+      resetTurnstile();
 
  
 
@@ -235,6 +256,8 @@ if(form){
  
 
     }catch(error){
+
+      resetTurnstile();
 
       setState(
 
