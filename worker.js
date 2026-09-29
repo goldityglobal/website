@@ -1509,16 +1509,28 @@ async function walletVerify(e, req) {
   return out({ ok: true, walletAddress: ch.wallet_address }, 200, 0, cors(e));
 }
 __name(walletVerify, "walletVerify");
+var DISPOSABLE_EMAIL_DOMAINS = /* @__PURE__ */ new Set([
+  "mailinator.com", "guerrillamail.com", "guerrillamail.net", "guerrillamail.org", "guerrillamail.biz", "guerrillamail.de", "sharklasers.com", "grr.la",
+  "10minutemail.com", "10minutemail.net", "tempmail.com", "temp-mail.org", "temp-mail.io", "tempmail.net", "tempmailo.com", "tempr.email",
+  "yopmail.com", "yopmail.net", "yopmail.fr", "trashmail.com", "trashmail.net", "getnada.com", "nada.email", "dispostable.com", "maildrop.cc",
+  "throwawaymail.com", "fakeinbox.com", "mailnesia.com", "mintemail.com", "mohmal.com", "emailondeck.com", "burnermail.io", "spamgourmet.com",
+  "mytemp.email", "tmpmail.org", "tmpmail.net", "moakt.com", "discard.email", "mailcatch.com", "inboxkitten.com", "harakirimail.com", "spambox.us",
+  "1secmail.com", "1secmail.net", "1secmail.org"
+]);
 async function registerUser(e, req) {
   if (!e.DB) return out({ ok: false, error: "registration_not_configured" }, 503, cors(e));
   if (!await requireOrigin(e, req)) return out({ ok: false, error: "forbidden" }, 403, cors(e));
-  if (!await rateLimit(e, `register:${ip(req)}`, 5, 36e5)) return out({ ok: false, error: "rate_limited" }, 429, cors(e));
+  if (!await rateLimit(e, `register:${ipBucket(ip(req))}`, 5, 36e5)) return out({ ok: false, error: "rate_limited" }, 429, cors(e));
   const d = await req.json().catch(() => ({}));
+  if (String(e.REGISTER_REQUIRE_CAPTCHA).toLowerCase() !== "false" && !await verifyTurnstile(e, d.turnstileToken, ip(req)))
+    return out({ ok: false, error: "captcha_failed", message: "Please complete the security check and try again." }, 400, cors(e));
   const first = clean2(d.firstName, 80), last = clean2(d.lastName, 80), email = normalizeEmail(d.email);
   const country = clean2(d.country, 80), phone = clean2(d.phone, 40) || null;
   const password = String(d.password || "");
   if (!emailRe.test(email) || !validPassword(password) || !d.ageConfirmed || !d.termsAccepted || !d.privacyAccepted)
     return out({ ok: false, error: "validation_failed", message: "Please complete the required registration fields and accept the required terms." }, 400, cors(e));
+  if (clean2(d.referralCode, 32) && DISPOSABLE_EMAIL_DOMAINS.has(email.slice(email.indexOf("@") + 1)))
+    return out({ ok: false, error: "email_not_allowed", message: "Please use a permanent email address when registering with a referral code." }, 400, cors(e));
   if (await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first())
     return out({ ok: false, error: "email_exists", message: "An account with this email already exists." }, 409, cors(e));
   const canonical = canonicalEmailKey(email);
@@ -1527,7 +1539,8 @@ async function registerUser(e, req) {
   if (canonical !== email) {
     const localPrefix = canonical.slice(0, canonical.indexOf("@"));
     const domain = canonical.slice(canonical.indexOf("@") + 1);
-    const aliasMatch = await e.DB.prepare("SELECT id FROM users WHERE email LIKE ? AND email LIKE ?").bind(`${localPrefix}+%`, `%@${domain}`).first();
+    const likeEsc = /* @__PURE__ */ __name((s) => s.replace(/[\\%_]/g, (m) => "\\" + m), "likeEsc");
+    const aliasMatch = await e.DB.prepare("SELECT id FROM users WHERE email LIKE ? ESCAPE '\\' AND email LIKE ? ESCAPE '\\'").bind(`${likeEsc(localPrefix)}+%`, `%@${likeEsc(domain)}`).first();
     if (aliasMatch) return out({ ok: false, error: "email_exists", message: "An account with this email already exists." }, 409, cors(e));
   }
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -1551,7 +1564,7 @@ async function registerUser(e, req) {
     return out({ ok: false, error: "registration_failed", message: "Account creation failed. Please try again." }, 500, cors(e));
   }
   try {
-    const ipHash = await hashIp(e, ip(req));
+    const ipHash = await hashIp(e, ipBucket(ip(req)));
     await e.DB.prepare("INSERT INTO audit_log(id,user_id,event_type,ip_hash,created_at) VALUES(?,?,?,?,?)").bind(id(), uid, "register", ipHash, now).run();
   } catch {
   }
@@ -1724,6 +1737,8 @@ var REFERRAL_RATE_BPS = 300n;
 var DAILY_CAP_MILLIGDTY = 2e5;
 var PENDING_DAYS = 7;
 var GIVE_UP_AFTER_DAYS = 3;
+var DAILY_PAYOUT_LIMIT_MILLIGDTY = 2e6;
+var RISK_FREEZE_SCORE = 5;
 function todayUtc() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
@@ -1779,6 +1794,92 @@ async function reserveDailyCap(e, capGroup, desiredMilli) {
   return 0;
 }
 __name(reserveDailyCap, "reserveDailyCap");
+async function releaseDailyCap(e, capGroup, milli) {
+  await e.DB.prepare("UPDATE referral_daily_caps SET total_milligdty=MAX(0,total_milligdty-?),updated_at=? WHERE cap_group=? AND day=?").bind(milli, nowIso(), capGroup, todayUtc()).run().catch(() => {
+  });
+}
+__name(releaseDailyCap, "releaseDailyCap");
+async function reservePayoutBudget(e, milli) {
+  const day = todayUtc(), now = nowIso();
+  await e.DB.prepare("INSERT INTO referral_daily_caps(cap_group,day,total_milligdty,updated_at) VALUES('__payout__',?,0,?) ON CONFLICT(cap_group,day) DO NOTHING").bind(day, now).run();
+  const res = await e.DB.prepare("UPDATE referral_daily_caps SET total_milligdty=total_milligdty+?,updated_at=? WHERE cap_group='__payout__' AND day=? AND total_milligdty+?<=?").bind(milli, now, day, milli, DAILY_PAYOUT_LIMIT_MILLIGDTY).run();
+  return !!res?.meta?.changes;
+}
+__name(reservePayoutBudget, "reservePayoutBudget");
+var HOLD_GRACE_MS = 2 * 36e5;
+var SCANNER_MAX_LAG_BLOCKS = 1500;
+async function recordWalletOutflows(e, logs) {
+  const parsed = [];
+  for (const l of logs || []) {
+    if (!l.topics || l.topics.length < 3 || String(l.topics[0]).toLowerCase() !== TOPIC_TRANSFER) continue;
+    parsed.push({
+      from: addr(l.topics[1]),
+      to: addr(l.topics[2]),
+      amount: BigInt(l.data || "0x0"),
+      block: parseInt(l.blockNumber, 16),
+      tx: String(l.transactionHash).toLowerCase(),
+      idx: parseInt(l.logIndex || "0x0", 16)
+    });
+  }
+  if (!parsed.length) return;
+  const addrs = [...new Set(parsed.flatMap((p) => [p.from, p.to]))];
+  const owner = /* @__PURE__ */ new Map();
+  for (let i = 0; i < addrs.length; i += 80) {
+    const chunk = addrs.slice(i, i + 80);
+    const rows = await e.DB.prepare(`SELECT address,user_id FROM wallets WHERE address IN (${chunk.map(() => "?").join(",")})`).bind(...chunk).all();
+    for (const r of rows.results || []) owner.set(String(r.address).toLowerCase(), r.user_id);
+  }
+  const relevant = parsed.filter((p) => owner.has(p.from) && p.amount > 0n);
+  if (!relevant.length) return;
+  const tsByBlock = /* @__PURE__ */ new Map();
+  for (const p of relevant) {
+    if (tsByBlock.has(p.block)) continue;
+    const blk = await rpc(e, "eth_getBlockByNumber", ["0x" + p.block.toString(16), false]);
+    tsByBlock.set(p.block, parseInt(blk.timestamp, 16));
+  }
+  const now = nowIso();
+  const stmts = relevant.map((p) => {
+    const self = owner.get(p.to) === owner.get(p.from) ? 1 : 0;
+    return e.DB.prepare("INSERT INTO scanner_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO NOTHING").bind(`out:${p.from}:${p.tx}:${p.idx}`, `${p.block}:${p.amount}:${self}:${p.to}:${tsByBlock.get(p.block)}`, now);
+  });
+  for (let i = 0; i < stmts.length; i += 50) await e.DB.batch(stmts.slice(i, i + 50));
+}
+__name(recordWalletOutflows, "recordWalletOutflows");
+async function checkHoldPeriod(e, reward, referred) {
+  const trade = await e.DB.prepare("SELECT block_number FROM trades WHERE id=?").bind(reward.trade_id).first();
+  if (!trade) return "review";
+  const purchaseBlock = Number(trade.block_number);
+  const wl = await e.DB.prepare("SELECT address FROM wallets WHERE user_id=? LIMIT 50").bind(referred.id).all();
+  const addrs = new Set((wl.results || []).map((r) => String(r.address).toLowerCase()));
+  if (referred.wallet_address) addrs.add(String(referred.wallet_address).toLowerCase());
+  const since = await e.DB.prepare("SELECT value FROM scanner_state WHERE key='outflow_since_block'").first();
+  if (!since || purchaseBlock < Number(since.value)) {
+    const sold = await e.DB.prepare("SELECT COUNT(*) AS c FROM trades WHERE user_id=? AND side='sell' AND block_number>=?").bind(referred.id, purchaseBlock).first();
+    if (Number(sold?.c || 0) > 0) return "violated";
+    let held = 0n;
+    for (const a of addrs) held += await tokenBalance(e, A.G, a);
+    return held >= BigInt(reward.gdty_amount_wei || "0") ? "ok" : "review";
+  }
+  const latest = parseInt(await rpc(e, "eth_blockNumber"), 16);
+  const cur = await e.DB.prepare("SELECT value FROM scanner_state WHERE key='last_block'").first();
+  if (!cur || latest - Number(cur.value) > SCANNER_MAX_LAG_BLOCKS) return "unknown";
+  const windowEndSec = Math.floor(new Date(reward.available_at || reward.created_at).getTime() / 1e3);
+  const sourceTx = String(reward.source_tx_hash || "").toLowerCase();
+  for (const a of addrs) {
+    const rows = await e.DB.prepare("SELECT key,value FROM scanner_state WHERE key>=? AND key<?").bind(`out:${a}:`, `out:${a};`).all();
+    for (const r of rows.results || []) {
+      const [blk, amt, self, , ts] = String(r.value).split(":");
+      if (self === "1") continue;
+      if (Number(blk) < purchaseBlock) continue;
+      if (sourceTx && String(r.key).includes(`:${sourceTx}:`)) continue;
+      if (Number(ts) > windowEndSec) continue;
+      if (BigInt(amt || "0") <= 0n) continue;
+      return "violated";
+    }
+  }
+  return "ok";
+}
+__name(checkHoldPeriod, "checkHoldPeriod");
 var FUNDING_CACHE_TTL_MS = 30 * 864e5;
 async function getFundingAddress(e, walletAddress) {
   const wallet = walletAddress.toLowerCase();
@@ -1803,12 +1904,23 @@ async function getFundingAddress(e, walletAddress) {
   }
 }
 __name(getFundingAddress, "getFundingAddress");
-async function fundingClusterRisk(e, walletAddress) {
+async function fundingClusterRisk(e, walletAddress, refUser) {
   const funder = await getFundingAddress(e, walletAddress);
-  if (!funder) return { hit: false };
+  if (!funder) return { hit: false, funder: null };
   const ownKey = "funding:" + walletAddress.toLowerCase();
-  const siblings = await e.DB.prepare("SELECT key FROM scanner_state WHERE key LIKE 'funding:%' AND value=? AND key!=? LIMIT 1").bind(funder, ownKey).first();
-  return { hit: !!siblings };
+  // Only wallets inside this referral tree (the referrer and everyone they referred) count.
+  // Unrelated users who merely withdrew from the same exchange hot wallet are NOT a signal.
+  const siblings = await e.DB.prepare(`
+    SELECT s.key FROM scanner_state s
+    WHERE s.key LIKE 'funding:%' AND s.value=? AND s.key!=?
+      AND substr(s.key,9) IN (
+        SELECT lower(w.address) FROM wallets w JOIN users u ON u.id=w.user_id WHERE u.id=? OR u.referred_by=?
+        UNION
+        SELECT lower(u.wallet_address) FROM users u WHERE (u.id=? OR u.referred_by=?) AND u.wallet_address IS NOT NULL
+      )
+    LIMIT 1
+  `).bind(funder, ownKey, refUser.id, refUser.referral_code, refUser.id, refUser.referral_code).first();
+  return { hit: !!siblings, funder };
 }
 __name(fundingClusterRisk, "fundingClusterRisk");
 async function computeReferralRisk(e, refUser, referredUser) {
@@ -1819,36 +1931,58 @@ async function computeReferralRisk(e, refUser, referredUser) {
     e.DB.prepare("SELECT ip_hash FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(referredUser.id).first()
   ]);
   if (refIp?.ip_hash && ownIp?.ip_hash && refIp.ip_hash === ownIp.ip_hash) {
-    score += 5;
+    score += 3;
     reasons.push("same_registration_ip");
+  }
+  let referredFunding = { hit: false, funder: null }, refFunding = { hit: false, funder: null };
+  try {
+    await Promise.all([
+      referredUser.wallet_address ? getFundingAddress(e, referredUser.wallet_address) : null,
+      refUser.wallet_address ? getFundingAddress(e, refUser.wallet_address) : null
+    ]);
+  } catch {
   }
   if (referredUser.wallet_address) {
     try {
-      const funding = await fundingClusterRisk(e, referredUser.wallet_address);
-      if (funding.hit) {
-        score += 5;
-        reasons.push("shared_funding_wallet");
-      }
+      referredFunding = await fundingClusterRisk(e, referredUser.wallet_address, refUser);
     } catch {
     }
   }
   if (refUser.wallet_address) {
     try {
-      const refFunding = await fundingClusterRisk(e, refUser.wallet_address);
-      if (refFunding.hit) {
-        score += 5;
-        reasons.push("referrer_shared_funding_wallet");
-      }
+      refFunding = await fundingClusterRisk(e, refUser.wallet_address, refUser);
     } catch {
     }
   }
+  if (referredFunding.hit) {
+    score += 2;
+    reasons.push("shared_funding_wallet");
+  }
+  if (refFunding.hit) {
+    score += 1;
+    reasons.push("referrer_shared_funding_wallet");
+  }
+  const refWallet = String(refUser.wallet_address || "").toLowerCase();
+  const referredWallet = String(referredUser.wallet_address || "").toLowerCase();
+  if (refWallet && referredFunding.funder === refWallet || referredWallet && refFunding.funder === referredWallet) {
+    score += 5;
+    reasons.push("direct_wallet_link");
+  }
+  if (referredWallet && !referredFunding.funder || refWallet && !refFunding.funder) {
+    score += 1;
+    reasons.push("funding_source_unknown");
+  }
   const dayAgo = new Date(Date.now() - 864e5).toISOString();
   const recentRow = await e.DB.prepare("SELECT COUNT(DISTINCT referred_user_id) AS c FROM referral_rewards WHERE referrer_user_id=? AND created_at>=?").bind(refUser.id, dayAgo).first();
-  if (Number(recentRow?.c || 0) >= 3) {
-    score += 3;
+  const recent = Number(recentRow?.c || 0);
+  if (recent >= 8) {
+    score += 2;
+    reasons.push("referral_velocity_high");
+  } else if (recent >= 3) {
+    score += 1;
     reasons.push("referral_velocity");
   }
-  return { score, reasons, highRisk: score >= 5 };
+  return { score, reasons, highRisk: score >= RISK_FREEZE_SCORE };
 }
 __name(computeReferralRisk, "computeReferralRisk");
 async function maybeCreateReferralReward(e, u, tradeId, trade, gdtyAmount) {
@@ -1860,19 +1994,25 @@ async function maybeCreateReferralReward(e, u, tradeId, trade, gdtyAmount) {
   if (refUser.wallet_address && u.wallet_address && refUser.wallet_address.toLowerCase() === u.wallet_address.toLowerCase()) return;
   const rawReward = gdtyAmount * REFERRAL_RATE_BPS / 10000n;
   if (rawReward <= 0n) return;
-  const capGroup = await referralCapGroup(e, refUser);
   const desiredMilli = weiToMilliGdty(rawReward);
-  const grantedMilli = await reserveDailyCap(e, capGroup, desiredMilli);
-  const forfeitedMilli = desiredMilli - grantedMilli;
-  if (grantedMilli <= 0) {
-    await notifyCapForfeited(e, refUser.id, forfeitedMilli);
-    return;
-  }
-  const reward = milliGdtyToWei(grantedMilli);
+  if (desiredMilli <= 0) return;
+  const capGroup = await referralCapGroup(e, refUser);
   const risk = await computeReferralRisk(e, refUser, u);
   const now = nowIso();
   const pendingUntil = new Date(Date.now() + PENDING_DAYS * 864e5).toISOString();
-  const status = risk.highRisk ? "frozen" : "pending";
+  let status = risk.highRisk ? "frozen" : "pending";
+  let grantedMilli = 0, forfeitedMilli = 0;
+  if (risk.highRisk) {
+    grantedMilli = Math.min(desiredMilli, DAILY_CAP_MILLIGDTY);
+  } else {
+    grantedMilli = await reserveDailyCap(e, capGroup, desiredMilli);
+    forfeitedMilli = desiredMilli - grantedMilli;
+    if (grantedMilli <= 0) {
+      await notifyCapForfeited(e, refUser.id, forfeitedMilli);
+      return;
+    }
+  }
+  const reward = milliGdtyToWei(grantedMilli);
   try {
     await e.DB.prepare(`
       INSERT INTO referral_rewards(id,referrer_user_id,referred_user_id,trade_id,source_tx_hash,gdty_amount_wei,reward_amount_wei,reward_rate_bps,status,created_at,available_at)
@@ -1883,16 +2023,18 @@ async function maybeCreateReferralReward(e, u, tradeId, trade, gdtyAmount) {
       refUser.id,
       "referral_reward",
       status === "frozen" ? "Referral reward under review" : "Referral reward pending",
-      status === "frozen" ? "A referred purchase looked unusual and was flagged for manual review before any reward is paid." : "A verified GOLDITY purchase qualified for a 3% referral reward. It becomes payable in 7 days if the purchase still looks genuine.",
+      status === "frozen" ? "A referred purchase was flagged for manual review before any reward is paid." : "A verified GOLDITY purchase qualified for a 3% referral reward. It becomes payable after 7 days only if the purchased GDTY stays in the referred user's connected wallets for the whole period.",
       now
     ).run();
   } catch (err) {
     console.error("GOLDITY referral reward insert error", err);
+    if (!risk.highRisk) await releaseDailyCap(e, capGroup, grantedMilli);
+    return;
   }
   if (forfeitedMilli > 0) await notifyCapForfeited(e, refUser.id, forfeitedMilli);
 }
 __name(maybeCreateReferralReward, "maybeCreateReferralReward");
-async function recordTrade(e, u, trade) {
+async function recordTrade(e, u, trade, opts = {}) {
   const existing = await e.DB.prepare("SELECT id FROM trades WHERE tx_hash=?").bind(trade.txHash).first();
   if (existing) return { ok: false, error: "transaction_already_recorded" };
   const latest = parseInt(await rpc(e, "eth_blockNumber"), 16);
@@ -1907,7 +2049,7 @@ async function recordTrade(e, u, trade) {
     INSERT INTO trades(id,user_id,wallet_address,tx_hash,block_number,block_timestamp,dex,pair_address,side,gdty_amount_wei,usdt_amount_wei,price_usdt_per_gdty,confirmations,status,created_at,verified_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).bind(tradeId, u.id, u.wallet_address, trade.txHash, trade.block, now, trade.dex, trade.pair, trade.side, g.toString(), uAmt.toString(), price, confirmations, status, now, status === "confirmed" ? now : null).run();
-  if (trade.side === "buy" && trade.rewardEligible) {
+  if (!opts.manual && trade.side === "buy" && trade.rewardEligible) {
     await maybeCreateReferralReward(e, u, tradeId, trade, g);
   }
   return { ok: true, tradeId, status, confirmations };
@@ -1917,29 +2059,35 @@ async function tryPayReferralReward(e, reward) {
   const referred = await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(reward.referred_user_id).first();
   const refUser = await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(reward.referrer_user_id).first();
   if (!referred || !refUser) return false;
+  const approved = reward.status === "approved";
   const overdue = Date.now() - new Date(reward.available_at || reward.created_at).getTime() > GIVE_UP_AFTER_DAYS * 864e5;
-  let riskScore = 0;
-  try {
-    const base = await computeReferralRisk(e, refUser, referred);
-    riskScore = base.score;
-  } catch {
-  }
-  if (referred.wallet_address) {
+  const amountWei = BigInt(reward.reward_amount_wei || "0");
+  if (!approved) {
+    if (Date.now() < new Date(reward.available_at || reward.created_at).getTime() + HOLD_GRACE_MS) return false;
+    let riskScore = 0, hold = "unknown", checksFailed = false;
     try {
-      const heldWei = await tokenBalance(e, A.G, referred.wallet_address);
-      const purchasedWei = BigInt(reward.gdty_amount_wei || "0");
-      if (heldWei * 2n < purchasedWei) riskScore += 3;
+      riskScore = (await computeReferralRisk(e, refUser, referred)).score;
+      hold = await checkHoldPeriod(e, reward, referred);
     } catch {
-      if (!overdue) return false;
+      checksFailed = true;
     }
-  }
-  if (riskScore >= 5) {
-    await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=?").bind(reward.id).run();
-    return false;
-  }
-  if (overdue) {
-    await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=?").bind(reward.id).run();
-    return false;
+    if (!checksFailed && hold === "violated") {
+      const v = await e.DB.prepare("UPDATE referral_rewards SET status='void' WHERE id=? AND status='pending'").bind(reward.id).run();
+      if (v?.meta?.changes) {
+        await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(), refUser.id, "referral_void", "Referral reward not paid", "The purchased GDTY did not stay in the referred user's connected wallets for the full 7 days, so no reward is due for this purchase.", nowIso()).run().catch(() => {
+        });
+      }
+      return false;
+    }
+    if (checksFailed || hold === "unknown") {
+      if (!overdue) return false;
+      await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=? AND status='pending'").bind(reward.id).run();
+      return false;
+    }
+    if (hold === "review" || riskScore >= RISK_FREEZE_SCORE) {
+      await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=? AND status='pending'").bind(reward.id).run();
+      return false;
+    }
   }
   if (!e.REFERRAL_PAYOUT_PRIVATE_KEY) return false;
   if (String(e.REFERRAL_PAUSED).toLowerCase() === "true") return false;
@@ -1947,7 +2095,6 @@ async function tryPayReferralReward(e, reward) {
     await e.DB.prepare("UPDATE referral_rewards SET status='payout_failed' WHERE id=?").bind(reward.id).run();
     return false;
   }
-  const amountWei = BigInt(reward.reward_amount_wei || "0");
   if (amountWei <= 0n) return false;
   let payoutAddress;
   try {
@@ -1964,8 +2111,25 @@ async function tryPayReferralReward(e, reward) {
     return false;
   }
   if (gdtyBal < amountWei || bnbBal < 2000000000000000n) return false;
-  const guard = await e.DB.prepare("UPDATE referral_rewards SET status='processing' WHERE id=? AND status='pending'").bind(reward.id).run();
-  if (!guard?.meta || guard.meta.changes === 0) return false;
+  let budgetReserved = 0;
+  if (!approved) {
+    const milli = weiToMilliGdty(amountWei);
+    if (!await reservePayoutBudget(e, milli)) {
+      const held = await e.DB.prepare("UPDATE referral_rewards SET status='frozen' WHERE id=? AND status='pending'").bind(reward.id).run();
+      if (held?.meta?.changes) {
+        console.error("GOLDITY referral daily payout limit reached - reward held for admin approval", reward.id);
+        await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(), refUser.id, "referral_reward", "Referral reward awaiting approval", "The daily referral payout limit was reached, so this reward is waiting for manual approval. It has not been cancelled.", nowIso()).run().catch(() => {
+        });
+      }
+      return false;
+    }
+    budgetReserved = milli;
+  }
+  const guard = await e.DB.prepare("UPDATE referral_rewards SET status='processing' WHERE id=? AND status IN ('pending','approved')").bind(reward.id).run();
+  if (!guard?.meta || guard.meta.changes === 0) {
+    if (budgetReserved) await releaseDailyCap(e, "__payout__", budgetReserved);
+    return false;
+  }
   const payoutId = id(), now = nowIso();
   let txHash, nonce, gasPrice, gasLimit;
   try {
@@ -1986,7 +2150,8 @@ async function tryPayReferralReward(e, reward) {
     txHash = b.txHash;
   } catch (err) {
     console.error("GOLDITY payout broadcast error", err);
-    await e.DB.prepare("UPDATE referral_rewards SET status='pending' WHERE id=?").bind(reward.id).run().catch(() => {
+    if (budgetReserved) await releaseDailyCap(e, "__payout__", budgetReserved);
+    await e.DB.prepare("UPDATE referral_rewards SET status=? WHERE id=?").bind(approved ? "approved" : "pending", reward.id).run().catch(() => {
     });
     await e.DB.prepare("UPDATE referral_payouts SET status='failed' WHERE id=?").bind(payoutId).run().catch(() => {
     });
@@ -1995,12 +2160,12 @@ async function tryPayReferralReward(e, reward) {
   try {
     await e.DB.batch([
       e.DB.prepare("UPDATE referral_payouts SET status='paid',tx_hash=?,nonce=?,gas_price_wei=?,gas_limit=?,paid_at=? WHERE id=?").bind(txHash, nonce, gasPrice.toString(), gasLimit, now, payoutId),
-      e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now, txHash, reward.id)
+      e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=?,reward_amount_wei=? WHERE id=?").bind(now, txHash, amountWei.toString(), reward.id)
     ]);
     await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(), refUser.id, "referral_paid", "Referral reward sent", "Your 3% referral reward was sent on-chain to your wallet.", now).run();
   } catch (err) {
     console.error("GOLDITY CRITICAL: referral payout broadcast succeeded but DB recording failed - manual reconciliation required", txHash, reward.id, payoutId, err);
-    await e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=? WHERE id=?").bind(now, txHash, reward.id).run().catch(() => {
+    await e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=?,reward_amount_wei=? WHERE id=?").bind(now, txHash, amountWei.toString(), reward.id).run().catch(() => {
     });
     await e.DB.prepare("UPDATE referral_payouts SET status='paid',tx_hash=?,paid_at=? WHERE id=?").bind(txHash, now, payoutId).run().catch(() => {
     });
@@ -2012,7 +2177,7 @@ async function graduateReferralRewards(e, userId) {
   const now = nowIso();
   const rows = await e.DB.prepare(`
     SELECT * FROM referral_rewards
-    WHERE (referrer_user_id=? OR referred_user_id=?) AND status='pending' AND available_at IS NOT NULL AND available_at<=?
+    WHERE (referrer_user_id=? OR referred_user_id=?) AND status IN ('pending','approved') AND available_at IS NOT NULL AND available_at<=?
     LIMIT 5
   `).bind(userId, userId, now).all();
   for (const reward of rows.results || []) {
@@ -2024,7 +2189,7 @@ async function graduateOverdueRewardsGlobal(e) {
   const now = nowIso();
   const rows = await e.DB.prepare(`
     SELECT * FROM referral_rewards
-    WHERE status='pending' AND available_at IS NOT NULL AND available_at<=?
+    WHERE status IN ('pending','approved') AND available_at IS NOT NULL AND available_at<=?
     LIMIT 20
   `).bind(now).all();
   for (const reward of rows.results || []) {
@@ -2048,6 +2213,14 @@ async function scanForNewTrades(e) {
     topics: [TOPIC_TRANSFER]
   }]);
   const txHashes = [...new Set((logs || []).map((l) => l.transactionHash))];
+  let failedTxs = 0;
+  try {
+    await recordWalletOutflows(e, logs);
+    await e.DB.prepare("INSERT INTO scanner_state(key,value,updated_at) VALUES('outflow_since_block',?,?) ON CONFLICT(key) DO NOTHING").bind(String(fromBlock), nowIso()).run();
+  } catch (err) {
+    failedTxs++;
+    console.error("GOLDITY scanner outflow ledger error", err);
+  }
   for (const txHash of txHashes) {
     try {
       const existing = await e.DB.prepare("SELECT id FROM trades WHERE tx_hash=?").bind(txHash).first();
@@ -2056,15 +2229,30 @@ async function scanForNewTrades(e) {
       if (!tx) continue;
       const boundWallet = await e.DB.prepare("SELECT user_id FROM wallets WHERE address=?").bind(String(tx.from).toLowerCase()).first();
       if (!boundWallet) continue;
-      const user = await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(boundWallet.user_id).first();
-      if (!user) continue;
+      const account = await e.DB.prepare("SELECT * FROM users WHERE id=?").bind(boundWallet.user_id).first();
+      if (!account) continue;
+      const user = { ...account, wallet_address: String(tx.from).toLowerCase() };
       const trade = await verifyTrade(e, user, txHash);
       if (!trade.ok) continue;
       trade.txHash = txHash;
       await recordTrade(e, user, trade);
     } catch (err) {
+      failedTxs++;
       console.error("GOLDITY scanner trade error", txHash, err);
     }
+  }
+  if (failedTxs > 0) {
+    // A transient RPC/DB error must not make a real buyer permanently miss their referral reward
+    // (manual submission no longer creates rewards), so retry the same block range a few times.
+    const retryKey = "scan_retry:" + fromBlock;
+    const retryRow = await e.DB.prepare("SELECT value FROM scanner_state WHERE key=?").bind(retryKey).first();
+    const attempts = Number(retryRow?.value || 0) + 1;
+    await e.DB.prepare(`
+      INSERT INTO scanner_state(key,value,updated_at) VALUES(?,?,?)
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at
+    `).bind(retryKey, String(attempts), nowIso()).run();
+    if (attempts < 5) return;
+    console.error("GOLDITY scanner giving up on block range after retries", fromBlock, toBlock);
   }
   await e.DB.prepare(`
     INSERT INTO scanner_state(key,value,updated_at) VALUES('last_block',?,?)
@@ -2412,6 +2600,7 @@ async function dashboard(e, req) {
       rewardTotal += amount;
     } else if (r.status === "frozen" || r.status === "payout_failed") {
       rewardFrozen += amount;
+    } else if (r.status === "void") {
     } else {
       rewardPending += amount;
       rewardTotal += amount;
@@ -2556,7 +2745,7 @@ async function adminReleaseReward(e, req) {
   const rewardId = clean2(d.rewardId, 80);
   if (!rewardId) return out({ ok: false, error: "validation_failed" }, 400, cors(e));
   const res = await e.DB.prepare(`
-    UPDATE referral_rewards SET status='pending',available_at=? WHERE id=? AND status IN ('frozen','payout_failed')
+    UPDATE referral_rewards SET status='approved',available_at=? WHERE id=? AND status IN ('frozen','payout_failed')
   `).bind(nowIso(), rewardId).run();
   if (!res?.meta?.changes) return out({ ok: false, error: "not_found" }, 404, cors(e));
   return out({ ok: true }, 200, 0, cors(e));
@@ -2592,9 +2781,14 @@ var worker_default = {
         const trade = await verifyTrade(e, user, txHash);
         if (!trade.ok) return out(trade, 400, baseHeaders);
         trade.txHash = txHash;
-        return out(await recordTrade(e, user, trade), 200, 0, baseHeaders);
+        const cursor = await e.DB.prepare("SELECT value FROM scanner_state WHERE key='last_block'").first();
+        if (cursor && trade.block > parseInt(cursor.value, 10)) {
+          return out({ ok: true, status: "pending_detection", message: "This purchase is recent and will be detected automatically within a few minutes." }, 200, 0, baseHeaders);
+        }
+        return out(await recordTrade(e, user, trade, { manual: true }), 200, 0, baseHeaders);
       }
       if (u.pathname === "/api/referral/check" && req.method === "GET") {
+        if (!await rateLimit(e, `refcheck:${ipBucket(ip(req))}`, 30, 6e4)) return out({ ok: false, error: "rate_limited" }, 429, 0, baseHeaders);
         const code = clean2(u.searchParams.get("code"), 32).toUpperCase();
         const row = code && e.DB ? await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(code).first() : null;
         return out({ ok: true, valid: !!row, referralCode: row?.referral_code || null }, 200, 30, baseHeaders);
