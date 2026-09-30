@@ -1707,7 +1707,7 @@ async function verifyTrade(e, u, txHash) {
   const pp = await pair(e);
   let rewardEligible = false;
   if (side === "buy") {
-    const pools = /* @__PURE__ */ new Set([pp]);
+    const pools = /* @__PURE__ */ new Set([pp, A.UNI]);
     try {
       const wbnbPair = addr(await call(e, A.PF, S.pair + pad(A.G) + pad("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c")));
       if (wbnbPair !== Z) pools.add(wbnbPair);
@@ -1717,6 +1717,25 @@ async function verifyTrade(e, u, txHash) {
     let fromPools = 0n;
     for (const l of logs) if (l.token === A.G && pools.has(l.from)) fromPools += BigInt(l.amount);
     rewardEligible = fromPools >= gdtyNet;
+    if (!rewardEligible) {
+      // Any DEX, router or aggregator qualifies: the GDTY must arrive from a smart contract, not from a
+      // plain wallet. A wallet-to-wallet "sale" (OTC / self-dealing) is never a market purchase.
+      const senders = /* @__PURE__ */ new Map();
+      for (const l of logs) if (l.token === A.G && l.to === wallet && l.from !== wallet && l.from !== Z) senders.set(l.from, (senders.get(l.from) || 0n) + BigInt(l.amount));
+      let fromContracts = 0n;
+      for (const [from, amount] of senders) {
+        if (pools.has(from)) {
+          fromContracts += amount;
+          continue;
+        }
+        try {
+          const code = await rpc(e, "eth_getCode", [from, "latest"]);
+          if (typeof code === "string" && code.length > 2) fromContracts += amount;
+        } catch {
+        }
+      }
+      rewardEligible = fromContracts >= gdtyNet;
+    }
   }
   const dexMap = /* @__PURE__ */ new Map([[A.UNI, "Uniswap V2"], [pp, "PancakeSwap V2"]]);
   const dex = dexMap.get(String(tx.to || "").toLowerCase()) || "On-chain";
