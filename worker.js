@@ -1752,11 +1752,19 @@ async function verifyTrade(e, u, txHash) {
 }
 __name(verifyTrade, "verifyTrade");
 var MIN_QUALIFYING_GDTY_WEI = 50n * 10n ** 18n;
-var REFERRAL_RATE_BPS = 300n;
 var DAILY_CAP_MILLIGDTY = 2e5;
-var PENDING_DAYS = 7;
+function cfgInt(v, def, min, max) {
+  if (v === void 0 || v === null || String(v).trim() === "") return def;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? Math.floor(n) : def;
+}
+__name(cfgInt, "cfgInt");
+var refRateBps = /* @__PURE__ */ __name((e) => BigInt(cfgInt(e.REFERRAL_RATE_BPS, 100, 1, 1e3)), "refRateBps");
+var refHoldDays = /* @__PURE__ */ __name((e) => cfgInt(e.REFERRAL_HOLD_DAYS, 7, 1, 90), "refHoldDays");
+var refAccountCapMilli = /* @__PURE__ */ __name((e) => cfgInt(e.REFERRAL_MAX_REWARD_PER_REFERRED_GDTY, 100, 1, 1e6) * 1e3, "refAccountCapMilli");
+var refDailyPayoutLimitMilli = /* @__PURE__ */ __name((e) => cfgInt(e.REFERRAL_DAILY_PAYOUT_LIMIT_GDTY, 500, 1, 1e6) * 1e3, "refDailyPayoutLimitMilli");
+var SAME_IP_WINDOW_MS = 864e5;
 var GIVE_UP_AFTER_DAYS = 3;
-var DAILY_PAYOUT_LIMIT_MILLIGDTY = 2e6;
 var RISK_FREEZE_SCORE = 5;
 function todayUtc() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -1821,7 +1829,7 @@ __name(releaseDailyCap, "releaseDailyCap");
 async function reservePayoutBudget(e, milli) {
   const day = todayUtc(), now = nowIso();
   await e.DB.prepare("INSERT INTO referral_daily_caps(cap_group,day,total_milligdty,updated_at) VALUES('__payout__',?,0,?) ON CONFLICT(cap_group,day) DO NOTHING").bind(day, now).run();
-  const res = await e.DB.prepare("UPDATE referral_daily_caps SET total_milligdty=total_milligdty+?,updated_at=? WHERE cap_group='__payout__' AND day=? AND total_milligdty+?<=?").bind(milli, now, day, milli, DAILY_PAYOUT_LIMIT_MILLIGDTY).run();
+  const res = await e.DB.prepare("UPDATE referral_daily_caps SET total_milligdty=total_milligdty+?,updated_at=? WHERE cap_group='__payout__' AND day=? AND total_milligdty+?<=?").bind(milli, now, day, milli, refDailyPayoutLimitMilli(e)).run();
   return !!res?.meta?.changes;
 }
 __name(reservePayoutBudget, "reservePayoutBudget");
@@ -1946,12 +1954,18 @@ async function computeReferralRisk(e, refUser, referredUser) {
   let score = 0;
   const reasons = [];
   const [refIp, ownIp] = await Promise.all([
-    e.DB.prepare("SELECT ip_hash FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(refUser.id).first(),
-    e.DB.prepare("SELECT ip_hash FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(referredUser.id).first()
+    e.DB.prepare("SELECT ip_hash,created_at FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(refUser.id).first(),
+    e.DB.prepare("SELECT ip_hash,created_at FROM audit_log WHERE user_id=? AND event_type='register' ORDER BY created_at ASC LIMIT 1").bind(referredUser.id).first()
   ]);
   if (refIp?.ip_hash && ownIp?.ip_hash && refIp.ip_hash === ownIp.ip_hash) {
-    score += 3;
-    reasons.push("same_registration_ip");
+    const gap = Math.abs(new Date(refIp.created_at).getTime() - new Date(ownIp.created_at).getTime());
+    if (Number.isFinite(gap) && gap < SAME_IP_WINDOW_MS) {
+      score += 5;
+      reasons.push("same_ip_registered_within_24h");
+    } else {
+      score += 3;
+      reasons.push("same_registration_ip");
+    }
   }
   let referredFunding = { hit: false, funder: null }, refFunding = { hit: false, funder: null };
   try {
@@ -2011,14 +2025,24 @@ async function maybeCreateReferralReward(e, u, tradeId, trade, gdtyAmount) {
   if (!refUser) return;
   if (refUser.id === u.id) return;
   if (refUser.wallet_address && u.wallet_address && refUser.wallet_address.toLowerCase() === u.wallet_address.toLowerCase()) return;
-  const rawReward = gdtyAmount * REFERRAL_RATE_BPS / 10000n;
+  const rateBps = refRateBps(e);
+  const rawReward = gdtyAmount * rateBps / 10000n;
   if (rawReward <= 0n) return;
-  const desiredMilli = weiToMilliGdty(rawReward);
+  let desiredMilli = weiToMilliGdty(rawReward);
   if (desiredMilli <= 0) return;
+  {
+    const prior = await e.DB.prepare("SELECT reward_amount_wei FROM referral_rewards WHERE referred_user_id=? AND status!='void' LIMIT 500").bind(u.id).all();
+    let grantedWei = 0n;
+    for (const r of prior.results || []) grantedWei += BigInt(r.reward_amount_wei || "0");
+    const remainingMilli = refAccountCapMilli(e) - weiToMilliGdty(grantedWei);
+    if (remainingMilli <= 0) return;
+    desiredMilli = Math.min(desiredMilli, remainingMilli);
+  }
   const capGroup = await referralCapGroup(e, refUser);
   const risk = await computeReferralRisk(e, refUser, u);
   const now = nowIso();
-  const pendingUntil = new Date(Date.now() + PENDING_DAYS * 864e5).toISOString();
+  const holdDays = refHoldDays(e);
+  const pendingUntil = new Date(Date.now() + holdDays * 864e5).toISOString();
   let status = risk.highRisk ? "frozen" : "pending";
   let grantedMilli = 0, forfeitedMilli = 0;
   if (risk.highRisk) {
@@ -2036,13 +2060,13 @@ async function maybeCreateReferralReward(e, u, tradeId, trade, gdtyAmount) {
     await e.DB.prepare(`
       INSERT INTO referral_rewards(id,referrer_user_id,referred_user_id,trade_id,source_tx_hash,gdty_amount_wei,reward_amount_wei,reward_rate_bps,status,created_at,available_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(id(), refUser.id, u.id, tradeId, trade.txHash, gdtyAmount.toString(), reward.toString(), 300, status, now, status === "frozen" ? null : pendingUntil).run();
+    `).bind(id(), refUser.id, u.id, tradeId, trade.txHash, gdtyAmount.toString(), reward.toString(), Number(rateBps), status, now, status === "frozen" ? null : pendingUntil).run();
     await e.DB.prepare(`INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)`).bind(
       id(),
       refUser.id,
       "referral_reward",
       status === "frozen" ? "Referral reward under review" : "Referral reward pending",
-      status === "frozen" ? "A referred purchase was flagged for manual review before any reward is paid." : "A verified GOLDITY purchase qualified for a 3% referral reward. It becomes payable after 7 days only if the purchased GDTY stays in the referred user's connected wallets for the whole period.",
+      status === "frozen" ? "A referred purchase was flagged for manual review before any reward is paid." : `A verified GOLDITY purchase qualified for a ${Number(rateBps) / 100}% referral reward. It becomes payable after ${holdDays} days only if the purchased GDTY stays in the referred user's connected wallets for the whole period.`,
       now
     ).run();
   } catch (err) {
@@ -2181,7 +2205,7 @@ async function tryPayReferralReward(e, reward) {
       e.DB.prepare("UPDATE referral_payouts SET status='paid',tx_hash=?,nonce=?,gas_price_wei=?,gas_limit=?,paid_at=? WHERE id=?").bind(txHash, nonce, gasPrice.toString(), gasLimit, now, payoutId),
       e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=?,reward_amount_wei=? WHERE id=?").bind(now, txHash, amountWei.toString(), reward.id)
     ]);
-    await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(), refUser.id, "referral_paid", "Referral reward sent", "Your 3% referral reward was sent on-chain to your wallet.", now).run();
+    await e.DB.prepare("INSERT INTO notifications(id,user_id,type,title,message,created_at) VALUES(?,?,?,?,?,?)").bind(id(), refUser.id, "referral_paid", "Referral reward sent", `Your ${Number(reward.reward_rate_bps || 100) / 100}% referral reward was sent on-chain to your wallet.`, now).run();
   } catch (err) {
     console.error("GOLDITY CRITICAL: referral payout broadcast succeeded but DB recording failed - manual reconciliation required", txHash, reward.id, payoutId, err);
     await e.DB.prepare("UPDATE referral_rewards SET status='paid',paid_at=?,payout_tx_hash=?,reward_amount_wei=? WHERE id=?").bind(now, txHash, amountWei.toString(), reward.id).run().catch(() => {
