@@ -1,3 +1,4 @@
+import { createVault, treasuryAddresses } from "./vault-engine.js";
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -1892,11 +1893,13 @@ async function checkHoldPeriod(e, reward, referred) {
   if (!cur || latest - Number(cur.value) > SCANNER_MAX_LAG_BLOCKS) return "unknown";
   const windowEndSec = Math.floor(new Date(reward.available_at || reward.created_at).getTime() / 1e3);
   const sourceTx = String(reward.source_tx_hash || "").toLowerCase();
+  const treasury = vaultTreasury(e);
   for (const a of addrs) {
     const rows = await e.DB.prepare("SELECT key,value FROM scanner_state WHERE key>=? AND key<?").bind(`out:${a}:`, `out:${a};`).all();
     for (const r of rows.results || []) {
-      const [blk, amt, self, , ts] = String(r.value).split(":");
+      const [blk, amt, self, to, ts] = String(r.value).split(":");
       if (self === "1") continue;
+      if (treasury.has(String(to).toLowerCase())) continue;
       if (Number(blk) < purchaseBlock) continue;
       if (sourceTx && String(r.key).includes(`:${sourceTx}:`)) continue;
       if (Number(ts) > windowEndSec) continue;
@@ -2794,6 +2797,16 @@ async function adminReleaseReward(e, req) {
   return out({ ok: true }, 200, 0, cors(e));
 }
 __name(adminReleaseReward, "adminReleaseReward");
+function vaultTreasury(e) {
+  let payout = null;
+  try {
+    if (e.REFERRAL_PAYOUT_PRIVATE_KEY) payout = addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);
+  } catch {
+  }
+  return treasuryAddresses(e, payout);
+}
+__name(vaultTreasury, "vaultTreasury");
+var vault = createVault({ out, cors, currentUser, requireOrigin, rateLimit, ip, ipBucket, hashIp, sha256Text, nowIso, id, htmlEscape });
 var worker_default = {
   async fetch(req, e) {
     const u = new URL(req.url);
@@ -2805,6 +2818,8 @@ var worker_default = {
       "access-control-max-age": "86400"
     } });
     try {
+      const vaultResponse = await vault.handle(req, e, u);
+      if (vaultResponse) return vaultResponse;
       if (u.pathname === "/api/register" && req.method === "POST") return await registerUser(e, req);
       if (u.pathname === "/api/login" && req.method === "POST") return await loginUser(e, req);
       if (u.pathname === "/api/verify-email" && req.method === "GET") return await verifyEmail(e, req);
@@ -2956,6 +2971,11 @@ var worker_default = {
       await processQueuedAirdrops(e);
     } catch (err) {
       console.error("GOLDITY airdrop payout error", err);
+    }
+    try {
+      await vault.scheduled(e);
+    } catch (err) {
+      console.error("GOLDITY vault cron error", err);
     }
   }
 };
