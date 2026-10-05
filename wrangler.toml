@@ -13,7 +13,13 @@ PUBLIC_ORIGIN = "https://goldityglobal.com"
 [assets]
 directory = "./assets"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+run_worker_first = ["/api/*", "/vault/*"]
+
+# Design Vault storage. The bucket stays private: every file is served through the Worker only.
+# Never enable r2.dev or a custom public domain on this bucket.
+[[r2_buckets]]
+binding = "VAULT"
+bucket_name = "goldity-vault"
 
 [[d1_databases]]
 binding = "DB"
