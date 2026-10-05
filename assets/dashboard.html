@@ -329,6 +329,27 @@
     </div>
   </section>
 
+  <!-- DESIGN VAULT (hidden until the Vault is open; admins see it earlier) -->
+  <section class="dashboard-section hidden" id="vaultCardSection">
+    <div class="section-heading">
+      <h2>Design Vault</h2>
+      <a class="btn btn-gold btn-small" href="/vault.html">Open Design Vault</a>
+    </div>
+    <div class="dashboard-grid">
+      <article class="dashboard-card" style="grid-column:span 6">
+        <span class="card-label">Points</span>
+        <strong id="vaultCardPoints">0</strong>
+        <p id="vaultCardExpiry" style="margin-top:8px"></p>
+      </article>
+      <article class="dashboard-card hidden" id="vaultCardCreditBox" style="grid-column:span 6">
+        <span class="card-label">Site credit</span>
+        <strong id="vaultCardCredit">$0.00</strong>
+      </article>
+    </div>
+    <p class="status-text hidden" id="vaultCardPreview">Admin preview: the Design Vault is not public yet.</p>
+    <p class="status-text hidden" id="vaultCardAdmin"><a href="/vault-admin.html">Design Vault admin panel →</a></p>
+  </section>
+
   <section class="dashboard-section">
     <div class="section-heading">
       <h2>Purchase &amp; Trade History</h2>
@@ -1061,6 +1082,8 @@
  
 
 <script src="/dashboard.js"></script>
+<script src="/vault-card.js" defer></script>
+<script src="/vault-nav.js" defer></script>
 
  
 
