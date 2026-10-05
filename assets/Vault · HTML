@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NJNREX2QJM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-NJNREX2QJM');
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design Vault | GOLDITY</title>
+<meta name="description" content="Jewelry design concepts from the GOLDITY Design Vault. Browse by category and style, unlock full-resolution images with points, or order a CAD file.">
+<link rel="canonical" href="https://goldityglobal.com/vault.html">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/vault.css">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
+<!--VAULT_META-->
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/" aria-label="GOLDITY home">
+      <img class="brand-logo" src="/favicon.png" alt="GOLDITY logo">
+      <span class="brand-copy"><strong>GOLDITY</strong><b>GDTY</b></span>
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="/">Home</a>
+      <a class="active" href="/vault.html">Design Vault</a>
+      <a href="/whitepaper.html">Whitepaper</a>
+      <a href="/contract.html">Contract</a>
+    </nav>
+    <a class="btn btn-outline btn-small" id="vaultAccountLink" href="/login.html">Sign In</a>
+  </div>
+</header>
+
+<main class="dashboard-page vault-page">
+
+  <section class="dashboard-hero vault-hero">
+    <div>
+      <span class="eyebrow">GOLDITY DESIGN VAULT</span>
+      <h1 id="vaultHeading">Design Vault</h1>
+      <p id="vaultDisclaimer">These images are design concepts. CAD files are created inspired by the image, with the adjustments required for real-world manufacturing, so the final file may differ from the picture.</p>
+    </div>
+    <div class="vault-wallet hidden" id="vaultWallet" aria-live="polite">
+      <div><span class="card-label">Points</span><strong id="vaultPoints">0</strong></div>
+      <div id="vaultCreditBox" class="hidden"><span class="card-label">Site credit</span><strong id="vaultCredit">$0.00</strong></div>
+      <small id="vaultExpiry"></small>
+    </div>
+  </section>
+
+  <div id="vaultBanner" class="vault-banner hidden" role="status"></div>
+  <div id="vaultState" class="status-text" role="status" aria-live="polite"></div>
+
+  <!-- GALLERY -->
+  <section id="galleryView" class="hidden">
+    <form class="vault-toolbar" id="vaultFilters" autocomplete="off">
+      <label>Category
+        <select id="fCategory"><option value="">All categories</option></select>
+      </label>
+      <label>Style
+        <select id="fStyle"><option value="">All styles</option></select>
+      </label>
+      <label class="vault-search">Search
+        <input id="fQuery" type="search" maxlength="60" placeholder="Title">
+      </label>
+      <label class="vault-check"><input id="fFree" type="checkbox"> Free only</label>
+      <label class="vault-check" id="fUnlockedWrap"><input id="fUnlocked" type="checkbox"> My unlocked</label>
+    </form>
+    <div class="vault-count" id="vaultCount"></div>
+    <div class="vault-grid" id="vaultGrid"></div>
+    <div class="vault-more"><button class="btn btn-outline hidden" id="vaultMore" type="button">Load more</button></div>
+  </section>
+
+  <!-- DETAIL -->
+  <section id="detailView" class="hidden">
+    <a class="vault-back" href="/vault.html">← All designs</a>
+    <div class="vault-detail">
+      <div class="vault-detail-media">
+        <img id="detailImg" alt="" decoding="async">
+        <p class="vault-detail-note" id="detailNote"></p>
+      </div>
+      <div class="vault-detail-side dashboard-card">
+        <h2 id="detailTitle">Design</h2>
+        <div class="vault-chips" id="detailChips"></div>
+        <div class="vault-status" id="detailStatus"></div>
+        <div class="vault-actions" id="detailActions"></div>
+        <div class="status-text" id="detailState" role="status" aria-live="polite"></div>
+        <p class="vault-fineprint" id="detailFine"></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div>
+      <strong>GOLDITY</strong>
+      <p>Digital asset ecosystem on BNB Smart Chain.</p>
+    </div>
+    <div class="footer-links">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/whitepaper.html">Whitepaper</a>
+      <a href="mailto:info@goldityglobal.com">Contact</a>
+      <a href="https://www.facebook.com/profile.php?id=61594820135358" target="_blank" rel="noopener noreferrer me">Facebook</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/vault.js"></script>
+</body>
+</html>
