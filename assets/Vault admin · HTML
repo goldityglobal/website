@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Design Vault Admin | GOLDITY</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/vault.css">
+<link rel="stylesheet" href="/vault-admin.css">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/" aria-label="GOLDITY home">
+      <img class="brand-logo" src="/favicon.png" alt="GOLDITY logo">
+      <span class="brand-copy"><strong>GOLDITY</strong><b>GDTY</b></span>
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="/dashboard.html">Dashboard</a>
+      <a href="/vault.html">Design Vault</a>
+      <a class="active" href="/vault-admin.html">Vault Admin</a>
+    </nav>
+  </div>
+</header>
+
+<main class="dashboard-page vault-page">
+  <section class="dashboard-hero">
+    <div>
+      <span class="eyebrow">ADMIN ONLY</span>
+      <h1>Design Vault Admin</h1>
+      <p>Upload designs, manage prices and points, and open the Vault to the public.</p>
+    </div>
+  </section>
+
+  <div id="adminGate" class="dashboard-card hidden"></div>
+
+  <div id="adminApp" class="hidden">
+    <nav class="vault-tabs" id="vaultTabs" role="tablist">
+      <button type="button" data-tab="overview" class="active">Overview</button>
+      <button type="button" data-tab="upload">Upload</button>
+      <button type="button" data-tab="images">Images</button>
+      <button type="button" data-tab="settings">Prices &amp; settings</button>
+      <button type="button" data-tab="users">Points &amp; credit</button>
+      <button type="button" data-tab="log">Log</button>
+    </nav>
+
+    <section data-panel="overview" id="panelOverview"></section>
+
+    <section data-panel="upload" id="panelUpload" class="hidden">
+      <div class="dashboard-card">
+        <h3>Upload designs</h3>
+        <p>Select any number of images. For each one this page makes three versions in your browser: the untouched <b>original</b> (private, only sent to buyers), a <b>1600px demo</b> (shown in full for free images and to buyers) and an <b>800px preview with a large watermark</b> (shown to everyone before unlocking).</p>
+        <div class="vault-form-grid" id="upDefaults"></div>
+        <label class="vault-check-row"><input type="checkbox" id="upBrand"> I confirm this design does not resemble a known brand's design.</label>
+        <div class="form-actions">
+          <label class="btn btn-outline" for="upFiles">Choose images…</label>
+          <input id="upFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple class="sr-only">
+          <button class="btn btn-gold" id="upStart" type="button" disabled>Upload all</button>
+          <button class="btn btn-outline" id="upClear" type="button">Clear list</button>
+        </div>
+        <div class="status-text" id="upState"></div>
+      </div>
+      <div id="upList" class="vault-up-list"></div>
+    </section>
+
+    <section data-panel="images" id="panelImages" class="hidden"></section>
+    <section data-panel="settings" id="panelSettings" class="hidden"></section>
+    <section data-panel="users" id="panelUsers" class="hidden"></section>
+    <section data-panel="log" id="panelLog" class="hidden"></section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner"><div><strong>GOLDITY</strong><p>Design Vault admin</p></div></div>
+</footer>
+
+<script src="/vault-admin.js"></script>
+</body>
+</html>
