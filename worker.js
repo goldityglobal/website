@@ -2465,6 +2465,15 @@ async function airdropLinkedToFarm(e, address) {
       console.log("GOLDITY_DIAG farm_link", me, row.wallet_address);
       return true;
     }
+    try {
+      const tgRow = await e.DB.prepare(`SELECT wallet_address FROM tg_airdrop_claims WHERE wallet_address IN (${part.map(() => "?").join(",")}) LIMIT 1`).bind(...part).first();
+      if (tgRow) {
+        console.log("GOLDITY_DIAG farm_link", me, tgRow.wallet_address);
+        return true;
+      }
+    } catch (err) {
+      if (!/no such table/i.test(String(err?.message || err))) throw err;
+    }
   }
   return false;
 }
@@ -2509,6 +2518,7 @@ async function claimAirdrop(e, req) {
     ipHash = await hashIp(e, ipBucket(ip(req)));
     const byWallet = await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first();
     if (byWallet) return { ok: false, error: "wallet_already_claimed" };
+    if (await tgClaimExistsForWallet(e, address, true)) return { ok: false, error: "wallet_already_claimed" };
     let eligible;
     try {
       eligible = await airdropWalletEligible(e, address);
@@ -2625,6 +2635,378 @@ async function processQueuedAirdrops(e) {
   }
 }
 __name(processQueuedAirdrops, "processQueuedAirdrops");
+// ============================================================================
+// GOLDITY Telegram airdrop (additive). The site airdrop above is unchanged,
+// except two read-only cross-checks: a wallet already used on Telegram cannot
+// claim on the site, and Telegram claimants count as peers in the farm check.
+// The bot stays OFF until both TG_BOT_TOKEN and TG_WEBHOOK_SECRET are set.
+// ============================================================================
+var TG_REWARD_WEI = 5n * 10n ** 16n;
+var TG_MAX_CLAIMS = 8888;
+var TG_MIN_WALLET_USD = 0.5;
+var TG_HOLD_HOURS = 24;
+var TG_PAY_PER_RUN = 6;
+var TG_EXAMINE_PER_RUN = 18;
+var TG_MAX_CONSECUTIVE_ERRORS = 6;
+var TG_PAY_GAP_MS = 2e3;
+var TG_RETRY_ERROR_MIN = 15;
+var TG_RETRY_SOFTFAIL_MIN = 30;
+var TG_GLOBAL_CLAIMS_PER_MINUTE = 5;
+var TG_ATTEMPTS_PER_USER_PER_HOUR = 8;
+var TG_ATTEMPTS_GLOBAL_PER_MINUTE = 40;
+var TG_MESSAGES_PER_USER_PER_MINUTE = 15;
+var TG_CHANNEL = "@gdtyglobal";
+var TG_GROUP = "@GOLDITYcommunity";
+var TG_CHANNEL_URL = "https://t.me/gdtyglobal";
+var TG_GROUP_URL = "https://t.me/GOLDITYcommunity";
+function tgEnabled(e) {
+  return typeof e.TG_BOT_TOKEN === "string" && e.TG_BOT_TOKEN.length >= 20 && typeof e.TG_WEBHOOK_SECRET === "string" && e.TG_WEBHOOK_SECRET.length >= 30;
+}
+__name(tgEnabled, "tgEnabled");
+function tgSecretMatches(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+__name(tgSecretMatches, "tgSecretMatches");
+async function tgApi(e, method, payload) {
+  let r;
+  try {
+    r = await fetch(`https://api.telegram.org/bot${e.TG_BOT_TOKEN}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(8e3),
+      body: JSON.stringify(payload)
+    });
+  } catch (fetchErr) {
+    const err = new Error("tg_network_error");
+    err.tgDescription = "network:" + String(fetchErr?.name || "error");
+    throw err;
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok !== true) {
+    const err = new Error("tg_api_error");
+    err.tgDescription = String(j.description || r.status);
+    throw err;
+  }
+  return j.result;
+}
+__name(tgApi, "tgApi");
+async function tgSend(e, chatId, text, markup) {
+  try {
+    await tgApi(e, "sendMessage", { chat_id: Number(chatId), text, disable_web_page_preview: true, ...markup ? { reply_markup: markup } : {} });
+  } catch (err) {
+    console.error("GOLDITY tg send failed", err?.tgDescription || err?.message);
+  }
+}
+__name(tgSend, "tgSend");
+async function tgMembership(e, userId) {
+  const uid = Number(userId);
+  const isIn = /* @__PURE__ */ __name(async (chat) => {
+    const m = await tgApi(e, "getChatMember", { chat_id: chat, user_id: uid });
+    const s = m?.status;
+    return s === "creator" || s === "administrator" || s === "member" || s === "restricted" && m.is_member === true;
+  }, "isIn");
+  const [channel, group] = await Promise.all([isIn(TG_CHANNEL), isIn(TG_GROUP)]);
+  return { channel, group };
+}
+__name(tgMembership, "tgMembership");
+async function tgIsPaused(e) {
+  const row = await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='tg_paused'").first();
+  return !!row?.value_int;
+}
+__name(tgIsPaused, "tgIsPaused");
+async function reserveTgSlot(e) {
+  const now = nowIso();
+  await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('tg_claimed_count',0,?) ON CONFLICT(key) DO NOTHING").bind(now).run();
+  const res = await e.DB.prepare("UPDATE airdrop_state SET value_int=value_int+1,updated_at=? WHERE key='tg_claimed_count' AND value_int<?").bind(now, TG_MAX_CLAIMS).run();
+  return !!res?.meta?.changes;
+}
+__name(reserveTgSlot, "reserveTgSlot");
+async function releaseTgSlot(e) {
+  await e.DB.prepare("UPDATE airdrop_state SET value_int=MAX(0,value_int-1) WHERE key='tg_claimed_count'").run();
+}
+__name(releaseTgSlot, "releaseTgSlot");
+async function tgClaimExistsForWallet(e, address, activeOnly) {
+  try {
+    const sql = activeOnly ? "SELECT id FROM tg_airdrop_claims WHERE wallet_address=? AND status!='rejected'" : "SELECT id FROM tg_airdrop_claims WHERE wallet_address=?";
+    return !!await e.DB.prepare(sql).bind(address).first();
+  } catch (err) {
+    if (/no such table/i.test(String(err?.message || err))) return false;
+    throw err;
+  }
+}
+__name(tgClaimExistsForWallet, "tgClaimExistsForWallet");
+async function tgWalletEligible(e, address) {
+  const code = await rpc(e, "eth_getCode", [address, "latest"]);
+  if (code && code !== "0x" && !String(code).toLowerCase().startsWith("0xef0100")) return false;
+  if (!e.ANKR_API_KEY) {
+    console.error("GOLDITY: ANKR_API_KEY not set - telegram airdrop eligibility can't be checked");
+    throw new Error("ankr_not_configured");
+  }
+  const { types, usd } = await ankrWalletSummary(e, address);
+  console.log("GOLDITY_DIAG tg summary", address, "types", types, "usd", usd);
+  if (types < AIRDROP_MIN_ASSET_TYPES || usd < TG_MIN_WALLET_USD) return false;
+  const cutoff = Math.floor(Date.now() / 1e3) - AIRDROP_MIN_WALLET_AGE_DAYS * 86400;
+  if (!await ankrHasTxBefore(e, address, cutoff)) return false;
+  return !await airdropLinkedToFarm(e, address);
+}
+__name(tgWalletEligible, "tgWalletEligible");
+async function claimTgAirdrop(e, userId, chatId, address) {
+  const uid = String(userId);
+  try {
+    if (await tgIsPaused(e)) return { ok: false, error: "paused" };
+    if (await e.DB.prepare("SELECT id FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first()) return { ok: false, error: "account_already_claimed" };
+    if (await tgClaimExistsForWallet(e, address) || await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first()) return { ok: false, error: "wallet_already_claimed" };
+    let member;
+    try {
+      member = await tgMembership(e, uid);
+    } catch (err) {
+      console.error("GOLDITY tg membership check failed", err?.tgDescription || err?.message);
+      return { ok: false, error: "membership_check_failed" };
+    }
+    if (!member.channel || !member.group) return { ok: false, error: "not_member", channel: member.channel, group: member.group };
+    if (!await rateLimit(e, `tg:att:${uid}`, TG_ATTEMPTS_PER_USER_PER_HOUR, 36e5)) return { ok: false, error: "too_many_attempts" };
+    if (!await rateLimit(e, "tg:att-global", TG_ATTEMPTS_GLOBAL_PER_MINUTE, 6e4)) return { ok: false, error: "busy" };
+    let eligible;
+    try {
+      eligible = await tgWalletEligible(e, address);
+    } catch (err) {
+      console.error("GOLDITY tg eligibility error", err);
+      return { ok: false, error: "eligibility_check_failed" };
+    }
+    console.log("GOLDITY_DIAG tg claim", address, "eligible", eligible);
+    if (!eligible) return { ok: false, error: "wallet_not_eligible" };
+    if (!await rateLimit(e, "tg:claims-global", TG_GLOBAL_CLAIMS_PER_MINUTE, 6e4)) return { ok: false, error: "busy" };
+    if (!await reserveTgSlot(e)) return { ok: false, error: "full" };
+  } catch (err) {
+    console.error("GOLDITY tg claim pre-check error", err);
+    return { ok: false, error: "db_busy" };
+  }
+  try {
+    await e.DB.prepare(`
+      INSERT INTO tg_airdrop_claims(id,telegram_user_id,chat_id,wallet_address,amount_wei,status,created_at)
+      VALUES(?,?,?,?,?,?,?)
+    `).bind(id(), uid, String(chatId), address, TG_REWARD_WEI.toString(), "queued", nowIso()).run();
+  } catch {
+    await releaseTgSlot(e).catch(() => {
+    });
+    return { ok: false, error: "already_claimed" };
+  }
+  return { ok: true };
+}
+__name(claimTgAirdrop, "claimTgAirdrop");
+async function payTgClaim(e, claim) {
+  const back = /* @__PURE__ */ __name(async () => {
+    await e.DB.prepare("UPDATE tg_airdrop_claims SET status='queued' WHERE id=? AND status='paying'").bind(claim.id).run().catch((err2) => console.error("GOLDITY tg could not put claim back - stuck in 'paying', check manually", claim.id, err2));
+    return { result: "retry" };
+  }, "back");
+  if (!e.REFERRAL_PAYOUT_PRIVATE_KEY) return back();
+  let payoutAddress;
+  try {
+    payoutAddress = addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);
+  } catch {
+    return back();
+  }
+  if (payoutAddress.toLowerCase() !== AIRDROP_CONTRACT_OWNER) {
+    console.error("GOLDITY tg airdrop owner mismatch - configured key does not control the airdrop contract");
+    return back();
+  }
+  let txHash;
+  try {
+    const [gdtyBal, bnbRaw] = await Promise.all([
+      tokenBalance(e, A.G, AIRDROP_CONTRACT),
+      rpc(e, "eth_getBalance", [payoutAddress, "latest"])
+    ]);
+    if (BigInt(gdtyBal) < TG_REWARD_WEI || BigInt(bnbRaw) < 2000000000000000n) {
+      console.error("GOLDITY tg airdrop treasury empty - queued claims wait");
+      return back();
+    }
+    const gasPrice = await getGasPrice(e);
+    const data = singleAirdropData(claim.wallet_address, TG_REWARD_WEI);
+    const nonce = await getNonce(e, payoutAddress);
+    const signedTx = await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY, { nonce, gasPrice, gasLimit: 15e4, to: AIRDROP_CONTRACT, value: 0n, data });
+    const b = await safeBroadcast(e, signedTx);
+    if (b.sent === "unknown") {
+      await e.DB.prepare("UPDATE tg_airdrop_claims SET status='processing',tx_hash=? WHERE id=?").bind(b.txHash, claim.id).run().catch(() => {
+      });
+      console.error("GOLDITY tg airdrop broadcast outcome unknown - check on BscScan", b.txHash, claim.id);
+      return { result: "unknown" };
+    }
+    if (!b.sent) throw b.err;
+    txHash = b.txHash;
+  } catch (err) {
+    console.error("GOLDITY tg airdrop broadcast error", err);
+    return back();
+  }
+  try {
+    await e.DB.prepare("UPDATE tg_airdrop_claims SET status='sent',tx_hash=? WHERE id=?").bind(txHash, claim.id).run();
+  } catch (err) {
+    console.error("GOLDITY CRITICAL: tg airdrop broadcast succeeded but DB recording failed - manual reconciliation required", txHash, claim.id, err);
+  }
+  return { result: "sent", txHash };
+}
+__name(payTgClaim, "payTgClaim");
+async function rejectTgClaim(e, claim, reason, text) {
+  const res = await e.DB.prepare("UPDATE tg_airdrop_claims SET status='rejected',reject_reason=? WHERE id=? AND status='paying'").bind(reason, claim.id).run();
+  if (!res?.meta?.changes) return;
+  await releaseTgSlot(e).catch((err) => console.error("GOLDITY tg slot release failed after reject - counter is 1 too high", claim.id, err));
+  await tgSend(e, claim.chat_id, text);
+}
+__name(rejectTgClaim, "rejectTgClaim");
+async function processQueuedTgAirdrops(e) {
+  if (!tgEnabled(e)) return;
+  if (await tgIsPaused(e)) return;
+  const now = Date.now();
+  const earliest = new Date(now - TG_HOLD_HOURS * 36e5).toISOString();
+  const { results } = await e.DB.prepare("SELECT * FROM tg_airdrop_claims WHERE status='queued' AND created_at<=? AND (retry_after IS NULL OR retry_after<=?) ORDER BY created_at LIMIT 50").bind(earliest, new Date(now).toISOString()).all();
+  let examined = 0, attempted = 0, errorsInARow = 0;
+  if ((results || []).length && TG_PAY_GAP_MS > 0) await new Promise((r) => setTimeout(r, TG_PAY_GAP_MS));
+  for (const claim of results || []) {
+    if (attempted >= TG_PAY_PER_RUN || examined >= TG_EXAMINE_PER_RUN) break;
+    const lock = await e.DB.prepare("UPDATE tg_airdrop_claims SET status='paying' WHERE id=? AND status='queued' AND (retry_after IS NULL OR retry_after<=?)").bind(claim.id, new Date().toISOString()).run();
+    if (!lock?.meta?.changes) continue;
+    examined++;
+    const retryLater = /* @__PURE__ */ __name((minutes, softFail) => e.DB.prepare("UPDATE tg_airdrop_claims SET status='queued',attempts=attempts+1,retry_after=?,reject_reason=? WHERE id=? AND status='paying'").bind(new Date(Date.now() + minutes * 6e4).toISOString(), softFail ? "wallet_recheck_pending" : claim.reject_reason ?? null, claim.id).run(), "retryLater");
+    let verdict, soft = false;
+    try {
+      if (await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=? AND status!='rejected'").bind(claim.wallet_address).first()) {
+        verdict = { reject: "duplicate_wallet", text: "Your airdrop claim was cancelled because this wallet already has a claim on the GOLDITY website airdrop." };
+      } else {
+        const member = await tgMembership(e, claim.telegram_user_id);
+        if (!member.channel || !member.group) {
+          verdict = { reject: "left_channel_or_group", text: "Your airdrop claim was cancelled because you are no longer a member of both the GOLDITY channel and community group." };
+        } else {
+          const { types, usd } = await ankrWalletSummary(e, claim.wallet_address);
+          const ok = types >= AIRDROP_MIN_ASSET_TYPES && usd >= TG_MIN_WALLET_USD && !await airdropLinkedToFarm(e, claim.wallet_address);
+          console.log("GOLDITY_DIAG tg payout_check", claim.wallet_address, "types", types, "usd", usd, "ok", ok);
+          if (!ok) {
+            verdict = { reject: "wallet_conditions", text: "Your airdrop claim was cancelled because your wallet no longer meets the airdrop conditions (2+ tokens and $0.50+ total value)." };
+            soft = claim.reject_reason !== "wallet_recheck_pending";
+          }
+        }
+      }
+    } catch (err) {
+      console.error("GOLDITY tg payout re-check error - will retry", claim.id, claim.wallet_address, err?.tgDescription || err);
+      await retryLater(TG_RETRY_ERROR_MIN, false).catch((err2) => console.error("GOLDITY tg could not put claim back - stuck in 'paying', check manually", claim.id, err2));
+      if (++errorsInARow >= TG_MAX_CONSECUTIVE_ERRORS) {
+        console.error("GOLDITY tg payouts: too many consecutive errors - pausing this run");
+        break;
+      }
+      continue;
+    }
+    errorsInARow = 0;
+    if (verdict && soft) {
+      await retryLater(TG_RETRY_SOFTFAIL_MIN, true).catch((err2) => console.error("GOLDITY tg could not put claim back - stuck in 'paying', check manually", claim.id, err2));
+      continue;
+    }
+    if (verdict) {
+      try {
+        await rejectTgClaim(e, claim, verdict.reject, verdict.text);
+      } catch (err) {
+        console.error("GOLDITY tg reject failed - putting claim back in the queue", claim.id, err);
+        await e.DB.prepare("UPDATE tg_airdrop_claims SET status='queued' WHERE id=? AND status='paying'").bind(claim.id).run().catch((err2) => console.error("GOLDITY tg could not put claim back - stuck in 'paying', check manually", claim.id, err2));
+      }
+      continue;
+    }
+    attempted++;
+    if (claim.reject_reason === "wallet_recheck_pending") await e.DB.prepare("UPDATE tg_airdrop_claims SET reject_reason=NULL WHERE id=? AND status='paying'").bind(claim.id).run().catch(() => {
+    });
+    const paid = await payTgClaim(e, claim);
+    if (paid.result === "sent") {
+      await tgSend(e, claim.chat_id, `0.05 GDTY has been sent to ${claim.wallet_address}.
+Transaction: https://bscscan.com/tx/${paid.txHash}`);
+      if (TG_PAY_GAP_MS > 0) await new Promise((r) => setTimeout(r, TG_PAY_GAP_MS));
+    }
+  }
+}
+__name(processQueuedTgAirdrops, "processQueuedTgAirdrops");
+var TG_WELCOME = "Welcome to the GOLDITY (GDTY) airdrop.\n\nClaim 0.05 GDTY (limited to the first 8,888 claims):\n1. Join our channel and community group using the buttons below.\n2. Tap \"I joined\".\n3. Send me your BNB Smart Chain wallet address (starts with 0x).\n\nYour wallet needs at least 2 different tokens, $0.50 in total value and 1 sent transaction. The airdrop is sent 24 hours after you register, as long as you are still in the channel and group and your wallet still meets these conditions. One claim per Telegram account and per wallet (the website airdrop counts too).\n\nI only need your public address. Never share your seed phrase or private key with anyone.";
+function tgJoinMarkup() {
+  return { inline_keyboard: [
+    [{ text: "Join channel", url: TG_CHANNEL_URL }, { text: "Join group", url: TG_GROUP_URL }],
+    [{ text: "I joined", callback_data: "joined" }]
+  ] };
+}
+__name(tgJoinMarkup, "tgJoinMarkup");
+function tgNotMemberText(m) {
+  const missing = [!m.channel ? "the GOLDITY channel" : null, !m.group ? "the GOLDITY community group" : null].filter(Boolean).join(" and ");
+  return `I can't see you in ${missing} yet. Please join, then tap "I joined" again.`;
+}
+__name(tgNotMemberText, "tgNotMemberText");
+async function handleTgCallback(e, cb) {
+  try {
+    await tgApi(e, "answerCallbackQuery", { callback_query_id: cb.id });
+  } catch {
+  }
+  const chat = cb.message?.chat;
+  if (cb.data !== "joined" || !chat || chat.type !== "private" || !cb.from || cb.from.is_bot) return;
+  const uid = String(cb.from.id);
+  if (!await rateLimit(e, `tg:msg:${uid}`, TG_MESSAGES_PER_USER_PER_MINUTE, 6e4)) return;
+  if (await tgIsPaused(e)) return tgSend(e, chat.id, "The airdrop is paused right now. Please check back later.");
+  let m;
+  try {
+    m = await tgMembership(e, uid);
+  } catch (err) {
+    console.error("GOLDITY tg membership check failed", err?.tgDescription || err?.message);
+    return tgSend(e, chat.id, "I couldn't verify your membership right now. Please try again in a minute.");
+  }
+  if (!m.channel || !m.group) return tgSend(e, chat.id, tgNotMemberText(m), tgJoinMarkup());
+  return tgSend(e, chat.id, "Thanks! Now send me your BNB Smart Chain wallet address (starts with 0x).");
+}
+__name(handleTgCallback, "handleTgCallback");
+var TG_CLAIM_ERRORS = {
+  paused: "The airdrop is paused right now. Please check back later.",
+  account_already_claimed: "This Telegram account has already claimed. Use /status to see your claim.",
+  wallet_already_claimed: "This wallet has already been used for an airdrop claim.",
+  membership_check_failed: "I couldn't verify your membership right now. Please try again in a minute.",
+  busy: "The airdrop is busy right now. Please try again in a minute.",
+  too_many_attempts: "Too many attempts. Please try again later.",
+  eligibility_check_failed: "I couldn't check your wallet right now. Please try again in a minute.",
+  wallet_not_eligible: "Not eligible. The wallet needs 2+ tokens, $0.50+ total value and 1 sent transaction.",
+  full: "All 8,888 Telegram airdrop claims have been taken. Thank you for your interest!",
+  db_busy: "Something went wrong. Please try again in a minute.",
+  already_claimed: "This Telegram account or wallet has already claimed."
+};
+async function handleTgUpdate(e, update) {
+  if (update?.callback_query) return handleTgCallback(e, update.callback_query);
+  const m = update?.message;
+  if (!m || m.chat?.type !== "private" || !m.from || m.from.is_bot || typeof m.text !== "string") return;
+  const uid = String(m.from.id), chatId = m.chat.id;
+  if (!await rateLimit(e, `tg:msg:${uid}`, TG_MESSAGES_PER_USER_PER_MINUTE, 6e4)) return;
+  const text = m.text.trim().slice(0, 300);
+  if (/^\/(start|help)\b/i.test(text)) return tgSend(e, chatId, TG_WELCOME, tgJoinMarkup());
+  if (/^\/status\b/i.test(text)) {
+    const row = await e.DB.prepare("SELECT wallet_address,status,tx_hash,created_at FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first();
+    if (!row) return tgSend(e, chatId, "You haven't claimed yet. Send /start to begin.");
+    const label = { queued: "registered, waiting for the 24-hour payout", paying: "being processed", processing: "being processed", sent: "sent", rejected: "cancelled" }[row.status] || row.status;
+    return tgSend(e, chatId, `Claim for ${row.wallet_address}: ${label}.${row.status === "sent" && row.tx_hash ? `
+Transaction: https://bscscan.com/tx/${row.tx_hash}` : ""}`);
+  }
+  if (!walletRe.test(text)) return tgSend(e, chatId, "Please send a valid BNB Smart Chain wallet address: 42 characters starting with 0x. Send /start for the instructions.");
+  const r = await claimTgAirdrop(e, uid, chatId, text.toLowerCase());
+  if (r.ok) return tgSend(e, chatId, `Registered! 0.05 GDTY will be sent to ${text.toLowerCase()} in 24 hours, as long as you stay in the channel and group and your wallet still meets the conditions.`);
+  if (r.error === "not_member") return tgSend(e, chatId, tgNotMemberText(r), tgJoinMarkup());
+  return tgSend(e, chatId, TG_CLAIM_ERRORS[r.error] || TG_CLAIM_ERRORS.db_busy);
+}
+__name(handleTgUpdate, "handleTgUpdate");
+async function telegramWebhook(e, req, ctx) {
+  if (!tgEnabled(e) || !e.DB) return out({ ok: false, error: "not_found" }, 404, 0);
+  if (!tgSecretMatches(req.headers.get("x-telegram-bot-api-secret-token"), e.TG_WEBHOOK_SECRET)) return out({ ok: false, error: "forbidden" }, 403, 0);
+  let update;
+  try {
+    update = await req.json();
+  } catch {
+    return new Response("ok", { status: 200 });
+  }
+  const work = handleTgUpdate(e, update).catch((err) => console.error("GOLDITY tg update error", err?.tgDescription || err));
+  if (ctx?.waitUntil) ctx.waitUntil(work);
+  else await work;
+  return new Response("ok", { status: 200 });
+}
+__name(telegramWebhook, "telegramWebhook");
+// ============================== end Telegram airdrop ==============================
 async function dashboard(e, req) {
   const u = await currentUser(e, req);
   if (!u) return out({ ok: false, error: "unauthorized" }, 401, cors(e));
@@ -2808,7 +3190,7 @@ function vaultTreasury(e) {
 __name(vaultTreasury, "vaultTreasury");
 var vault = createVault({ out, cors, currentUser, requireOrigin, rateLimit, ip, ipBucket, hashIp, sha256Text, nowIso, id, htmlEscape });
 var worker_default = {
-  async fetch(req, e) {
+  async fetch(req, e, ctx) {
     const u = new URL(req.url);
     const baseHeaders = cors(e);
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: {
@@ -2870,6 +3252,7 @@ var worker_default = {
           return new Response("not found", { status: 404 });
         }
       }
+      if (u.pathname === "/api/telegram/webhook" && req.method === "POST") return await telegramWebhook(e, req, ctx);
       if (u.pathname === "/api/airdrop/status" && req.method === "GET") {
         return out(await airdropStatus(e), 200, 10, baseHeaders);
       }
@@ -2971,6 +3354,11 @@ var worker_default = {
       await processQueuedAirdrops(e);
     } catch (err) {
       console.error("GOLDITY airdrop payout error", err);
+    }
+    try {
+      await processQueuedTgAirdrops(e);
+    } catch (err) {
+      console.error("GOLDITY telegram airdrop payout error", err);
     }
     try {
       await vault.scheduled(e);
