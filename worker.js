@@ -2995,6 +2995,21 @@ Status: ${label}${row.status === "sent" && row.tx_hash ? `
   return tgSend(e, chatId, TG_CLAIM_ERRORS[r.error] || TG_CLAIM_ERRORS.db_busy);
 }
 __name(handleTgUpdate, "handleTgUpdate");
+async function telegramStatus(e) {
+  if (!tgEnabled(e) || !e.DB) return { ok: true, enabled: false };
+  const row = await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='tg_claimed_count'").first();
+  const claimed = Math.max(0, Number(row?.value_int || 0));
+  return {
+    ok: true,
+    enabled: true,
+    claimed,
+    max: TG_MAX_CLAIMS,
+    remaining: Math.max(0, TG_MAX_CLAIMS - claimed),
+    rewardWei: TG_REWARD_WEI.toString(),
+    paused: await tgIsPaused(e)
+  };
+}
+__name(telegramStatus, "telegramStatus");
 async function telegramWebhook(e, req, ctx) {
   if (!tgEnabled(e) || !e.DB) return out({ ok: false, error: "not_found" }, 404, 0);
   if (!tgSecretMatches(req.headers.get("x-telegram-bot-api-secret-token"), e.TG_WEBHOOK_SECRET)) return out({ ok: false, error: "forbidden" }, 403, 0);
@@ -3257,6 +3272,14 @@ var worker_default = {
         }
       }
       if (u.pathname === "/api/telegram/webhook" && req.method === "POST") return await telegramWebhook(e, req, ctx);
+      if (u.pathname === "/api/telegram/status" && req.method === "GET") {
+        try {
+          return out(await telegramStatus(e), 200, 10, baseHeaders);
+        } catch (err) {
+          console.error("GOLDITY tg status error", err);
+          return out({ ok: false, error: "unavailable" }, 503, 0, baseHeaders);
+        }
+      }
       if (u.pathname === "/api/airdrop/status" && req.method === "GET") {
         return out(await airdropStatus(e), 200, 10, baseHeaders);
       }
