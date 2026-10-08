@@ -17,6 +17,14 @@
 <link rel="stylesheet" href="style.css">
 <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png">
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+.tg-airdrop{margin-top:22px}
+.tg-airdrop h2{margin:6px 0 8px;font-size:24px;line-height:1.2;color:var(--gold-light)}
+.tg-airdrop .tg-airdrop-lead{margin:0;color:var(--text-soft);font-size:15px;line-height:1.6}
+.tg-airdrop .airdrop-counter{margin:20px 0 22px}
+.tg-airdrop .tg-airdrop-note{margin:16px 0 0;color:var(--text-soft);font-size:12px;line-height:1.6}
+.tg-airdrop .btn.is-disabled{opacity:.42;pointer-events:none;cursor:not-allowed}
+</style>
 </head>
 <body>
 <header>
@@ -94,11 +102,31 @@
 
 </div>
 
+<section class="dashboard-card airdrop-card tg-airdrop" id="tgAirdrop" style="display:none" aria-label="Telegram airdrop">
+  <p class="eyebrow">TELEGRAM AIRDROP</p>
+  <h2>Claim 0.05 GDTY on Telegram</h2>
+  <p class="tg-airdrop-lead">Join the GOLDITY channel and community group, send your wallet address to our bot, and get paid 24 hours later.</p>
+  <div class="airdrop-counter">
+    <div>
+      <span class="card-label">Claimed on Telegram</span>
+      <strong id="tgAirdropClaimed">— / 8,888</strong>
+    </div>
+    <div class="airdrop-progress-track">
+      <div class="airdrop-progress-fill" id="tgAirdropFill"></div>
+    </div>
+  </div>
+  <div class="airdrop-actions">
+    <a id="tgAirdropBtn" class="btn btn-gold" href="https://t.me/GOLDITY_airdrop_bot" target="_blank" rel="noopener noreferrer">Claim on Telegram</a>
+  </div>
+  <p class="tg-airdrop-note" id="tgAirdropNote">Your wallet needs 2+ tokens, $0.50+ total value and 1 sent transaction. One claim per Telegram account and per wallet; a wallet that already claimed on the website can't claim again here. Never share your seed phrase or private key.</p>
+</section>
+
 </main>
 
 <footer>GOLDITY · GDTY · <a href="/register.html">Register</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/whitepaper.html">Whitepaper</a> · <a href="/contract.html">Contract</a> · <a href="https://www.facebook.com/profile.php?id=61594820135358" target="_blank" rel="noopener noreferrer me">Facebook</a></footer>
 
 <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.17.0/dist/index.umd.js"></script>
 <script src="airdrop.js"></script>
+<script src="airdrop-telegram.js"></script>
 </body>
 </html>
