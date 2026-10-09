@@ -12,6 +12,7 @@
   var BASE_NOTE = note.textContent;
   var shown = false;
   var timer = null;
+  var jumped = false;
 
   function fmt(n) {
     return Number(n).toLocaleString("en-US");
@@ -30,6 +31,18 @@
   function hide() {
     section.style.display = "none";
     shown = false;
+  }
+  // Links such as goldityglobal.com/airdrop#telegram: the section only appears after the status
+  // request, so the browser cannot jump to it by itself. Do it once, the first time it becomes visible.
+  function jumpIfRequested() {
+    if (jumped) return;
+    jumped = true;
+    try {
+      var h = String(window.location.hash).toLowerCase();
+      if (h === "#telegram" || h === "#tgairdrop") section.scrollIntoView({ block: "start" });
+    } catch (e) {
+      /* scrolling is a nicety; never let it break the page */
+    }
   }
 
   function render(d) {
@@ -51,6 +64,7 @@
     }
     section.style.display = "";
     shown = true;
+    jumpIfRequested();
   }
 
   function load() {
