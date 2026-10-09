@@ -73,6 +73,18 @@
 /* Hero subtitle: refined, tracked capitals (Home page only) */
 .hero-tagline{margin:24px 0 14px;font-size:14px;font-weight:600;letter-spacing:.24em;line-height:1.7;text-transform:uppercase}
 @media(max-width:760px){.hero-tagline{margin:20px 0 12px;font-size:12px;letter-spacing:.16em;text-wrap:balance}}
+/* Telegram airdrop badge next to the website Airdrop badge (Home page only) */
+.site-header .airdrop-badge{min-height:32px;padding:6px 11px;font-size:11px}
+.airdrop-badge-tg{background:transparent;color:var(--gold-light);border:1px solid rgba(217,180,91,.55);box-shadow:none}
+.site-header .airdrop-badge-tg{min-height:38px;padding:8px 14px;font-size:12px}
+.airdrop-badge-tg:hover{background:rgba(217,180,91,.1);box-shadow:0 4px 16px rgba(217,180,91,.2)}
+.airdrop-badge-tg svg{width:17px;height:17px;flex:none;fill:currentColor}
+.tg-airdrop-bar{display:none;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;padding:9px 14px;background:rgba(217,180,91,.07);border-bottom:1px solid rgba(217,180,91,.22);color:var(--gold-light);font-size:12px;line-height:1.4;text-align:center}
+.tg-airdrop-bar svg{width:16px;height:16px;flex:none;fill:currentColor}
+.tg-airdrop-bar strong{font-weight:800}
+.tg-airdrop-bar span{color:var(--text-soft)}
+.tg-airdrop-bar:hover{background:rgba(217,180,91,.12)}
+@media(max-width:1199px){.airdrop-badge-tg{display:none}.tg-airdrop-bar{display:flex}}
 </style>
 
 
@@ -102,6 +114,7 @@
 
 
     <a class="airdrop-badge" href="/airdrop.html">🎁 Airdrop</a>
+    <a class="airdrop-badge airdrop-badge-tg" href="https://t.me/GOLDITY_airdrop_bot" target="_blank" rel="noopener noreferrer" aria-label="Telegram Airdrop: claim 0.05 GDTY on Telegram" title="Telegram Airdrop: claim 0.05 GDTY"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg><span>Telegram Airdrop</span></a>
 
 
 
@@ -284,6 +297,7 @@
 
 
 </header>
+<a class="tg-airdrop-bar" href="https://t.me/GOLDITY_airdrop_bot" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg><strong>Telegram Airdrop</strong><span>Claim 0.05 GDTY</span><b aria-hidden="true">→</b></a>
 
 
 
