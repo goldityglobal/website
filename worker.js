@@ -2750,7 +2750,8 @@ async function tgWalletEligible(e, address) {
   if (types < AIRDROP_MIN_ASSET_TYPES || usd < TG_MIN_WALLET_USD) return false;
   const cutoff = Math.floor(Date.now() / 1e3) - AIRDROP_MIN_WALLET_AGE_DAYS * 86400;
   if (!await ankrHasTxBefore(e, address, cutoff)) return false;
-  return !await airdropLinkedToFarm(e, address);
+  if (await airdropLinkedToFarm(e, address)) return null;
+  return true;
 }
 __name(tgWalletEligible, "tgWalletEligible");
 async function claimTgAirdrop(e, userId, chatId, address) {
@@ -2758,7 +2759,7 @@ async function claimTgAirdrop(e, userId, chatId, address) {
   try {
     if (await tgIsPaused(e)) return { ok: false, error: "paused" };
     if (await e.DB.prepare("SELECT id FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first()) return { ok: false, error: "account_already_claimed" };
-    if (await tgClaimExistsForWallet(e, address) || await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=?").bind(address).first()) return { ok: false, error: "wallet_already_claimed" };
+    if (await tgClaimExistsForWallet(e, address)) return { ok: false, error: "wallet_already_claimed" };
     let member;
     try {
       member = await tgMembership(e, uid);
@@ -2776,7 +2777,8 @@ async function claimTgAirdrop(e, userId, chatId, address) {
       console.error("GOLDITY tg eligibility error", err);
       return { ok: false, error: "eligibility_check_failed" };
     }
-    console.log("GOLDITY_DIAG tg claim", address, "eligible", eligible);
+    console.log("GOLDITY_DIAG tg claim", address, "eligible", !!eligible);
+    if (eligible === null) return { ok: false, error: "wallet_linked" };
     if (!eligible) return { ok: false, error: "wallet_not_eligible" };
     if (!await rateLimit(e, "tg:claims-global", TG_GLOBAL_CLAIMS_PER_MINUTE, 6e4)) return { ok: false, error: "busy" };
     if (!await reserveTgSlot(e)) return { ok: false, error: "full" };
@@ -2871,20 +2873,16 @@ async function processQueuedTgAirdrops(e) {
     const retryLater = /* @__PURE__ */ __name((minutes, softFail) => e.DB.prepare("UPDATE tg_airdrop_claims SET status='queued',attempts=attempts+1,retry_after=?,reject_reason=? WHERE id=? AND status='paying'").bind(new Date(Date.now() + minutes * 6e4).toISOString(), softFail ? "wallet_recheck_pending" : claim.reject_reason ?? null, claim.id).run(), "retryLater");
     let verdict, soft = false;
     try {
-      if (await e.DB.prepare("SELECT id FROM airdrop_claims WHERE wallet_address=? AND status!='rejected'").bind(claim.wallet_address).first()) {
-        verdict = { reject: "duplicate_wallet", text: "\u{1F615} Your airdrop claim was cancelled because this wallet already has a claim on the GOLDITY website airdrop." };
+      const member = await tgMembership(e, claim.telegram_user_id);
+      if (!member.channel || !member.group) {
+        verdict = { reject: "left_channel_or_group", text: "\u{1F615} Your airdrop claim was cancelled because you are no longer a member of both the GOLDITY channel and community group." };
       } else {
-        const member = await tgMembership(e, claim.telegram_user_id);
-        if (!member.channel || !member.group) {
-          verdict = { reject: "left_channel_or_group", text: "\u{1F615} Your airdrop claim was cancelled because you are no longer a member of both the GOLDITY channel and community group." };
-        } else {
-          const { types, usd } = await ankrWalletSummary(e, claim.wallet_address);
-          const ok = types >= AIRDROP_MIN_ASSET_TYPES && usd >= TG_MIN_WALLET_USD && !await airdropLinkedToFarm(e, claim.wallet_address);
-          console.log("GOLDITY_DIAG tg payout_check", claim.wallet_address, "types", types, "usd", usd, "ok", ok);
-          if (!ok) {
-            verdict = { reject: "wallet_conditions", text: "\u{1F615} Your airdrop claim was cancelled because your wallet no longer meets the airdrop conditions (2+ tokens and $0.50+ total value)." };
-            soft = claim.reject_reason !== "wallet_recheck_pending";
-          }
+        const { types, usd } = await ankrWalletSummary(e, claim.wallet_address);
+        const ok = types >= AIRDROP_MIN_ASSET_TYPES && usd >= TG_MIN_WALLET_USD && !await airdropLinkedToFarm(e, claim.wallet_address);
+        console.log("GOLDITY_DIAG tg payout_check", claim.wallet_address, "types", types, "usd", usd, "ok", ok);
+        if (!ok) {
+          verdict = { reject: "wallet_conditions", text: "\u{1F615} Your airdrop claim was cancelled because your wallet no longer meets the airdrop conditions (2+ tokens and $0.50+ total value)." };
+          soft = claim.reject_reason !== "wallet_recheck_pending";
         }
       }
     } catch (err) {
@@ -2924,7 +2922,7 @@ Thanks for being part of GOLDITY! \u{1FA99}`);
   }
 }
 __name(processQueuedTgAirdrops, "processQueuedTgAirdrops");
-var TG_WELCOME = "\u{1FA99} Welcome to the GOLDITY (GDTY) Airdrop!\n\n\u{1F381} Claim 0.05 GDTY \u2014 limited to the first 8,888 claims.\n\nHow it works:\n1\uFE0F\u20E3 Join our channel and community group (buttons below)\n2\uFE0F\u20E3 Tap \"I joined\"\n3\uFE0F\u20E3 Send me your BNB Smart Chain wallet address (starts with 0x)\n\n\u2705 Your wallet needs 2+ different tokens, $0.50+ in total value and at least 1 sent transaction.\n\u23F3 Your GDTY is sent 24 hours after you register, as long as you are still in the channel and group and your wallet still meets these conditions.\n\u261D\uFE0F One claim per Telegram account and per wallet (the website airdrop counts too).\n\n\u{1F512} I only need your public address. Never share your seed phrase or private key with anyone \u2014 not even me.";
+var TG_WELCOME = "\u{1FA99} Welcome to the GOLDITY (GDTY) Airdrop!\n\n\u{1F381} Claim 0.05 GDTY \u2014 limited to the first 8,888 claims.\n\nHow it works:\n1\uFE0F\u20E3 Join our channel and community group (buttons below)\n2\uFE0F\u20E3 Tap \"I joined\"\n3\uFE0F\u20E3 Send me your BNB Smart Chain wallet address (starts with 0x)\n\n\u2705 Your wallet needs 2+ different tokens, $0.50+ in total value and at least 1 sent transaction.\n\u23F3 Your GDTY is sent 24 hours after you register, as long as you are still in the channel and group and your wallet still meets these conditions.\n\u261D\uFE0F One claim per Telegram account and per wallet. Already claimed on the website? You can claim here too.\n\n\u{1F512} I only need your public address. Never share your seed phrase or private key with anyone \u2014 not even me.";
 function tgJoinMarkup() {
   return { inline_keyboard: [
     [{ text: "\u{1F4E2} Join channel", url: TG_CHANNEL_URL }, { text: "\u{1F4AC} Join group", url: TG_GROUP_URL }],
@@ -2961,12 +2959,13 @@ __name(handleTgCallback, "handleTgCallback");
 var TG_CLAIM_ERRORS = {
   paused: "\u23F8\uFE0F The airdrop is paused right now. Please check back later.",
   account_already_claimed: "\u{1F64C} This Telegram account has already claimed. Use /status to see your claim.",
-  wallet_already_claimed: "\u26D4 This wallet has already been used for an airdrop claim.",
+  wallet_already_claimed: "\u26D4 This wallet has already claimed the Telegram airdrop.",
   membership_check_failed: "\u26A0\uFE0F I couldn't verify your membership right now. Please try again in a minute.",
   busy: "\u{1F6A6} The airdrop is busy right now. Please try again in a minute.",
   too_many_attempts: "\u23F3 Too many attempts. Please try again later.",
   eligibility_check_failed: "\u26A0\uFE0F I couldn't check your wallet right now. Please try again in a minute.",
   wallet_not_eligible: "\u274C Not eligible. The wallet needs 2+ tokens, $0.50+ total value and 1 sent transaction.",
+  wallet_linked: "\u274C This wallet is linked to another wallet that already claimed. Only one claim per person.",
   full: "\u{1F3C1} All 8,888 Telegram airdrop claims have been taken. Thank you for your interest!",
   db_busy: "\u26A0\uFE0F Something went wrong. Please try again in a minute.",
   already_claimed: "\u{1F64C} This Telegram account or wallet has already claimed."
