@@ -2922,7 +2922,39 @@ Thanks for being part of GOLDITY! \u{1FA99}`);
   }
 }
 __name(processQueuedTgAirdrops, "processQueuedTgAirdrops");
-var TG_WELCOME = "\u{1FA99} Welcome to the GOLDITY (GDTY) Airdrop!\n\n\u{1F381} Claim 0.05 GDTY \u2014 limited to the first 8,888 claims.\n\nHow it works:\n1\uFE0F\u20E3 Join our channel and community group (buttons below)\n2\uFE0F\u20E3 Tap \"I joined\"\n3\uFE0F\u20E3 Send me your BNB Smart Chain wallet address (starts with 0x)\n\n\u2705 Your wallet needs 2+ different tokens, $0.50+ in total value and at least 1 sent transaction.\n\u23F3 Your GDTY is sent 24 hours after you register, as long as you are still in the channel and group and your wallet still meets these conditions.\n\u261D\uFE0F One claim per Telegram account and per wallet. Already claimed on the website? You can claim here too.\n\n\u{1F512} I only need your public address. Never share your seed phrase or private key with anyone \u2014 not even me.";
+var TG_WELCOME = "\u{1FA99} Welcome to the GOLDITY (GDTY) Airdrop!\n\n\u{1F381} Claim 0.05 GDTY \u2014 limited to the first 8,888 claims.{COUNTER}\n\nHow it works:\n1\uFE0F\u20E3 Tap \"Claim now\"\n2\uFE0F\u20E3 Join our channel and community group, then tap \"I joined\"\n3\uFE0F\u20E3 Send me your BNB Smart Chain wallet address (starts with 0x)\n\n\u2705 Your wallet needs 2+ different tokens, $0.50+ in total value and at least 1 sent transaction.\n\u23F3 Your GDTY is sent 24 hours after you register, as long as you are still in the channel and group and your wallet still meets these conditions.\n\u261D\uFE0F One claim per Telegram account and per wallet. Already claimed on the website? You can claim here too.\n\n\u{1F512} I only need your public address. Never share your seed phrase or private key with anyone \u2014 not even me.";
+var TG_RULES = "\u{1F4CB} Airdrop rules\n\n\u2022 Reward: 0.05 GDTY per eligible claim, sent on BNB Smart Chain (BEP-20)\n\u2022 Limited to the first 8,888 claims\n\u2022 Join the GOLDITY channel and community group, and stay in both\n\u2022 Wallet requirements: 2+ different tokens, $0.50+ in total value and at least 1 sent transaction\n\u2022 Payout: 24 hours after you register, if you are still a member and your wallet still meets the requirements\n\u2022 One claim per Telegram account and per wallet. A wallet linked to another claiming wallet is not eligible\n\u2022 I only need your public address. Never share your seed phrase or private key with anyone\n\nTap \"Claim now\" to start.";
+var TG_SITE_URL = "https://goldityglobal.com/airdrop#telegram";
+function tgMenuMarkup() {
+  return { inline_keyboard: [
+    [{ text: "\u{1F381} Claim now", callback_data: "claim" }],
+    [{ text: "\u{1F4CA} My status", callback_data: "status" }, { text: "\u{1F4CB} Rules", callback_data: "rules" }],
+    [{ text: "\u{1F310} Website", url: TG_SITE_URL }]
+  ] };
+}
+__name(tgMenuMarkup, "tgMenuMarkup");
+async function tgWelcomeText(e) {
+  let line = "";
+  try {
+    const row = await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='tg_claimed_count'").first();
+    const claimed = Math.min(TG_MAX_CLAIMS, Math.max(0, Number(row?.value_int || 0)));
+    const fmt = /* @__PURE__ */ __name((n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","), "fmt");
+    line = `\n\u{1F4CA} Claimed so far: ${fmt(claimed)} of ${fmt(TG_MAX_CLAIMS)}`;
+  } catch {
+  }
+  return TG_WELCOME.replace("{COUNTER}", line);
+}
+__name(tgWelcomeText, "tgWelcomeText");
+async function tgStatusText(e, uid) {
+  const row = await e.DB.prepare("SELECT wallet_address,status,tx_hash,created_at FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first();
+  if (!row) return "\u{1F4ED} You haven't claimed yet. Send /start to begin.";
+  const label = { queued: "\u23F3 registered, waiting for the 24-hour payout", paying: "\u{1F504} being processed", processing: "\u{1F504} being processed", sent: "\u2705 sent", rejected: "\u274C cancelled" }[row.status] || row.status;
+  return `\u{1F4CA} Your claim
+Wallet: ${row.wallet_address}
+Status: ${label}${row.status === "sent" && row.tx_hash ? `
+\u{1F517} Transaction: https://bscscan.com/tx/${row.tx_hash}` : ""}`;
+}
+__name(tgStatusText, "tgStatusText");
 function tgJoinMarkup() {
   return { inline_keyboard: [
     [{ text: "\u{1F4E2} Join channel", url: TG_CHANNEL_URL }, { text: "\u{1F4AC} Join group", url: TG_GROUP_URL }],
@@ -2935,16 +2967,30 @@ function tgNotMemberText(m) {
   return `\u{1F440} I can't see you in ${missing} yet.\nPlease join, then tap "I joined" again.`;
 }
 __name(tgNotMemberText, "tgNotMemberText");
+function tgJoinFirstText(m) {
+  const missing = [!m.channel ? "the GOLDITY channel" : null, !m.group ? "the GOLDITY community group" : null].filter(Boolean).join(" and ");
+  return `\u{1F449} First, join ${missing} (buttons below), then tap "I joined".`;
+}
+__name(tgJoinFirstText, "tgJoinFirstText");
+var TG_CALLBACKS = /* @__PURE__ */ new Set(["joined", "claim", "status", "rules"]);
 async function handleTgCallback(e, cb) {
   try {
     await tgApi(e, "answerCallbackQuery", { callback_query_id: cb.id });
   } catch {
   }
   const chat = cb.message?.chat;
-  if (cb.data !== "joined" || !chat || chat.type !== "private" || !cb.from || cb.from.is_bot) return;
+  if (typeof cb.data !== "string" || !TG_CALLBACKS.has(cb.data) || !chat || chat.type !== "private" || !cb.from || cb.from.is_bot) return;
+  const action = cb.data;
   const uid = String(cb.from.id);
   if (!await rateLimit(e, `tg:msg:${uid}`, TG_MESSAGES_PER_USER_PER_MINUTE, 6e4)) return;
+  if (action === "rules") return tgSend(e, chat.id, TG_RULES, tgMenuMarkup());
+  if (action === "status") return tgSend(e, chat.id, await tgStatusText(e, uid), tgMenuMarkup());
   if (await tgIsPaused(e)) return tgSend(e, chat.id, "\u23F8\uFE0F The airdrop is paused right now. Please check back later.");
+  if (action === "claim") {
+    if (await e.DB.prepare("SELECT id FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first()) return tgSend(e, chat.id, TG_CLAIM_ERRORS.account_already_claimed, tgMenuMarkup());
+    const counter = await e.DB.prepare("SELECT value_int FROM airdrop_state WHERE key='tg_claimed_count'").first();
+    if (Number(counter?.value_int || 0) >= TG_MAX_CLAIMS) return tgSend(e, chat.id, TG_CLAIM_ERRORS.full);
+  }
   let m;
   try {
     m = await tgMembership(e, uid);
@@ -2952,7 +2998,7 @@ async function handleTgCallback(e, cb) {
     console.error("GOLDITY tg membership check failed", err?.tgDescription || err?.message);
     return tgSend(e, chat.id, "\u26A0\uFE0F I couldn't verify your membership right now. Please try again in a minute.");
   }
-  if (!m.channel || !m.group) return tgSend(e, chat.id, tgNotMemberText(m), tgJoinMarkup());
+  if (!m.channel || !m.group) return tgSend(e, chat.id, action === "claim" ? tgJoinFirstText(m) : tgNotMemberText(m), tgJoinMarkup());
   return tgSend(e, chat.id, "\u2705 Nice, you're in both! Now send me your BNB Smart Chain wallet address (starts with 0x).");
 }
 __name(handleTgCallback, "handleTgCallback");
@@ -2977,16 +3023,9 @@ async function handleTgUpdate(e, update) {
   const uid = String(m.from.id), chatId = m.chat.id;
   if (!await rateLimit(e, `tg:msg:${uid}`, TG_MESSAGES_PER_USER_PER_MINUTE, 6e4)) return;
   const text = m.text.trim().slice(0, 300);
-  if (/^\/(start|help)\b/i.test(text)) return tgSend(e, chatId, TG_WELCOME, tgJoinMarkup());
-  if (/^\/status\b/i.test(text)) {
-    const row = await e.DB.prepare("SELECT wallet_address,status,tx_hash,created_at FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first();
-    if (!row) return tgSend(e, chatId, "\u{1F4ED} You haven't claimed yet. Send /start to begin.");
-    const label = { queued: "\u23F3 registered, waiting for the 24-hour payout", paying: "\u{1F504} being processed", processing: "\u{1F504} being processed", sent: "\u2705 sent", rejected: "\u274C cancelled" }[row.status] || row.status;
-    return tgSend(e, chatId, `\u{1F4CA} Your claim
-Wallet: ${row.wallet_address}
-Status: ${label}${row.status === "sent" && row.tx_hash ? `
-\u{1F517} Transaction: https://bscscan.com/tx/${row.tx_hash}` : ""}`);
-  }
+  if (/^\/(start|help)\b/i.test(text)) return tgSend(e, chatId, await tgWelcomeText(e), tgMenuMarkup());
+  if (/^\/rules\b/i.test(text)) return tgSend(e, chatId, TG_RULES, tgMenuMarkup());
+  if (/^\/status\b/i.test(text)) return tgSend(e, chatId, await tgStatusText(e, uid));
   if (!walletRe.test(text)) return tgSend(e, chatId, "\u{1F914} Please send a valid BNB Smart Chain wallet address: 42 characters starting with 0x. Send /start for the instructions.");
   const r = await claimTgAirdrop(e, uid, chatId, text.toLowerCase());
   if (r.ok) return tgSend(e, chatId, `\u{1F389} You're in! 0.05 GDTY will be sent to ${text.toLowerCase()} in 24 hours, as long as you stay in the channel and group and your wallet still meets the conditions.\n\nSend /status anytime to check your claim.`);
