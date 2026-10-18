@@ -2738,19 +2738,31 @@ async function tgClaimExistsForWallet(e, address, activeOnly) {
   }
 }
 __name(tgClaimExistsForWallet, "tgClaimExistsForWallet");
-async function tgWalletEligible(e, address) {
+async function tgWalletEligible(e, address, why) {
   const code = await rpc(e, "eth_getCode", [address, "latest"]);
-  if (code && code !== "0x" && !String(code).toLowerCase().startsWith("0xef0100")) return false;
+  if (code && code !== "0x" && !String(code).toLowerCase().startsWith("0xef0100")) {
+    if (why) why.reason = "contract";
+    return false;
+  }
   if (!e.ANKR_API_KEY) {
     console.error("GOLDITY: ANKR_API_KEY not set - telegram airdrop eligibility can't be checked");
     throw new Error("ankr_not_configured");
   }
   const { types, usd } = await ankrWalletSummary(e, address);
   console.log("GOLDITY_DIAG tg summary", address, "types", types, "usd", usd);
-  if (types < AIRDROP_MIN_ASSET_TYPES || usd < TG_MIN_WALLET_USD) return false;
+  if (types < AIRDROP_MIN_ASSET_TYPES || usd < TG_MIN_WALLET_USD) {
+    if (why) why.reason = "balance";
+    return false;
+  }
   const cutoff = Math.floor(Date.now() / 1e3) - AIRDROP_MIN_WALLET_AGE_DAYS * 86400;
-  if (!await ankrHasTxBefore(e, address, cutoff)) return false;
-  if (await airdropLinkedToFarm(e, address)) return null;
+  if (!await ankrHasTxBefore(e, address, cutoff)) {
+    if (why) why.reason = "no_tx";
+    return false;
+  }
+  if (await airdropLinkedToFarm(e, address)) {
+    if (why) why.reason = "linked";
+    return null;
+  }
   return true;
 }
 __name(tgWalletEligible, "tgWalletEligible");
@@ -2771,15 +2783,16 @@ async function claimTgAirdrop(e, userId, chatId, address) {
     if (!await rateLimit(e, `tg:att:${uid}`, TG_ATTEMPTS_PER_USER_PER_HOUR, 36e5)) return { ok: false, error: "too_many_attempts" };
     if (!await rateLimit(e, "tg:att-global", TG_ATTEMPTS_GLOBAL_PER_MINUTE, 6e4)) return { ok: false, error: "busy" };
     let eligible;
+    const why = {};
     try {
-      eligible = await tgWalletEligible(e, address);
+      eligible = await tgWalletEligible(e, address, why);
     } catch (err) {
       console.error("GOLDITY tg eligibility error", err);
       return { ok: false, error: "eligibility_check_failed" };
     }
-    console.log("GOLDITY_DIAG tg claim", address, "eligible", !!eligible);
+    console.log("GOLDITY_DIAG tg claim", address, "eligible", !!eligible, "reason", why.reason || "-");
     if (eligible === null) return { ok: false, error: "wallet_linked" };
-    if (!eligible) return { ok: false, error: "wallet_not_eligible" };
+    if (!eligible) return { ok: false, error: why.reason === "balance" ? "wallet_low_balance" : why.reason === "no_tx" ? "wallet_no_tx" : "wallet_not_eligible" };
     if (!await rateLimit(e, "tg:claims-global", TG_GLOBAL_CLAIMS_PER_MINUTE, 6e4)) return { ok: false, error: "busy" };
     if (!await reserveTgSlot(e)) return { ok: false, error: "full" };
   } catch (err) {
@@ -2962,14 +2975,18 @@ function tgJoinMarkup() {
   ] };
 }
 __name(tgJoinMarkup, "tgJoinMarkup");
+function tgJoinText(m) {
+  if (!m.channel && !m.group) return "First step! \u{1F60A} Join the GOLDITY channel and group, then tap \u201CI joined\u201D.";
+  if (!m.channel) return "Almost there! \u{1F60A} Join the GOLDITY channel, then tap \u201CI joined\u201D.";
+  return "One more step! \u{1F60A} Join the GOLDITY group, then tap \u201CI joined\u201D.";
+}
+__name(tgJoinText, "tgJoinText");
 function tgNotMemberText(m) {
-  const missing = [!m.channel ? "the GOLDITY channel" : null, !m.group ? "the GOLDITY community group" : null].filter(Boolean).join(" and ");
-  return `\u{1F440} I can't see you in ${missing} yet.\nPlease join, then tap "I joined" again.`;
+  return tgJoinText(m);
 }
 __name(tgNotMemberText, "tgNotMemberText");
 function tgJoinFirstText(m) {
-  const missing = [!m.channel ? "the GOLDITY channel" : null, !m.group ? "the GOLDITY community group" : null].filter(Boolean).join(" and ");
-  return `\u{1F449} First, join ${missing} (buttons below), then tap "I joined".`;
+  return tgJoinText(m);
 }
 __name(tgJoinFirstText, "tgJoinFirstText");
 var TG_CALLBACKS = /* @__PURE__ */ new Set(["joined", "claim", "status", "rules"]);
@@ -2999,7 +3016,7 @@ async function handleTgCallback(e, cb) {
     return tgSend(e, chat.id, "\u26A0\uFE0F I couldn't verify your membership right now. Please try again in a minute.");
   }
   if (!m.channel || !m.group) return tgSend(e, chat.id, action === "claim" ? tgJoinFirstText(m) : tgNotMemberText(m), tgJoinMarkup());
-  return tgSend(e, chat.id, "\u2705 Nice, you're in both! Now send me your BNB Smart Chain wallet address (starts with 0x).");
+  return tgSend(e, chat.id, "\u{1F4EC} Send your BNB Smart Chain (BEP-20) wallet address.\nYour public address is all we need\u2014never send your recovery phrase or private key.");
 }
 __name(handleTgCallback, "handleTgCallback");
 var TG_CLAIM_ERRORS = {
@@ -3009,9 +3026,11 @@ var TG_CLAIM_ERRORS = {
   membership_check_failed: "\u26A0\uFE0F I couldn't verify your membership right now. Please try again in a minute.",
   busy: "\u{1F6A6} The airdrop is busy right now. Please try again in a minute.",
   too_many_attempts: "\u23F3 Too many attempts. Please try again later.",
-  eligibility_check_failed: "\u26A0\uFE0F I couldn't check your wallet right now. Please try again in a minute.",
-  wallet_not_eligible: "\u274C Not eligible. The wallet needs 2+ tokens, $0.50+ total value and 1 sent transaction.",
-  wallet_linked: "\u274C This wallet is linked to another wallet that already claimed. Only one claim per person.",
+  eligibility_check_failed: "We couldn\u2019t check your wallet right now. Please try again a little later \u{1F60A}\nThis is a temporary issue, not a rejection.",
+  wallet_low_balance: "This wallet doesn\u2019t meet the balance requirements yet.\nYou\u2019ll need at least 2 types of tokens and a total wallet value of at least $0.50.",
+  wallet_no_tx: "This wallet doesn\u2019t have a sent transaction yet.\nIt needs at least 1 sent transaction. Make one from this wallet, then send the address again \u{1F60A}",
+  wallet_not_eligible: "This wallet can\u2019t be used for the airdrop.\nPlease send a regular wallet address (not a smart contract) with at least 2 types of tokens, a total value of at least $0.50 and at least 1 sent transaction.",
+  wallet_linked: "This wallet was flagged as linked to another claiming wallet, so it isn\u2019t eligible.\nEach person can claim once with one Telegram account and one wallet.",
   full: "\u{1F3C1} All 8,888 Telegram airdrop claims have been taken. Thank you for your interest!",
   db_busy: "\u26A0\uFE0F Something went wrong. Please try again in a minute.",
   already_claimed: "\u{1F64C} This Telegram account or wallet has already claimed."
@@ -3028,7 +3047,7 @@ async function handleTgUpdate(e, update) {
   if (/^\/status\b/i.test(text)) return tgSend(e, chatId, await tgStatusText(e, uid));
   if (!walletRe.test(text)) return tgSend(e, chatId, "\u{1F914} Please send a valid BNB Smart Chain wallet address: 42 characters starting with 0x. Send /start for the instructions.");
   const r = await claimTgAirdrop(e, uid, chatId, text.toLowerCase());
-  if (r.ok) return tgSend(e, chatId, `\u{1F389} You're in! 0.05 GDTY will be sent to ${text.toLowerCase()} in 24 hours, as long as you stay in the channel and group and your wallet still meets the conditions.\n\nSend /status anytime to check your claim.`);
+  if (r.ok) return tgSend(e, chatId, `\u2705 Your claim is registered!\nYour 0.05 GDTY will be sent after the 24-hour review if all checks pass.\nUntil then, stay in the channel and group, and keep at least 2 types of tokens with a total wallet value of at least $0.50.\n\nWallet: ${text.toLowerCase()}\nSend /status anytime to check your claim.`);
   if (r.error === "not_member") return tgSend(e, chatId, tgNotMemberText(r), tgJoinMarkup());
   return tgSend(e, chatId, TG_CLAIM_ERRORS[r.error] || TG_CLAIM_ERRORS.db_busy);
 }
