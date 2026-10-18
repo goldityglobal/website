@@ -2701,6 +2701,63 @@ async function tgSend(e, chatId, text, markup) {
   }
 }
 __name(tgSend, "tgSend");
+var TG_WARN_GDTY_WEI = 20n * 10n ** 18n;
+var TG_WARN_BNB_WEI = 10n ** 16n;
+var TG_EMPTY_BNB_WEI = 2000000000000000n;
+function tgAdminChatId(e) {
+  const v = String(e.TG_ADMIN_CHAT_ID ?? "").trim();
+  return /^-?\d{3,20}$/.test(v) ? v : null;
+}
+__name(tgAdminChatId, "tgAdminChatId");
+async function tgEvent(e, uid, event, detail = "", wallet = null) {
+  try {
+    await e.DB.prepare("INSERT OR IGNORE INTO tg_events(telegram_user_id,event,detail,wallet_address,created_at) VALUES(?,?,?,?,?)").bind(String(uid), event, String(detail || ""), wallet, nowIso()).run();
+  } catch (err) {
+    if (!/no such table/i.test(String(err?.message || err))) console.error("GOLDITY tg event failed", event, err?.message || err);
+  }
+}
+__name(tgEvent, "tgEvent");
+async function tgAlertAdmin(e, key, text, everyMin = 360) {
+  const chat = tgAdminChatId(e);
+  if (!chat) return;
+  const k = "tg_alert_" + key;
+  let stamp = 0;
+  try {
+    const nowS = Math.floor(Date.now() / 1e3);
+    await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES(?,0,?) ON CONFLICT(key) DO NOTHING").bind(k, nowIso()).run();
+    const res = await e.DB.prepare("UPDATE airdrop_state SET value_int=?,updated_at=? WHERE key=? AND value_int<=?").bind(nowS, nowIso(), k, nowS - everyMin * 60).run();
+    if (!res?.meta?.changes) return;
+    stamp = nowS;
+    await tgApi(e, "sendMessage", { chat_id: Number(chat), text, disable_web_page_preview: true });
+  } catch (err) {
+    console.error("GOLDITY tg admin alert failed", key, err?.tgDescription || err?.message || err);
+    if (stamp) await e.DB.prepare("UPDATE airdrop_state SET value_int=? WHERE key=? AND value_int=?").bind(stamp - everyMin * 60 + 900, k, stamp).run().catch(() => {
+    });
+  }
+}
+__name(tgAlertAdmin, "tgAlertAdmin");
+async function tgTreasuryWatch(e) {
+  try {
+    if (!tgAdminChatId(e) || !e.REFERRAL_PAYOUT_PRIVATE_KEY) return;
+    const nowS = Math.floor(Date.now() / 1e3);
+    await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('tg_treasury_checked',0,?) ON CONFLICT(key) DO NOTHING").bind(nowIso()).run();
+    const gate = await e.DB.prepare("UPDATE airdrop_state SET value_int=?,updated_at=? WHERE key='tg_treasury_checked' AND value_int<=?").bind(nowS, nowIso(), nowS - 3600).run();
+    if (!gate?.meta?.changes) return;
+    const [gdty, bnbRaw] = await Promise.all([
+      tokenBalance(e, A.G, AIRDROP_CONTRACT),
+      rpc(e, "eth_getBalance", [AIRDROP_CONTRACT_OWNER, "latest"])
+    ]);
+    const bnb = BigInt(bnbRaw);
+    const f = /* @__PURE__ */ __name((w) => (Number(w) / 1e18).toFixed(4), "f");
+    if (gdty < TG_REWARD_WEI) await tgAlertAdmin(e, "gdty_empty", `⚠️ GOLDITY airdrop: the airdrop contract has too little GDTY to pay (${f(gdty)} GDTY left). Payouts are waiting. Please top it up.`);
+    else if (gdty < TG_WARN_GDTY_WEI) await tgAlertAdmin(e, "gdty_low", `\u{1F514} GOLDITY airdrop: GDTY in the airdrop contract is running low (${f(gdty)} GDTY left). Payouts still work. Please top it up soon.`);
+    if (bnb < TG_EMPTY_BNB_WEI) await tgAlertAdmin(e, "bnb_empty", `⚠️ GOLDITY airdrop: the payout wallet has too little BNB for gas (${f(bnb)} BNB left, at least 0.002 is needed). Payouts are waiting. Please top it up.`);
+    else if (bnb < TG_WARN_BNB_WEI) await tgAlertAdmin(e, "bnb_low", `\u{1F514} GOLDITY airdrop: BNB in the payout wallet is running low (${f(bnb)} BNB left). Payouts still work. Please top it up soon.`);
+  } catch (err) {
+    console.error("GOLDITY tg treasury watch failed", err?.message || err);
+  }
+}
+__name(tgTreasuryWatch, "tgTreasuryWatch");
 async function tgMembership(e, userId) {
   const uid = Number(userId);
   const isIn = /* @__PURE__ */ __name(async (chat) => {
@@ -2872,6 +2929,7 @@ async function rejectTgClaim(e, claim, reason, text) {
 __name(rejectTgClaim, "rejectTgClaim");
 async function processQueuedTgAirdrops(e) {
   if (!tgEnabled(e)) return;
+  await tgTreasuryWatch(e);
   if (await tgIsPaused(e)) return;
   const now = Date.now();
   const earliest = new Date(now - TG_HOLD_HOURS * 36e5).toISOString();
@@ -3001,7 +3059,8 @@ async function handleTgCallback(e, cb) {
   const uid = String(cb.from.id);
   if (!await rateLimit(e, `tg:msg:${uid}`, TG_MESSAGES_PER_USER_PER_MINUTE, 6e4)) return;
   if (action === "rules") return tgSend(e, chat.id, TG_RULES, tgMenuMarkup());
-  if (action === "status") return tgSend(e, chat.id, await tgStatusText(e, uid), tgMenuMarkup());
+if (action === "status") return tgSend(e, chat.id, await tgStatusText(e, uid), tgMenuMarkup());
+  await tgEvent(e, uid, action === "claim" ? "claim_btn" : "joined_btn");
   if (await tgIsPaused(e)) return tgSend(e, chat.id, "\u23F8\uFE0F The airdrop is paused right now. Please check back later.");
   if (action === "claim") {
     if (await e.DB.prepare("SELECT id FROM tg_airdrop_claims WHERE telegram_user_id=?").bind(uid).first()) return tgSend(e, chat.id, TG_CLAIM_ERRORS.account_already_claimed, tgMenuMarkup());
@@ -3015,8 +3074,12 @@ async function handleTgCallback(e, cb) {
     console.error("GOLDITY tg membership check failed", err?.tgDescription || err?.message);
     return tgSend(e, chat.id, "\u26A0\uFE0F I couldn't verify your membership right now. Please try again in a minute.");
   }
-  if (!m.channel || !m.group) return tgSend(e, chat.id, action === "claim" ? tgJoinFirstText(m) : tgNotMemberText(m), tgJoinMarkup());
-  return tgSend(e, chat.id, "\u{1F4EC} Send your BNB Smart Chain (BEP-20) wallet address.\nYour public address is all we need\u2014never send your recovery phrase or private key.");
+  if (!m.channel || !m.group) {
+    await tgSend(e, chat.id, action === "claim" ? tgJoinFirstText(m) : tgNotMemberText(m), tgJoinMarkup());
+    return tgEvent(e, uid, "join_missing", !m.channel && !m.group ? "both" : !m.channel ? "channel" : "group");
+  }
+  await tgSend(e, chat.id, "\u{1F4EC} Send your BNB Smart Chain (BEP-20) wallet address.\nYour public address is all we need\u2014never send your recovery phrase or private key.");
+  return tgEvent(e, uid, "ask_address");
 }
 __name(handleTgCallback, "handleTgCallback");
 var TG_CLAIM_ERRORS = {
@@ -3042,14 +3105,29 @@ async function handleTgUpdate(e, update) {
   const uid = String(m.from.id), chatId = m.chat.id;
   if (!await rateLimit(e, `tg:msg:${uid}`, TG_MESSAGES_PER_USER_PER_MINUTE, 6e4)) return;
   const text = m.text.trim().slice(0, 300);
-  if (/^\/(start|help)\b/i.test(text)) return tgSend(e, chatId, await tgWelcomeText(e), tgMenuMarkup());
+  if (/^\/(start|help)\b/i.test(text)) {
+    await tgSend(e, chatId, await tgWelcomeText(e), tgMenuMarkup());
+    return tgEvent(e, uid, "start");
+  }
   if (/^\/rules\b/i.test(text)) return tgSend(e, chatId, TG_RULES, tgMenuMarkup());
   if (/^\/status\b/i.test(text)) return tgSend(e, chatId, await tgStatusText(e, uid));
-  if (!walletRe.test(text)) return tgSend(e, chatId, "\u{1F914} Please send a valid BNB Smart Chain wallet address: 42 characters starting with 0x. Send /start for the instructions.");
-  const r = await claimTgAirdrop(e, uid, chatId, text.toLowerCase());
-  if (r.ok) return tgSend(e, chatId, `\u2705 Your claim is registered!\nYour 0.05 GDTY will be sent after the 24-hour review if all checks pass.\nUntil then, stay in the channel and group, and keep at least 2 types of tokens with a total wallet value of at least $0.50.\n\nWallet: ${text.toLowerCase()}\nSend /status anytime to check your claim.`);
-  if (r.error === "not_member") return tgSend(e, chatId, tgNotMemberText(r), tgJoinMarkup());
-  return tgSend(e, chatId, TG_CLAIM_ERRORS[r.error] || TG_CLAIM_ERRORS.db_busy);
+  if (!walletRe.test(text)) {
+    await tgSend(e, chatId, "\u{1F914} Please send a valid BNB Smart Chain wallet address: 42 characters starting with 0x. Send /start for the instructions.");
+    return tgEvent(e, uid, "bad_address");
+  }
+  const addr = text.toLowerCase();
+  await tgEvent(e, uid, "addr_sent", "", addr);
+  const r = await claimTgAirdrop(e, uid, chatId, addr);
+  if (r.ok) {
+    await tgSend(e, chatId, `\u2705 Your claim is registered!\nYour 0.05 GDTY will be sent after the 24-hour review if all checks pass.\nUntil then, stay in the channel and group, and keep at least 2 types of tokens with a total wallet value of at least $0.50.\n\nWallet: ${text.toLowerCase()}\nSend /status anytime to check your claim.`);
+    return tgEvent(e, uid, "claimed", "", addr);
+  }
+  if (r.error === "not_member") {
+    await tgSend(e, chatId, tgNotMemberText(r), tgJoinMarkup());
+    return tgEvent(e, uid, "reject", "not_member", addr);
+  }
+  await tgSend(e, chatId, TG_CLAIM_ERRORS[r.error] || TG_CLAIM_ERRORS.db_busy);
+  return tgEvent(e, uid, "reject", String(r.error || "unknown"), addr);
 }
 __name(handleTgUpdate, "handleTgUpdate");
 async function telegramStatus(e) {
