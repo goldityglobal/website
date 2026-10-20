@@ -961,8 +961,8 @@ var S = {
 };
 var TOPIC_TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 var enc = new TextEncoder();
-var TERMS_VERSION = "2026-09-09";
-var PRIVACY_VERSION = "2026-09-09";
+var TERMS_VERSION = "2026-10-19";
+var PRIVACY_VERSION = "2026-10-19";
 var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 var walletRe = /^0x[a-fA-F0-9]{40}$/;
 var txRe = /^0x[a-fA-F0-9]{64}$/;
@@ -3343,6 +3343,18 @@ function vaultTreasury(e) {
 }
 __name(vaultTreasury, "vaultTreasury");
 var vault = createVault({ out, cors, currentUser, requireOrigin, rateLimit, ip, ipBucket, hashIp, sha256Text, nowIso, id, htmlEscape });
+async function purgeRateLimits(e) {
+  try {
+    const nowS = Math.floor(Date.now() / 1e3);
+    await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('rl_purged',0,?) ON CONFLICT(key) DO NOTHING").bind(nowIso()).run();
+    const gate = await e.DB.prepare("UPDATE airdrop_state SET value_int=?,updated_at=? WHERE key='rl_purged' AND value_int<=?").bind(nowS, nowIso(), nowS - 3600).run();
+    if (!gate?.meta?.changes) return;
+    await e.DB.prepare("DELETE FROM rate_limits WHERE key IN (SELECT key FROM rate_limits WHERE updated_at<? LIMIT 5000)").bind(nowS - 86400).run();
+  } catch (err) {
+    console.error("GOLDITY rate limit purge failed", err?.message || err);
+  }
+}
+__name(purgeRateLimits, "purgeRateLimits");
 var worker_default = {
   async fetch(req, e, ctx) {
     const u = new URL(req.url);
@@ -3527,6 +3539,7 @@ var worker_default = {
     } catch (err) {
       console.error("GOLDITY vault cron error", err);
     }
+    await purgeRateLimits(e);
   }
 };
 export {
