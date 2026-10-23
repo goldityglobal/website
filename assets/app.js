@@ -452,26 +452,172 @@ if ($("totalGdtyReserve")) {
 ========================================================= */
 
 
-async function loadChart() {
-  const wrap = $("chartWrap");
+const CHART_POOL_URL = "https://www.geckoterminal.com/bsc/pools/0x9b1893e468189cbbbd6b73a77092fff9cd92d504";
+const chartView = { range: "1D", points: [], hover: null, bound: false };
+
+function chartPrice(v) {
+  return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toFixed(6);
+}
+
+function chartTime(ts, range) {
+  const d = new Date(ts * 1000);
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const day = d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return range === "1D" ? time : day + (range === "1W" ? " " + time : "");
+}
+
+function chartMessage(text, withLink) {
   const state = $("chartState");
+  if (!state) return;
+  state.textContent = text || "";
+  state.style.maxWidth = "88%";
+  state.style.textAlign = "center";
+  state.style.whiteSpace = "normal";
+  if (text && withLink) {
+    const link = document.createElement("a");
+    link.href = CHART_POOL_URL;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open the live chart on GeckoTerminal ↗";
+    link.style.cssText = "color:#d9b45b;font-size:11px";
+    state.appendChild(link);
+  }
+}
+
+function drawChart() {
+  const wrap = $("chartWrap");
   if (!wrap) return;
+  const pts = chartView.points;
+  let cv = wrap.querySelector("canvas");
+  if (pts.length < 2) {
+    if (cv) cv.remove();
+    return;
+  }
+  if (!cv) {
+    cv = document.createElement("canvas");
+    cv.setAttribute("role", "img");
+    wrap.appendChild(cv);
+    cv.addEventListener("pointermove", (ev) => {
+      const box = cv.getBoundingClientRect();
+      const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+      const fx = (ev.clientX - box.left - 10) / Math.max(1, box.width - 10 - 62);
+      const target = t0 + Math.min(1, Math.max(0, fx)) * (t1 - t0);
+      let best = 0;
+      for (let i = 1; i < chartView.points.length; i++) {
+        if (Math.abs(chartView.points[i][0] - target) < Math.abs(chartView.points[best][0] - target)) best = i;
+      }
+      chartView.hover = best;
+      drawChart();
+    });
+    cv.addEventListener("pointerleave", () => {
+      chartView.hover = null;
+      drawChart();
+    });
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const L = 10, R = 62, T = 16, B = 22;
+  let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
+  if (hi - lo < hi * 0.002) { lo = hi * 0.99; hi = hi * 1.01; }
+  const pad = (hi - lo) * 0.1;
+  lo -= pad; hi += pad;
+  const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+  const X = (ts) => L + (ts - t0) / Math.max(1, t1 - t0) * (w - L - R);
+  const Y = (p) => T + (1 - (p - lo) / (hi - lo)) * (h - T - B);
+  ctx.font = "10px Inter, system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const v = lo + (hi - lo) * (i / 3), y = Math.round(Y(v)) + 0.5;
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
+    ctx.fillStyle = "#7a7264";
+    ctx.textAlign = "left";
+    ctx.fillText(chartPrice(v), w - R + 8, y);
+  }
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#7a7264";
+  ctx.textAlign = "left";
+  ctx.fillText(chartTime(t0, chartView.range), L, h - 6);
+  ctx.textAlign = "right";
+  ctx.fillText(chartTime(t1, chartView.range), w - R, h - 6);
+  const grad = ctx.createLinearGradient(0, T, 0, h - B);
+  grad.addColorStop(0, "rgba(217,180,91,0.22)");
+  grad.addColorStop(1, "rgba(217,180,91,0)");
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1]))));
+  ctx.lineTo(X(t1), h - B); ctx.lineTo(X(t0), h - B); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1]))));
+  ctx.strokeStyle = "#d9b45b"; ctx.lineWidth = 1.8; ctx.lineJoin = "round"; ctx.stroke();
+  const lastP = pts[pts.length - 1];
+  ctx.beginPath(); ctx.arc(X(lastP[0]), Y(lastP[1]), 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = "#f5d16e"; ctx.fill();
+  if (chartView.hover !== null && pts[chartView.hover]) {
+    const p = pts[chartView.hover], x = X(p[0]), y = Y(p[1]);
+    ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, T); ctx.lineTo(Math.round(x) + 0.5, h - B); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+    const label = chartPrice(p[1]) + " USDT  ·  " + chartTime(p[0], chartView.range);
+    ctx.font = "11px Inter, system-ui, sans-serif";
+    const tw = ctx.measureText(label).width + 16;
+    const bx = Math.min(Math.max(x - tw / 2, L), w - R - tw + 40);
+    ctx.fillStyle = "rgba(10,10,9,0.92)"; ctx.strokeStyle = "rgba(217,180,91,0.35)";
+    ctx.beginPath(); ctx.rect(bx, 4, tw, 22); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#f1eadf"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(label, bx + 8, 15);
+  }
+  cv.setAttribute("aria-label", "GDTY price chart, " + chartView.range + ": from " + chartPrice(pts[0][1]) + " to " + chartPrice(lastP[1]) + " USDT");
+}
+
+async function loadChart(range) {
+  const wrap = $("chartWrap");
+  if (!wrap) return;
+  if (range) chartView.range = range;
+  if (!chartView.bound) {
+    chartView.bound = true;
+    const bar = $("chartRanges");
+    if (bar) {
+      bar.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("button[data-range]");
+        if (!btn) return;
+        bar.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+        chartView.hover = null;
+        loadChart(btn.getAttribute("data-range"));
+      });
+    }
+    let timer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(timer);
+      timer = setTimeout(drawChart, 150);
+    });
+    setInterval(() => {
+      if (!document.hidden) loadChart();
+    }, 300000);
+  }
   try {
-    const response = await fetch(API_BASE + "/api/dexscreener-pair");
+    const response = await fetch(API_BASE + "/api/price-history?range=" + encodeURIComponent(chartView.range));
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.ok || !data.url) {
-      if (state) state.textContent = "Chart unavailable right now.";
+    if (!response.ok || !data.ok || !Array.isArray(data.points)) {
+      if (!chartView.points.length) chartMessage("Chart unavailable right now.", true);
       return;
     }
-    const iframe = document.createElement("iframe");
-    iframe.src = data.url + "?embed=1&theme=dark&trades=0&info=0";
-    iframe.loading = "lazy";
-    iframe.title = "GDTY/USDT chart on DexScreener";
-    iframe.style.cssText = "width:100%;height:100%;border:0;display:block";
-    wrap.appendChild(iframe);
-    if (state) state.remove();
+    chartView.points = data.points;
+    if (data.points.length < 2) {
+      drawChart();
+      chartMessage("Price history is being recorded. The chart fills in over the next hours.", true);
+      return;
+    }
+    chartMessage("");
+    drawChart();
   } catch {
-    if (state) state.textContent = "Chart unavailable right now.";
+    if (!chartView.points.length) chartMessage("Chart unavailable right now.", true);
   }
 }
 function short(address) {
