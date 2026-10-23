@@ -3541,7 +3541,9 @@ var worker_default = {
         const range = (u.searchParams.get("range") || "1D").toUpperCase();
         const span = PRICE_RANGES[range];
         if (!span) return out({ ok: false, error: "invalid_range", allowed: Object.keys(PRICE_RANGES) }, 400, 0, baseHeaders);
-        return out(await priceHistory(e, range, span), 200, 60, baseHeaders);
+        const history = await priceHistory(e, range, span);
+        if (ctx?.waitUntil) ctx.waitUntil(recordPriceTick(e));
+        return out(history, 200, 60, baseHeaders);
       }
       if (u.pathname === "/api/chart") {
         const pp = await pair(e), range = (u.searchParams.get("range") || "1D").toUpperCase(), cfg = ranges[range];
