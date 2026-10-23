@@ -459,11 +459,12 @@ function chartPrice(v) {
   return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toFixed(6);
 }
 
-function chartTime(ts, range) {
+function chartTime(ts, range, longSpan) {
   const d = new Date(ts * 1000);
   const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const day = d.toLocaleDateString([], { month: "short", day: "numeric" });
-  return range === "1D" ? time : day + (range === "1W" ? " " + time : "");
+  if (range === "1D") return longSpan ? day + " " + time : time;
+  return day + (range === "1W" ? " " + time : "");
 }
 
 function chartMessage(text, withLink) {
@@ -487,24 +488,28 @@ function chartMessage(text, withLink) {
 function drawChart() {
   const wrap = $("chartWrap");
   if (!wrap) return;
-  const pts = chartView.points;
+  const real = chartView.points;
   let cv = wrap.querySelector("canvas");
-  if (pts.length < 2) {
+  if (real.length < 1) {
     if (cv) cv.remove();
     return;
   }
+  const single = real.length === 1;
+  const pts = single ? [[real[0][0] - 3600, real[0][1]], real[0]] : real;
   if (!cv) {
     cv = document.createElement("canvas");
     cv.setAttribute("role", "img");
     wrap.appendChild(cv);
     cv.addEventListener("pointermove", (ev) => {
+      const cur = chartView.points;
+      if (cur.length < 2) return;
       const box = cv.getBoundingClientRect();
-      const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+      const a = cur[0][0], b = cur[cur.length - 1][0];
       const fx = (ev.clientX - box.left - 10) / Math.max(1, box.width - 10 - 62);
-      const target = t0 + Math.min(1, Math.max(0, fx)) * (t1 - t0);
+      const target = a + Math.min(1, Math.max(0, fx)) * (b - a);
       let best = 0;
-      for (let i = 1; i < chartView.points.length; i++) {
-        if (Math.abs(chartView.points[i][0] - target) < Math.abs(chartView.points[best][0] - target)) best = i;
+      for (let i = 1; i < cur.length; i++) {
+        if (Math.abs(cur[i][0] - target) < Math.abs(cur[best][0] - target)) best = i;
       }
       chartView.hover = best;
       drawChart();
@@ -523,6 +528,7 @@ function drawChart() {
   ctx.clearRect(0, 0, w, h);
   const L = 10, R = 62, T = 16, B = 22;
   let lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
+  const flat = hi - lo < hi * 0.0005;
   if (hi - lo < hi * 0.002) { lo = hi * 0.99; hi = hi * 1.01; }
   const pad = (hi - lo) * 0.1;
   lo -= pad; hi += pad;
@@ -542,10 +548,16 @@ function drawChart() {
   }
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#7a7264";
-  ctx.textAlign = "left";
-  ctx.fillText(chartTime(t0, chartView.range), L, h - 6);
-  ctx.textAlign = "right";
-  ctx.fillText(chartTime(t1, chartView.range), w - R, h - 6);
+  const longSpan = t1 - t0 > 20 * 3600;
+  if (!single) {
+    ctx.textAlign = "left";
+    ctx.fillText(chartTime(t0, chartView.range, longSpan), L, h - 6);
+    ctx.textAlign = "right";
+    ctx.fillText(chartTime(t1, chartView.range, longSpan), w - R, h - 6);
+  } else {
+    ctx.textAlign = "right";
+    ctx.fillText("now", w - R, h - 6);
+  }
   const grad = ctx.createLinearGradient(0, T, 0, h - B);
   grad.addColorStop(0, "rgba(217,180,91,0.22)");
   grad.addColorStop(1, "rgba(217,180,91,0)");
@@ -555,16 +567,33 @@ function drawChart() {
   ctx.fillStyle = grad; ctx.fill();
   ctx.beginPath();
   pts.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1]))));
-  ctx.strokeStyle = "#d9b45b"; ctx.lineWidth = 1.8; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.strokeStyle = "#d9b45b"; ctx.lineWidth = 1.8; ctx.lineJoin = "round";
+  if (single) ctx.setLineDash([6, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
   const lastP = pts[pts.length - 1];
   ctx.beginPath(); ctx.arc(X(lastP[0]), Y(lastP[1]), 3.5, 0, Math.PI * 2);
   ctx.fillStyle = "#f5d16e"; ctx.fill();
-  if (chartView.hover !== null && pts[chartView.hover]) {
+  const notes = [];
+  const windowSec = { "1D": 86400, "1W": 604800, "1M": 2592000 }[chartView.range];
+  if (single) notes.push("Recording started. History builds up here");
+  else if (flat) notes.push("No price change in this period");
+  if (!single && (!windowSec || t1 - t0 < windowSec * 0.8)) {
+    notes.push("Recorded since " + new Date(real[0][0] * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+  }
+  if (notes.length) {
+    ctx.font = "10px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#7a7264"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    const joined = notes.join("  ·  ");
+    if (ctx.measureText(joined).width <= w - L - R) ctx.fillText(joined, L + 2, 10);
+    else notes.forEach((n, i) => ctx.fillText(n, L + 2, 10 + i * 12));
+  }
+  if (!single && chartView.hover !== null && pts[chartView.hover]) {
     const p = pts[chartView.hover], x = X(p[0]), y = Y(p[1]);
     ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, T); ctx.lineTo(Math.round(x) + 0.5, h - B); ctx.stroke();
     ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
-    const label = chartPrice(p[1]) + " USDT  ·  " + chartTime(p[0], chartView.range);
+    const label = chartPrice(p[1]) + " USDT  ·  " + chartTime(p[0], chartView.range, longSpan);
     ctx.font = "11px Inter, system-ui, sans-serif";
     const tw = ctx.measureText(label).width + 16;
     const bx = Math.min(Math.max(x - tw / 2, L), w - R - tw + 40);
@@ -609,7 +638,7 @@ async function loadChart(range) {
       return;
     }
     chartView.points = data.points;
-    if (data.points.length < 2) {
+    if (data.points.length < 1) {
       drawChart();
       chartMessage("Price history is being recorded. The chart fills in over the next hours.", true);
       return;
