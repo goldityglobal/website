@@ -1039,7 +1039,11 @@ async function rpc(e, method, params = []) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
   });
-  if (!r.ok) throw new Error("rpc_http_error");
+  if (!r.ok) {
+    const he = new Error("rpc_http_error");
+    he.status = r.status;
+    throw he;
+  }
   const j = await r.json();
   if (j.error) {
     const err = new Error("rpc_error");
@@ -3389,6 +3393,153 @@ async function recordPriceTick(e) {
   }
 }
 __name(recordPriceTick, "recordPriceTick");
+var SYNC_TOPIC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
+var BACKFILL_KEY = "price_backfill";
+var BACKFILL_DAYS = 120;
+var hexBlock = /* @__PURE__ */ __name((n) => "0x" + Math.floor(n).toString(16), "hexBlock");
+async function blockTime(e, n) {
+  const b = await rpc(e, "eth_getBlockByNumber", [typeof n === "string" ? n : hexBlock(n), false]);
+  const t = b ? parseInt(b.timestamp, 16) : NaN;
+  if (!Number.isFinite(t)) throw new Error("block_unavailable");
+  return t;
+}
+__name(blockTime, "blockTime");
+async function loadBackfill(e) {
+  const row = await e.DB.prepare("SELECT value FROM scanner_state WHERE key=?").bind(BACKFILL_KEY).first();
+  if (!row) return null;
+  try {
+    const s = JSON.parse(row.value);
+    return s && s.v === 1 && Array.isArray(s.pools) ? s : null;
+  } catch {
+    return null;
+  }
+}
+__name(loadBackfill, "loadBackfill");
+async function saveBackfill(e, s) {
+  await e.DB.prepare("INSERT INTO scanner_state(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(BACKFILL_KEY, JSON.stringify(s), nowIso()).run();
+}
+__name(saveBackfill, "saveBackfill");
+async function initBackfill(e) {
+  const latest = parseInt(await rpc(e, "eth_blockNumber"), 16);
+  const ref = Math.max(1, latest - 1e5);
+  const [tNow, tRef] = await Promise.all([blockTime(e, latest), blockTime(e, ref).catch(() => 0)]);
+  const bt = latest > ref && tRef > 0 && tNow > tRef ? (tNow - tRef) / (latest - ref) : 0.75;
+  const days = Number(e.PRICE_BACKFILL_DAYS) > 0 ? Math.min(Number(e.PRICE_BACKFILL_DAYS), 400) : BACKFILL_DAYS;
+  const fromEnv = Math.floor(Number(e.PRICE_BACKFILL_FROM_BLOCK));
+  const start = fromEnv > 0 && fromEnv < latest ? fromEnv : Math.max(1, latest - Math.ceil(days * 86400 / Math.max(bt, 0.2)));
+  const pp = await pair(e);
+  const pools = [];
+  for (const a of [A.UNI, pp]) {
+    if (!a || a === Z || pools.some((p) => p.a === a)) continue;
+    const [t0, t1] = [addr(await call(e, a, S.t0)), addr(await call(e, a, S.t1))];
+    if (t0 === A.G && t1 === A.U) pools.push({ a, g0: true });
+    else if (t0 === A.U && t1 === A.G) pools.push({ a, g0: false });
+  }
+  if (!pools.length) return null;
+  const [dg, du] = await Promise.all([call(e, A.G, S.dec), call(e, A.U, S.dec)]);
+  return {
+    v: 1,
+    pools,
+    dg: Number(uint(dg)),
+    du: Number(uint(du)),
+    next: start,
+    tsNext: await blockTime(e, start).catch(() => Math.round(tNow - (latest - start) * bt)),
+    bt,
+    chunk: 5e4,
+    ceil: 0,
+    ok: 0,
+    res: pools.map(() => null),
+    last: null,
+    rows: 0,
+    done: false
+  };
+}
+__name(initBackfill, "initBackfill");
+async function backfillPriceHistory(e, opts = {}) {
+  try {
+    if (!e.DB || !e.BSC_RPC_URL) return;
+    let s = await loadBackfill(e);
+    if (s && s.done) return;
+    if (!s) {
+      s = await initBackfill(e);
+      if (!s) return;
+      await saveBackfill(e, s);
+    }
+    await e.DB.prepare("CREATE TABLE IF NOT EXISTS price_ticks (ts INTEGER PRIMARY KEY, price REAL NOT NULL, liquidity REAL)").run();
+    const started = Date.now(), maxCalls = opts.maxCalls || 8, budgetMs = opts.budgetMs || 2e4;
+    const latest = parseInt(await rpc(e, "eth_blockNumber"), 16), safe = latest - 12;
+    for (let call2 = 0; call2 < maxCalls && Date.now() - started < budgetMs; call2++) {
+      if (s.next > safe) {
+        s.done = true;
+        await saveBackfill(e, s);
+        priceMemo.clear();
+        return;
+      }
+      const from = s.next, to = Math.min(safe, from + s.chunk - 1);
+      let logs;
+      try {
+        logs = await rpc(e, "eth_getLogs", [{ fromBlock: hexBlock(from), toBlock: hexBlock(to), address: s.pools.map((p) => p.a), topics: [SYNC_TOPIC] }]);
+      } catch (err) {
+        const tooBig = err?.message === "rpc_error" || err?.message === "rpc_http_error" && [400, 413, 414, 422].includes(err.status);
+        if (tooBig && s.chunk > 200) {
+          s.ceil = s.ceil ? Math.min(s.ceil, s.chunk) : s.chunk;
+          s.chunk = Math.max(200, Math.floor(s.chunk / 2));
+          await saveBackfill(e, s);
+          continue;
+        }
+        throw err;
+      }
+      if (!Array.isArray(logs)) throw new Error("bad_logs");
+      const tsTo = await blockTime(e, to).catch(() => Math.round(s.tsNext + (to - from) * (s.bt || 0.75)));
+      const span = Math.max(1, to - from), tsFrom = Math.min(s.tsNext, tsTo);
+      const stamp = /* @__PURE__ */ __name((b) => Math.round(tsFrom + (b - from) * (tsTo - tsFrom) / span), "stamp");
+      const sorted = logs.map((l) => ({ l, b: parseInt(l.blockNumber, 16), i: parseInt(l.logIndex, 16) || 0 })).filter((x) => Number.isFinite(x.b)).sort((x, y) => x.b - y.b || x.i - y.i);
+      const dgp = 10 ** s.dg, dup = 10 ** s.du, buckets = /* @__PURE__ */ new Map();
+      for (const { l, b } of sorted) {
+        const idx = s.pools.findIndex((p) => p.a === String(l.address).toLowerCase());
+        const d = String(l.data || "");
+        if (idx < 0 || d.length < 130) continue;
+        const r0 = Number(uint("0x" + d.slice(2, 66))), r1 = Number(uint("0x" + d.slice(66, 130)));
+        const g = (s.pools[idx].g0 ? r0 : r1) / dgp, u = (s.pools[idx].g0 ? r1 : r0) / dup;
+        s.res[idx] = g > 0 && u > 0 ? [g, u] : null;
+        const live = s.res.filter(Boolean);
+        if (!live.length) continue;
+        const price = mean(live[0][1] / live[0][0], live[1] ? live[1][1] / live[1][0] : void 0);
+        if (!Number.isFinite(price) || price <= 0) continue;
+        const ts = stamp(b);
+        buckets.set(ts - ts % PRICE_TICK_SECONDS, { price, liq: live.reduce((sum, x) => sum + 2 * x[1], 0) });
+      }
+      const rows = [];
+      let prev = s.last;
+      for (const bt of [...buckets.keys()].sort((x, y) => x - y)) {
+        const cur = buckets.get(bt);
+        if (prev && cur.price !== prev.price && bt - prev.ts > PRICE_TICK_SECONDS) rows.push([bt - PRICE_TICK_SECONDS, prev.price, prev.liq]);
+        rows.push([bt, cur.price, cur.liq]);
+        prev = { ts: bt, price: cur.price, liq: cur.liq };
+      }
+      const stmts = [];
+      for (let k = 0; k < rows.length; k += 30) {
+        const part = rows.slice(k, k + 30);
+        stmts.push(e.DB.prepare("INSERT OR IGNORE INTO price_ticks(ts,price,liquidity) VALUES " + part.map(() => "(?,?,?)").join(",")).bind(...part.flat()));
+      }
+      for (let k = 0; k < stmts.length; k += 50) await e.DB.batch(stmts.slice(k, k + 50));
+      s.next = to + 1;
+      s.tsNext = tsTo;
+      s.last = prev;
+      s.rows += rows.length;
+      if (logs.length < 2e3) {
+        const top = s.ceil ? Math.floor(s.ceil * 0.9) : 1e6;
+        s.chunk = Math.max(200, Math.min(Math.floor(s.chunk * 1.5), top, 1e6));
+      }
+      if (s.ceil && ++s.ok % 40 === 0) s.ceil *= 2;
+      await saveBackfill(e, s);
+      priceMemo.clear();
+    }
+  } catch (err) {
+    console.error("GOLDITY price backfill failed", err?.message || err);
+  }
+}
+__name(backfillPriceHistory, "backfillPriceHistory");
 async function priceHistory(e, range, span) {
   const hit = priceMemo.get(range);
   if (hit && Date.now() - hit.at < 6e4) return hit.data;
@@ -3427,7 +3578,7 @@ async function priceHistory(e, range, span) {
     last,
     changePct: first && last ? (last - first) / first * 100 : null,
     intervalSeconds: bucket,
-    note: "Prices are recorded from the on-chain Uniswap V2 and PancakeSwap V2 GDTY/USDT pools (arithmetic mean). No synthetic history is generated."
+    note: "Prices come from the on-chain Uniswap V2 and PancakeSwap V2 GDTY/USDT pools (arithmetic mean): recorded live every 5 minutes, and earlier history rebuilt from the pools' own Sync events. No synthetic history is generated."
   };
   priceMemo.set(range, { at: Date.now(), data });
   return data;
@@ -3627,6 +3778,7 @@ var worker_default = {
     }
     await purgeRateLimits(e);
     await recordPriceTick(e);
+    await backfillPriceHistory(e);
   }
 };
 export {
