@@ -611,7 +611,24 @@ async function loadChart(range) {
   if (range) chartView.range = range;
   if (!chartView.bound) {
     chartView.bound = true;
-    const bar = $("chartRanges");
+    let bar = $("chartRanges");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.className = "ranges";
+      bar.id = "chartRanges";
+      bar.setAttribute("role", "group");
+      bar.setAttribute("aria-label", "Chart range");
+      bar.style.marginTop = "14px";
+      ["1D", "1W", "1M", "ALL"].forEach((r) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("data-range", r);
+        b.textContent = r;
+        if (r === chartView.range) b.className = "active";
+        bar.appendChild(b);
+      });
+      wrap.parentNode.insertBefore(bar, wrap);
+    }
     if (bar) {
       bar.addEventListener("click", (ev) => {
         const btn = ev.target.closest("button[data-range]");
