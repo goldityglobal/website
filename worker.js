@@ -3358,22 +3358,34 @@ __name(purgeRateLimits, "purgeRateLimits");
 var PRICE_TICK_SECONDS = 300;
 var PRICE_RANGES = { "1D": 86400, "1W": 604800, "1M": 2592000, "ALL": 31536000 };
 var priceMemo = /* @__PURE__ */ new Map();
+async function samplePrice(e) {
+  const pp = await pair(e);
+  const [uniR, pcsR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2")]);
+  const live = [uniR, pcsR].filter((r) => r.status === "fulfilled" && r.value.status === "live" && Number.isFinite(r.value.price) && r.value.price > 0).map((r) => r.value);
+  if (!live.length) return null;
+  const price = mean(live[0].price, live[1]?.price);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  return { price, liquidity: live.reduce((sum, x) => sum + (x.liquidityUsd || 0), 0) || null };
+}
+__name(samplePrice, "samplePrice");
 async function recordPriceTick(e) {
   try {
     const nowS = Math.floor(Date.now() / 1e3);
     await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('price_tick',0,?) ON CONFLICT(key) DO NOTHING").bind(nowIso()).run();
     const gate = await e.DB.prepare("UPDATE airdrop_state SET value_int=?,updated_at=? WHERE key='price_tick' AND value_int<=?").bind(nowS, nowIso(), nowS - PRICE_TICK_SECONDS).run();
     if (!gate?.meta?.changes) return;
-    const pp = await pair(e);
-    const [uniR, pcsR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2")]);
-    const live = [uniR, pcsR].filter((r) => r.status === "fulfilled" && r.value.status === "live" && Number.isFinite(r.value.price) && r.value.price > 0).map((r) => r.value);
-    if (!live.length) return;
-    const price = mean(live[0].price, live[1]?.price);
-    if (!Number.isFinite(price) || price <= 0) return;
-    const liquidity = live.reduce((sum, x) => sum + (x.liquidityUsd || 0), 0) || null;
-    await e.DB.prepare("INSERT OR REPLACE INTO price_ticks(ts,price,liquidity) VALUES(?,?,?)").bind(nowS, price, liquidity).run();
+    const sample = await samplePrice(e);
+    if (!sample) return;
+    const insert = /* @__PURE__ */ __name(() => e.DB.prepare("INSERT OR REPLACE INTO price_ticks(ts,price,liquidity) VALUES(?,?,?)").bind(nowS, sample.price, sample.liquidity).run(), "insert");
+    try {
+      await insert();
+    } catch (err) {
+      if (!/no such table/i.test(String(err?.message || err))) throw err;
+      await e.DB.prepare("CREATE TABLE IF NOT EXISTS price_ticks (ts INTEGER PRIMARY KEY, price REAL NOT NULL, liquidity REAL)").run();
+      await insert();
+    }
   } catch (err) {
-    if (!/no such table/i.test(String(err?.message || err))) console.error("GOLDITY price tick failed", err?.message || err);
+    console.error("GOLDITY price tick failed", err?.message || err);
   }
 }
 __name(recordPriceTick, "recordPriceTick");
@@ -3383,7 +3395,6 @@ async function priceHistory(e, range, span) {
   const nowS = Math.floor(Date.now() / 1e3);
   let bucket = PRICE_TICK_SECONDS;
   let points = [];
-  let failed = false;
   try {
     const oldest = await e.DB.prepare("SELECT MIN(ts) AS t FROM price_ticks WHERE ts>=?").bind(nowS - span).first();
     const effSpan = Math.min(span, Math.max(PRICE_TICK_SECONDS, nowS - Number(oldest?.t || nowS)));
@@ -3393,8 +3404,14 @@ async function priceHistory(e, range, span) {
     ).bind(nowS - span, bucket).all();
     points = (rows.results || []).map((r) => [Number(r.ts), Number(r.price)]).filter((r) => Number.isFinite(r[0]) && Number.isFinite(r[1]));
   } catch (err) {
-    failed = true;
     if (!/no such table/i.test(String(err?.message || err))) console.error("GOLDITY price history failed", err?.message || err);
+  }
+  if (!points.length) {
+    try {
+      const live = await samplePrice(e);
+      if (live) points = [[nowS, live.price]];
+    } catch {
+    }
   }
   const prices = points.map((x) => x[1]);
   const first = prices.length ? prices[0] : null, last = prices.length ? prices[prices.length - 1] : null;
@@ -3412,7 +3429,7 @@ async function priceHistory(e, range, span) {
     intervalSeconds: bucket,
     note: "Prices are recorded from the on-chain Uniswap V2 and PancakeSwap V2 GDTY/USDT pools (arithmetic mean). No synthetic history is generated."
   };
-  if (!failed) priceMemo.set(range, { at: Date.now(), data });
+  priceMemo.set(range, { at: Date.now(), data });
   return data;
 }
 __name(priceHistory, "priceHistory");
