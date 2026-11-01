@@ -947,6 +947,7 @@ var A = {
   G: "0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801".toLowerCase(),
   U: "0x55d398326f99059fF775485246999027B3197955".toLowerCase(),
   UNI: "0x779fcD915CD293266676B81f9503EB8E3CE751a6".toLowerCase(),
+    SUSHI: "0xb7189dff6158975ae4d0d41627726c565c035267".toLowerCase(),
   PF: "0xca143ce32fe78f1f7019d7d551a6402fc5350c73".toLowerCase()
 };
 var Z = "0x0000000000000000000000000000000000000000";
@@ -3362,15 +3363,39 @@ __name(purgeRateLimits, "purgeRateLimits");
 var PRICE_TICK_SECONDS = 300;
 var PRICE_RANGES = { "1D": 86400, "1W": 604800, "1M": 2592000, "ALL": 31536000 };
 var priceMemo = /* @__PURE__ */ new Map();
+
 async function samplePrice(e) {
   const pp = await pair(e);
-  const [uniR, pcsR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2")]);
-  const live = [uniR, pcsR].filter((r) => r.status === "fulfilled" && r.value.status === "live" && Number.isFinite(r.value.price) && r.value.price > 0).map((r) => r.value);
+
+  const results = await Promise.allSettled([
+    inspect(e, A.UNI, "Uniswap V2"),
+    inspect(e, pp, "PancakeSwap V2"),
+    inspect(e, A.SUSHI, "SushiSwap V2")
+  ]);
+
+  const live = results
+    .filter((r) =>
+      r.status === "fulfilled" &&
+      r.value.status === "live" &&
+      Number.isFinite(r.value.price) &&
+      r.value.price > 0
+    )
+    .map((r) => r.value);
+
   if (!live.length) return null;
-  const price = mean(live[0].price, live[1]?.price);
+
+  const price =
+    live.reduce((sum, x) => sum + x.price, 0) / live.length;
+
   if (!Number.isFinite(price) || price <= 0) return null;
-  return { price, liquidity: live.reduce((sum, x) => sum + (x.liquidityUsd || 0), 0) || null };
+
+  return {
+    price,
+    liquidity:
+      live.reduce((sum, x) => sum + (x.liquidityUsd || 0), 0) || null
+  };
 }
+
 __name(samplePrice, "samplePrice");
 async function recordPriceTick(e) {
   try {
@@ -3684,10 +3709,24 @@ var worker_default = {
       }
       if (u.pathname === "/api/market") {
         const pp = await pair(e);
-        const [uniR, pcsR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2")]);
-        const uni = uniR.status === "fulfilled" ? uniR.value : { dex: "Uniswap V2", status: "unavailable", reason: "rpc_error" };
-        const pcs = pcsR.status === "fulfilled" ? pcsR.value : { dex: "PancakeSwap V2", status: "unavailable", reason: "rpc_error" };
-        const ref = mean(uni.price, pcs.price), live = [uni, pcs].filter((x) => x.status === "live");
+      
+const [uniR, pcsR, sushiR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2"), inspect(e, A.SUSHI, "SushiSwap V2")]);
+const uni = uniR.status === "fulfilled" ? uniR.value : { dex: "Uniswap V2", status: "unavailable", reason: "rpc_error" };
+const pcs = pcsR.status === "fulfilled" ? pcsR.value : { dex: "PancakeSwap V2", status: "unavailable", reason: "rpc_error" };
+const sushi = sushiR.status === "fulfilled" ? sushiR.value : { dex: "SushiSwap V2", status: "unavailable", reason: "rpc_error" };
+
+      
+const prices = [uni, pcs, sushi]
+  .filter((x) => x.status === "live")
+  .map((x) => x.price)
+  .filter(Number.isFinite);
+
+const ref = prices.length
+  ? prices.reduce((sum, price) => sum + price, 0) / prices.length
+  : null;
+
+const live = [uni, pcs].filter((x) => x.status === "live");
+
         return out({
           ok: true,
           network: "BNB Smart Chain",
@@ -3695,12 +3734,27 @@ var worker_default = {
           token: { name: "GOLDITY", symbol: "GDTY", address: A.G, decimals: 18 },
           quoteToken: { symbol: "USDT", address: A.U, decimals: 18 },
           referencePrice: ref,
-          priceMethod: "Arithmetic mean of valid GDTY/USDT V2 pool prices",
-          liquidityUsd: live.reduce((s, x) => s + (x.liquidityUsd || 0), 0) || null,
-          totalUsdtReserve: (uni.status === "live" ? uni.usdtReserve || 0 : 0) + (pcs.status === "live" ? pcs.usdtReserve || 0 : 0),
-          totalGdtyReserve: (uni.status === "live" ? uni.gdtyReserve || 0 : 0) + (pcs.status === "live" ? pcs.gdtyReserve || 0 : 0),
-          reserveMethod: "Sum of available Uniswap V2 + PancakeSwap V2 pool reserves",
-          markets: { uniswap: uni, pancakeswap: pcs },
+       
+priceMethod: "Arithmetic mean of valid Uniswap V2, PancakeSwap V2 and SushiSwap V2 GDTY/USDT pool prices",
+
+         
+
+liquidityUsd: [uni, pcs, sushi]
+  .filter((x) => x.status === "live")
+  .reduce((s, x) => s + (x.liquidityUsd || 0), 0) || null,
+
+totalUsdtReserve: [uni, pcs, sushi]
+  .filter((x) => x.status === "live")
+  .reduce((s, x) => s + (x.usdtReserve || 0), 0),
+
+totalGdtyReserve: [uni, pcs, sushi]
+  .filter((x) => x.status === "live")
+  .reduce((s, x) => s + (x.gdtyReserve || 0), 0),
+
+reserveMethod: "Sum of available Uniswap V2 + PancakeSwap V2 + SushiSwap V2 pool reserves",
+
+markets: { uniswap: uni, pancakeswap: pcs, sushiswap: sushi },
+
           lastUpdated: nowIso(),
           dataStatus: ref === null ? "unavailable" : "live"
         }, 200, 10, baseHeaders);

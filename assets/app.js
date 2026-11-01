@@ -799,14 +799,22 @@ async function nativeBalance(account) {
 ========================================================= */
 
 
+
 async function openDex(url) {
+  try {
+    window.BMDataLayer = window.BMDataLayer || [];
 
-  window.location.href =
+    window.BMDataLayer.push({
+      conversionID: "6ae7698a6485fffa714bb688",
+      eventId: "gdty_buy_click",
+      event: "conversion"
+    });
+  } catch (error) {
+    console.warn("Bitmedia tracking failed:", error);
+  }
 
-    url;
-
+  window.location.href = url;
 }
-
 
 
 /* =========================================================
@@ -1139,6 +1147,17 @@ if ($("buyPancake")) {
 
   );
 
+}
+
+if ($("buySushi")) {
+  $("buySushi").addEventListener(
+    "click",
+    () => {
+      openDex(
+        "https://www.sushi.com/bsc/swap?token0=0x55d398326f99059ff775485246999027b3197955&token1=0x76d89e26502d0aa9bf83da222cfcf12a27ead801"
+      );
+    }
+  );
 }
 
 
