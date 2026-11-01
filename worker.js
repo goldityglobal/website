@@ -3363,15 +3363,39 @@ __name(purgeRateLimits, "purgeRateLimits");
 var PRICE_TICK_SECONDS = 300;
 var PRICE_RANGES = { "1D": 86400, "1W": 604800, "1M": 2592000, "ALL": 31536000 };
 var priceMemo = /* @__PURE__ */ new Map();
+
 async function samplePrice(e) {
   const pp = await pair(e);
-  const [uniR, pcsR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2")]);
-  const live = [uniR, pcsR].filter((r) => r.status === "fulfilled" && r.value.status === "live" && Number.isFinite(r.value.price) && r.value.price > 0).map((r) => r.value);
+
+  const results = await Promise.allSettled([
+    inspect(e, A.UNI, "Uniswap V2"),
+    inspect(e, pp, "PancakeSwap V2"),
+    inspect(e, A.SUSHI, "SushiSwap V2")
+  ]);
+
+  const live = results
+    .filter((r) =>
+      r.status === "fulfilled" &&
+      r.value.status === "live" &&
+      Number.isFinite(r.value.price) &&
+      r.value.price > 0
+    )
+    .map((r) => r.value);
+
   if (!live.length) return null;
-  const price = mean(live[0].price, live[1]?.price);
+
+  const price =
+    live.reduce((sum, x) => sum + x.price, 0) / live.length;
+
   if (!Number.isFinite(price) || price <= 0) return null;
-  return { price, liquidity: live.reduce((sum, x) => sum + (x.liquidityUsd || 0), 0) || null };
+
+  return {
+    price,
+    liquidity:
+      live.reduce((sum, x) => sum + (x.liquidityUsd || 0), 0) || null
+  };
 }
+
 __name(samplePrice, "samplePrice");
 async function recordPriceTick(e) {
   try {
