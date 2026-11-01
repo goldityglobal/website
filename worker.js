@@ -3691,7 +3691,18 @@ const uni = uniR.status === "fulfilled" ? uniR.value : { dex: "Uniswap V2", stat
 const pcs = pcsR.status === "fulfilled" ? pcsR.value : { dex: "PancakeSwap V2", status: "unavailable", reason: "rpc_error" };
 const sushi = sushiR.status === "fulfilled" ? sushiR.value : { dex: "SushiSwap V2", status: "unavailable", reason: "rpc_error" };
 
-        const ref = mean(uni.price, pcs.price), live = [uni, pcs].filter((x) => x.status === "live");
+      
+const prices = [uni, pcs, sushi]
+  .filter((x) => x.status === "live")
+  .map((x) => x.price)
+  .filter(Number.isFinite);
+
+const ref = prices.length
+  ? prices.reduce((sum, price) => sum + price, 0) / prices.length
+  : null;
+
+const live = [uni, pcs].filter((x) => x.status === "live");
+
         return out({
           ok: true,
           network: "BNB Smart Chain",
@@ -3699,7 +3710,9 @@ const sushi = sushiR.status === "fulfilled" ? sushiR.value : { dex: "SushiSwap V
           token: { name: "GOLDITY", symbol: "GDTY", address: A.G, decimals: 18 },
           quoteToken: { symbol: "USDT", address: A.U, decimals: 18 },
           referencePrice: ref,
-          priceMethod: "Arithmetic mean of valid GDTY/USDT V2 pool prices",
+       
+priceMethod: "Arithmetic mean of valid Uniswap V2, PancakeSwap V2 and SushiSwap V2 GDTY/USDT pool prices",
+
          
 
 liquidityUsd: [uni, pcs, sushi]
