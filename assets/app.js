@@ -799,14 +799,22 @@ async function nativeBalance(account) {
 ========================================================= */
 
 
+
 async function openDex(url) {
+  try {
+    window.BMDataLayer = window.BMDataLayer || [];
 
-  window.location.href =
+    window.BMDataLayer.push({
+      conversionID: "6ae7698a6485fffa714bb688",
+      eventId: "gdty_buy_click",
+      event: "conversion"
+    });
+  } catch (error) {
+    console.warn("Bitmedia tracking failed:", error);
+  }
 
-    url;
-
+  window.location.href = url;
 }
-
 
 
 /* =========================================================
