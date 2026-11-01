@@ -1121,6 +1121,12 @@ if ($("buyUniswap")) {
 
 }
 
+if ($("buySushi")) {
+  $("buySushi").addEventListener("click", () => {
+    openDex("https://www.sushi.com/bsc/swap?token0=0x55d398326f99059ff775485246999027b3197955&token1=0x76d89e26502d0aa9bf83da222cfCF12a27ead801");
+  });
+}
+
 
 
 if ($("buyPancake")) {
