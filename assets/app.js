@@ -327,9 +327,30 @@ async function loadMarket() {
         compact(data.liquidityUsd);
 
     }
-     if ($("totalUsdtReserve")) {
+  
+if ($("totalUsdtReserve")) {
+  // Use the API total when available; otherwise sum live pool reserves.
+  const pools = Object.values(data.markets || {}).filter(
+    pool => pool &&
+      pool.status === "live" &&
+      Number.isFinite(Number(pool.usdtReserve))
+  );
+
+  const usdtReserve =
+    data.totalUsdtReserve != null &&
+    Number.isFinite(Number(data.totalUsdtReserve))
+      ? Number(data.totalUsdtReserve)
+      : pools.length
+        ? pools.reduce(
+            (sum, pool) => sum + Number(pool.usdtReserve),
+            0
+          )
+        : null;
+
   $("totalUsdtReserve").textContent =
-    numberFormat(data.totalUsdtReserve);
+    numberFormat(usdtReserve);
+}
+
 }
 
 if ($("totalGdtyReserve")) {
@@ -383,7 +404,7 @@ if ($("totalGdtyReserve")) {
 
         data.referencePrice != null
 
-          ? "UNISWAP V2 + PANCAKESWAP V2"
+          ? "UNISWAP V2 + PANCAKESWAP V2 + SUSHISWAP V2"
 
           : "PRICE UNAVAILABLE";
 
