@@ -351,7 +351,6 @@ if ($("totalUsdtReserve")) {
     numberFormat(usdtReserve);
 }
 
-}
 
 if ($("totalGdtyReserve")) {
   $("totalGdtyReserve").textContent =
