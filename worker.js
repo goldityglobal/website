@@ -1268,6 +1268,14 @@ function ipBucket(rawIp) {
   return "v6:" + parts.slice(0, 4).map((x) => x.padStart(4, "0")).join(":") + "::/64";
 }
 __name(ipBucket, "ipBucket");
+function timingSafeEqualStr(a, b) {
+  const x = enc.encode(a), y = enc.encode(b);
+  let diff = x.length ^ y.length;
+  const n = Math.max(x.length, y.length);
+  for (let i = 0; i < n; i++) diff |= (x[i] || 0) ^ (y[i] || 0);
+  return diff === 0;
+}
+__name(timingSafeEqualStr, "timingSafeEqualStr");
 async function loginUser(e, req) {
   if (!e.DB) return out({ ok: false, error: "registration_not_configured" }, 503, cors(e));
   if (!await requireOrigin(e, req)) return out({ ok: false, error: "forbidden" }, 403, cors(e));
@@ -1282,7 +1290,7 @@ async function loginUser(e, req) {
   const iterations = Number(p[1]) || 1e5;
   const salt = Uint8Array.from(atob(p[2]), (c) => c.charCodeAt(0));
   const expected = await hashPassword(password, salt, iterations);
-  if (expected !== row.password_hash) return out({ ok: false, error: "invalid_credentials", message: "Email or password is incorrect." }, 401, cors(e));
+  if (!timingSafeEqualStr(expected, String(row.password_hash))) return out({ ok: false, error: "invalid_credentials", message: "Email or password is incorrect." }, 401, cors(e));
   if (!row.email_verified) return out({ ok: false, error: "email_not_verified", message: "Please verify your email before signing in." }, 403, cors(e));
   const raw = token(), hash = await sha256Text(raw), now = nowIso();
   const exp = new Date(Date.now() + 7 * 864e5).toISOString();
