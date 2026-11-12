@@ -166,7 +166,7 @@
 <main class="page paper">
 
 <div class="paper-head">
-<p class="eyebrow">OFFICIAL DOCUMENT · VERSION 1.2 · 6 OCTOBER 2026</p>
+<p class="eyebrow">OFFICIAL DOCUMENT · VERSION 1.3 · 12 NOVEMBER 2026</p>
 
 <h1>GOLDITY Whitepaper</h1>
 
@@ -295,8 +295,8 @@
 
 <article>
 <h2><span class="num">6.</span> Market Reference Price</h2>
-<p>The website's reference price is the arithmetic mean of valid GDTY/USDT prices from the configured Uniswap V2 and PancakeSwap V2 pools.</p>
-<p>If one source is unavailable, no reference price is shown until both are valid again.</p>
+<p>The website's reference price is the arithmetic mean of the valid GDTY/USDT prices from the three configured pools: Uniswap V2, PancakeSwap V2 and SushiSwap V2.</p>
+<p>A pool is used only while it returns a valid price. A pool that is unavailable or has no liquidity is left out of the average, and the price is calculated from the remaining valid pools. If no pool returns a valid price, no reference price is shown.</p>
 <p>The displayed value is a reference price, not a guaranteed execution price. Actual market prices can vary according to liquidity, trade size, slippage and market conditions.</p>
 </article>
 

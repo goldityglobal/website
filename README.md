@@ -16,7 +16,7 @@ https://goldityglobal.com/
 
 ### Official Telegram
 
-https://t.me/goldityglobal
+https://t.me/gdtyglobal
 
 ## Project Infrastructure
 

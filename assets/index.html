@@ -83,6 +83,7 @@
 </style>
 
 <script src="https://analytics.ahrefs.com/analytics.js" data-key="bBwaCDqmw5CxggoKdA8GGQ" async></script>
+<style>.security-note{flex-basis:100%;width:100%;margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--text-soft,#b9b3a3)}.security-note a{color:var(--gold-light,#f5d16e)}.trade-note{margin:18px auto 0;max-width:760px;font-size:13px;line-height:1.6;text-align:center;color:var(--text-soft,#b9b3a3)}.gold-disclaimer{margin:28px auto 0;max-width:760px;font-size:13px;line-height:1.6;text-align:center;color:var(--text-soft,#b9b3a3)}</style>
 </head>
 
 
@@ -800,6 +801,7 @@
 
 
     </div>
+    <p class="trade-note">Liquidity for GDTY is still limited. The reference price shown here can differ from the price you actually get, especially on larger trades. Check the slippage and the final amount in your wallet before you confirm.</p>
 
 
   </section>
@@ -821,37 +823,37 @@
     <div class="security-grid">
 
 
-      <div class="security-item"><span>01 · Mint Function</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>01 · Mint Function</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">There is no function that creates new tokens. The supply is fixed. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>02 · Proxy / Upgrade</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>02 · Proxy / Upgrade</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">The contract is not a proxy, so its code cannot be swapped for a different version. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>03 · Honeypot</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>03 · Honeypot</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">Nothing in the code blocks selling. Any holder can sell or transfer like a normal BEP-20 token. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>04 · Buy / Sell Tax</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>04 · Buy / Sell Tax</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">No fee is taken on buys, sells or transfers. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>05 · Blacklist / Whitelist</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>05 · Blacklist / Whitelist</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">The contract has no list that can block or allow specific wallets. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>06 · Trading Suspension</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>06 · Trading Suspension</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">There is no pause switch. Nobody can stop trading or transfers. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>07 · Contract Logic</span><strong class="status-verified">ON-CHAIN VERIFIED</strong></div>
+      <div class="security-item"><span>07 · Contract Logic</span><strong class="status-verified">ON-CHAIN VERIFIED</strong><p class="security-note">The source code is verified and public. Anyone can read it and compare it with the deployed contract. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#code" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>08 · Ownership</span><strong class="status-verified">RENOUNCED</strong></div>
+      <div class="security-item"><span>08 · Ownership</span><strong class="status-verified">RENOUNCED</strong><p class="security-note">The owner role was renounced, so no address can change contract settings. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#readContract" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>09 · Holder Distribution</span><strong class="status-data">ON-CHAIN DATA</strong></div>
+      <div class="security-item"><span>09 · Holder Distribution</span><strong class="status-data">ON-CHAIN DATA</strong><p class="security-note">Holder balances are public. The largest holders are listed in the whitepaper. <a href="https://bscscan.com/address/0x76D89e26502d0aA9bf83DA222cfCF12a27Ead801#balances" target="_blank" rel="noopener noreferrer">BscScan ↗</a></p></div>
 
 
-      <div class="security-item"><span>10 · Liquidity Lock</span><strong class="status-pending">VERIFY ON-CHAIN</strong></div>
+      <div class="security-item"><span>10 · Liquidity Lock</span><strong class="status-pending">18-MONTH LOCK · PROOF PENDING</strong><p class="security-note">The project reports that the liquidity-pool tokens are locked for 18 months. The public lock record will be linked here as soon as it is published, so anyone can check it.</p></div>
 
 
-      <div class="security-item"><span>11 · Token Lock</span><strong class="status-pending">VERIFY ON-CHAIN</strong></div>
+      <div class="security-item"><span>11 · Token Lock</span><strong class="status-pending">SEE WHITEPAPER</strong><p class="security-note">6,000,000 GDTY are locked with Team Finance until 28 March 2028. Details are in the whitepaper. <a href="/whitepaper.html#top" >Whitepaper</a></p></div>
 
 
     </div>
@@ -884,6 +886,7 @@
         <a class="social-pill" href="https://t.me/gdtyglobal" target="_blank" rel="noopener noreferrer" aria-label="Telegram">✈</a>
 
 
+        <a class="social-pill" href="https://x.com/Goldityglobal" target="_blank" rel="noopener noreferrer me" aria-label="X">𝕏</a>
         <a class="social-pill" href="https://github.com/goldityglobal" target="_blank" rel="noopener noreferrer" aria-label="GitHub">◉</a>
 
 
@@ -971,6 +974,7 @@
 
 
 
+<p class="gold-disclaimer">GDTY is not backed by physical gold or any other asset. The word “gold” in the name describes the brand, not a claim of backing or redemption.</p>
 <footer class="site-footer">
 
 
@@ -1005,6 +1009,7 @@
 
 
       <a href="/terms.html">Terms</a>
+      <a href="/official-links.html">Official Links</a>
       <a href="https://www.facebook.com/profile.php?id=61594820135358" target="_blank" rel="noopener noreferrer me">Facebook</a>
     </nav>
 
