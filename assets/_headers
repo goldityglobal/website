@@ -1,0 +1,5 @@
+# Content-Security-Policy in REPORT-ONLY mode: the browser logs violations in the
+# console but blocks nothing. Switch the header name to Content-Security-Policy
+# only after the console is clean on every page.
+/*
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://analytics.ahrefs.com https://challenges.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://analytics.ahrefs.com https://bsc-dataseed.binance.org https://rpc.ankr.com https://api.geckoterminal.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.reown.com wss://*.reown.com; frame-src https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
