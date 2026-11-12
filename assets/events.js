@@ -20,7 +20,7 @@
           io.disconnect();
         }
       });
-    }, { threshold: 0.35 });
+    }, { threshold: 0.1 });
     io.observe(how);
   }
 
