@@ -1290,7 +1290,6 @@ async function loginUser(e, req) {
     e.DB.prepare("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(hash, row.id, exp, now),
     e.DB.prepare("DELETE FROM sessions WHERE user_id=? AND expires_at<=?").bind(row.id, now)
   ]);
-  await graduateReferralRewards(e, row.id).catch((err) => console.error("GOLDITY graduate error", err));
   return out({
     ok: true,
     user: {
@@ -2563,7 +2562,7 @@ async function payAirdropClaim(e, claim) {
     });
     return "retry";
   }, "back");
-  if (!e.REFERRAL_PAYOUT_PRIVATE_KEY) return back();
+  if (!e.REFERRAL_PAYOUT_PRIVATE_KEY || String(e.AIRDROP_PAUSED).toLowerCase() === "true") return back();
   let payoutAddress;
   try {
     payoutAddress = addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);
@@ -2879,7 +2878,7 @@ async function payTgClaim(e, claim) {
     await e.DB.prepare("UPDATE tg_airdrop_claims SET status='queued' WHERE id=? AND status='paying'").bind(claim.id).run().catch((err2) => console.error("GOLDITY tg could not put claim back - stuck in 'paying', check manually", claim.id, err2));
     return { result: "retry" };
   }, "back");
-  if (!e.REFERRAL_PAYOUT_PRIVATE_KEY) return back();
+  if (!e.REFERRAL_PAYOUT_PRIVATE_KEY || String(e.AIRDROP_PAUSED).toLowerCase() === "true") return back();
   let payoutAddress;
   try {
     payoutAddress = addressFromPrivateKey(e.REFERRAL_PAYOUT_PRIVATE_KEY);
@@ -3174,7 +3173,6 @@ async function dashboard(e, req) {
     await e.DB.prepare("UPDATE users SET referral_code=?,updated_at=? WHERE id=?").bind(newCode, nowIso(), u.id).run();
     u.referral_code = newCode;
   }
-  await graduateReferralRewards(e, u.id).catch((err) => console.error("GOLDITY graduate error", err));
   const refs = await e.DB.prepare("SELECT COUNT(*) AS count FROM users WHERE referred_by=?").bind(u.referral_code).first();
   const rewardRows = await e.DB.prepare(`
     SELECT reward_amount_wei,status FROM referral_rewards WHERE referrer_user_id=?
