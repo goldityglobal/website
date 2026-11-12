@@ -148,7 +148,7 @@ function showWalletPicker(wallets, onChoose) {
       <div class="wallet-picker-list">
         ${wallets.map((w, i) => `
           <button type="button" class="wallet-picker-item" data-idx="${i}">
-            ${w.info.icon ? `<img src="${escHtml(w.info.icon)}" alt="" width="26" height="26" onerror="this.outerHTML='<span class=&quot;wallet-picker-icon-fallback&quot; aria-hidden=&quot;true&quot;>🔗</span>'">` : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`}
+            ${w.info.icon ? `<img src="${escHtml(w.info.icon)}" alt="" width="26" height="26">` : `<span class="wallet-picker-icon-fallback" aria-hidden="true">🔗</span>`}
             <span>${escHtml(w.info.name)}</span>
           </button>
         `).join("")}
@@ -157,6 +157,15 @@ function showWalletPicker(wallets, onChoose) {
     </div>
   `;
   document.body.appendChild(overlay);
+  overlay.querySelectorAll(".wallet-picker-item img").forEach(img => {
+    img.addEventListener("error", () => {
+      const fb = document.createElement("span");
+      fb.className = "wallet-picker-icon-fallback";
+      fb.setAttribute("aria-hidden", "true");
+      fb.textContent = "🔗";
+      img.replaceWith(fb);
+    }, { once: true });
+  });
   const cleanup = result => { overlay.remove(); onChoose(result); };
   overlay.querySelectorAll(".wallet-picker-item").forEach(btn => {
     btn.addEventListener("click", () => cleanup(wallets[Number(btn.dataset.idx)]));
