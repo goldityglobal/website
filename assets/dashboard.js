@@ -1604,7 +1604,7 @@ function showMobileWalletRedirect() {
       <h3>Open in your wallet app</h3>
       <p class="wallet-picker-hint">Your wallet app isn't detected in this browser. Tap your wallet below to open this page inside it.</p>
       <div class="wallet-picker-list">
-        ${options.map(o => `<a class="wallet-picker-item" href="${o.url}">${o.name}</a>`).join("")}
+        ${options.map(o => `<a class="wallet-picker-item" href="${escHtml(o.url)}">${escHtml(o.name)}</a>`).join("")}
       </div>
       <button type="button" class="wallet-picker-cancel">Cancel</button>
     </div>
@@ -1802,12 +1802,12 @@ function renderTrades(trades) {
   body.innerHTML = trades.map(t => `
     <tr>
       <td>${new Date(t.createdAt).toLocaleDateString()}</td>
-      <td>${t.dex || "—"}</td>
+      <td>${escHtml(t.dex || "—")}</td>
       <td>${t.side === "buy" ? "Buy" : "Sell"}</td>
-      <td>${fmtGdty(t.gdtyAmountWei)}</td>
-      <td>${fmtGdty(t.usdtAmountWei).replace("GDTY", "USDT")}</td>
-      <td>${t.status}</td>
-      <td><a href="https://bscscan.com/tx/${encodeURIComponent(t.txHash)}" target="_blank" rel="noopener noreferrer">${shortTx(t.txHash)}</a></td>
+      <td>${escHtml(fmtGdty(t.gdtyAmountWei))}</td>
+      <td>${escHtml(fmtGdty(t.usdtAmountWei).replace("GDTY", "USDT"))}</td>
+      <td>${escHtml(t.status)}</td>
+      <td><a href="https://bscscan.com/tx/${encodeURIComponent(t.txHash)}" target="_blank" rel="noopener noreferrer">${escHtml(shortTx(t.txHash))}</a></td>
     </tr>
   `).join("");
 }

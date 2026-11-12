@@ -958,7 +958,7 @@ function showMobileWalletRedirectHome() {
       <h3>Open in your wallet app</h3>
       <p class="wallet-picker-hint">Your wallet app isn't detected in this browser. Tap your wallet below to open this page inside it.</p>
       <div class="wallet-picker-list">
-        ${options.map(o => `<a class="wallet-picker-item" href="${o.url}">${o.name}</a>`).join("")}
+        ${options.map(o => `<a class="wallet-picker-item" href="${escHtml(o.url)}">${escHtml(o.name)}</a>`).join("")}
       </div>
       <button type="button" class="wallet-picker-cancel">Cancel</button>
     </div>
