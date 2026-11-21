@@ -257,7 +257,7 @@ async function loadMarket() {
 
       throw new Error(
 
-        data.error || "Market data unavailable"
+        data.error || "Market data is refreshing"
 
       );
 
@@ -602,7 +602,7 @@ function drawChart() {
   const notes = [];
   const windowSec = { "1D": 86400, "1W": 604800, "1M": 2592000 }[chartView.range];
   if (single) notes.push("Recording started. History builds up here");
-  else if (flat) notes.push("No price change in this period");
+  else if (flat) notes.push("Price is steady in this period");
   if (!single && (!windowSec || t1 - t0 < windowSec * 0.8)) {
     notes.push("Recorded since " + new Date(real[0][0] * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   }
@@ -676,7 +676,7 @@ async function loadChart(range) {
     const response = await fetch(API_BASE + "/api/price-history?range=" + encodeURIComponent(chartView.range));
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok || !Array.isArray(data.points)) {
-      if (!chartView.points.length) chartMessage("Chart unavailable right now.", true);
+      if (!chartView.points.length) chartMessage("The chart is refreshing. Please check back shortly.", true);
       return;
     }
     chartView.points = data.points;
@@ -688,7 +688,7 @@ async function loadChart(range) {
     chartMessage("");
     drawChart();
   } catch {
-    if (!chartView.points.length) chartMessage("Chart unavailable right now.", true);
+    if (!chartView.points.length) chartMessage("The chart is refreshing. Please check back shortly.", true);
   }
 }
 function short(address) {
@@ -1033,7 +1033,7 @@ if ($("addToMetaMask")) {
 
         alert(
 
-          "No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first."
+          "Please open this page inside your wallet's browser (e.g. MetaMask app)."
 
         );
 
@@ -1113,7 +1113,7 @@ if ($("addToMetaMask")) {
 
         console.error("Add to wallet:", error);
 
-        alert("Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.");
+        alert("Please switch your wallet to BNB Smart Chain, then try again.");
 
       }
 
@@ -1779,12 +1779,12 @@ async function signIn(event) {
 
         rate_limited:
 
-          "Too many attempts. Please try again shortly.",
+          "Please try again in a moment.",
 
 
         registration_not_configured:
 
-          "Account service is temporarily unavailable."
+          "The account service is refreshing. Please try again shortly."
 
       };
 
@@ -1796,7 +1796,7 @@ async function signIn(event) {
 
         data.message ||
 
-        "Sign in failed. Please try again."
+        "Please check your details and sign in again."
 
       );
 
@@ -1849,7 +1849,7 @@ async function signIn(event) {
 
         error.message ||
 
-        "Sign in failed.";
+        "Please check your details and sign in again.";
 
     }
 

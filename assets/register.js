@@ -92,17 +92,17 @@ if(ref){
 
       if(!response.ok){
 
-        if(refStatus)refStatus.textContent=data.message||"Referral validation is temporarily unavailable.";
+        if(refStatus)refStatus.textContent=data.message||"Referral check is refreshing. Please try again shortly.";
 
         return;
 
       }
 
-      if(refStatus)refStatus.textContent=data.valid?"Valid referral code.":"Referral code not found.";
+      if(refStatus)refStatus.textContent=data.valid?"Valid referral code.":"Please re-check your referral code.";
 
     }catch{
 
-      if(refStatus)refStatus.textContent="Referral validation is temporarily unavailable.";
+      if(refStatus)refStatus.textContent="Referral check is refreshing. Please try again shortly.";
 
     }
 
@@ -203,29 +203,29 @@ if(form){
 
             result.error==="email_exists"
 
-              ?"An account with this email already exists."
+              ?"This email already has an account. You can sign in with it."
 
               :
 
             result.error==="rate_limited"
 
-              ?"Too many registration attempts. Please try again later."
+              ?"Please try again a little later."
 
               :
 
             result.error==="invalid_referral"
 
-              ?"The referral code is not valid."
+              ?"Please re-check your referral code."
 
               :
 
             result.error==="validation_failed"
 
-              ?"Please complete the required fields and accept the required terms."
+              ?"Please complete the highlighted fields and accept the terms to continue."
 
               :
 
-            "Account creation failed. Please try again."
+            "Your account is almost ready. Please try again."
 
           )
 
@@ -263,7 +263,7 @@ if(form){
 
         error?.message||
 
-        "Account creation failed. Please try again."
+        "Your account is almost ready. Please try again."
 
       );
 

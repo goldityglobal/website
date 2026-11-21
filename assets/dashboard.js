@@ -476,7 +476,7 @@ function renderNotifications(items) {
 
  
 
-    card.textContent = "No notifications.";
+    card.textContent = "You’re all caught up.";
 
  
 
@@ -668,7 +668,7 @@ function renderTickets(tickets) {
 
  
 
-    card.textContent = "No support tickets.";
+    card.textContent = "Your support tickets will appear here.";
 
  
 
@@ -863,7 +863,7 @@ function renderTicketMessages(messages) {
   if (!messages.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = "No messages yet.";
+    empty.textContent = "Your conversation starts here.";
     container.appendChild(empty);
     return;
   }
@@ -1665,7 +1665,7 @@ function bindWalletEvents(eth) {
 async function connectWallet() {
   const provider = await pickWalletProvider();
   if (!provider) {
-    setState("MetaMask or a compatible Web3 wallet is required.", true);
+    setState("Please use MetaMask or a compatible Web3 wallet.", true);
     return;
   }
   activeProvider = provider;
@@ -1679,7 +1679,7 @@ async function connectWallet() {
     }
     const accounts = await provider.request({ method: "eth_accounts" });
     const address = accounts?.[0];
-    if (!address) { setState("No wallet account available.", true); return; }
+    if (!address) { setState("Please unlock your wallet and choose an account.", true); return; }
 
     setState("Requesting verification message…");
     const challenge = await api("/api/wallet/challenge", {
@@ -1702,13 +1702,13 @@ async function connectWallet() {
     setState("Wallet connected.");
     await load();
   } catch (err) {
-    setState(err.message || "Could not connect wallet.", true);
+    setState(err.message || "Let’s try connecting your wallet again.", true);
   }
 }
 
 function renderWallet(wallet) {
   const statusEl = $("walletStatus");
-  if (statusEl) statusEl.textContent = wallet?.connected ? "Connected" : "Not connected";
+  if (statusEl) statusEl.textContent = wallet?.connected ? "Connected" : "Ready to connect";
   setText("walletAddress", wallet?.connected ? wallet.address : "—");
 }
 
@@ -1740,7 +1740,7 @@ function setupAddToken() {
   $("addGdtyToken")?.addEventListener("click", async () => {
     const eth = getEthereum();
     if (!eth) {
-      alert("No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first.");
+      alert("Please open this page inside your wallet's browser (e.g. MetaMask app).");
       return;
     }
     try {
@@ -1759,7 +1759,7 @@ function setupAddToken() {
       });
     } catch (error) {
       console.error("Add to wallet:", error);
-      alert("Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.");
+      alert("Please switch your wallet to BNB Smart Chain, then try again.");
     }
   });
 }
