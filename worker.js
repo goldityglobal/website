@@ -1155,11 +1155,11 @@ function normalize(list, dex) {
   })).filter((x) => x.ts && [x.open, x.high, x.low, x.close].every(Number.isFinite));
 }
 __name(normalize, "normalize");
-function mergeReference(a, b) {
-  const am = new Map(a.map((x) => [x.ts, x])), bm = new Map(b.map((x) => [x.ts, x]));
-  const keys = [.../* @__PURE__ */ new Set([...am.keys(), ...bm.keys()])].sort((x, y) => x - y);
+function mergeReference(...lists) {
+  const maps = lists.map((l) => new Map(l.map((x) => [x.ts, x])));
+  const keys = [.../* @__PURE__ */ new Set(maps.flatMap((m) => [...m.keys()]))].sort((x, y) => x - y);
   return keys.map((ts) => {
-    const v = [am.get(ts), bm.get(ts)].filter(Boolean);
+    const v = maps.map((m) => m.get(ts)).filter(Boolean);
     const avg = /* @__PURE__ */ __name((k) => {
       const q = v.map((z) => z[k]).filter(Number.isFinite);
       return q.length ? q.reduce((m, n) => m + n, 0) / q.length : null;
@@ -3753,9 +3753,9 @@ var worker_default = {
       if (u.pathname === "/api/chart") {
         const pp = await pair(e), range = (u.searchParams.get("range") || "1D").toUpperCase(), cfg = ranges[range];
         if (!cfg) return out({ ok: false, error: "invalid_range", allowed: Object.keys(ranges) }, 400, 0, baseHeaders);
-        const [uni, pcs] = await Promise.allSettled([geckoOHLCV(e, A.UNI, cfg), geckoOHLCV(e, pp, cfg)]);
-        const a = uni.status === "fulfilled" ? normalize(uni.value, "Uniswap V2") : [], b = pcs.status === "fulfilled" ? normalize(pcs.value, "PancakeSwap V2") : [];
-        const candles = mergeReference(a, b);
+        const [uni, pcs, bnb] = await Promise.allSettled([geckoOHLCV(e, A.UNI, cfg), geckoOHLCV(e, pp, cfg), geckoOHLCV(e, A.PBNB, cfg)]);
+        const a = uni.status === "fulfilled" ? normalize(uni.value, "Uniswap V2") : [], b = pcs.status === "fulfilled" ? normalize(pcs.value, "PancakeSwap V2") : [], c = bnb.status === "fulfilled" ? normalize(bnb.value, "PancakeSwap V2 (BNB)") : [];
+        const candles = mergeReference(a, b, c);
         return out({
           ok: true,
           range,
@@ -3763,7 +3763,8 @@ var worker_default = {
           candles,
           sources: {
             uniswap: { status: a.length ? "live" : "unavailable", pool: A.UNI, count: a.length },
-            pancakeswap: { status: b.length ? "live" : "unavailable", pool: pp, count: b.length }
+            pancakeswap: { status: b.length ? "live" : "unavailable", pool: pp, count: b.length },
+            pancakeswapBnb: { status: c.length ? "live" : "unavailable", pool: A.PBNB, count: c.length }
           },
           historyStatus: candles.length ? "live" : "unavailable",
           note: "Candles use indexed market data. No synthetic history is generated."
