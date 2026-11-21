@@ -948,7 +948,9 @@ var A = {
   U: "0x55d398326f99059fF775485246999027B3197955".toLowerCase(),
   UNI: "0x779fcD915CD293266676B81f9503EB8E3CE751a6".toLowerCase(),
   SUSHI: "0xb7189dff6158975ae4d0d41627726c565c035267".toLowerCase(),
-  PF: "0xca143ce32fe78f1f7019d7d551a6402fc5350c73".toLowerCase()
+  PF: "0xca143ce32fe78f1f7019d7d551a6402fc5350c73".toLowerCase(),
+  WBNB: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c".toLowerCase(),
+  PBNB: "0xEb7EeF9bBfcF4103be90604c9b628e7056Cf1C8f".toLowerCase()
 };
 var Z = "0x0000000000000000000000000000000000000000";
 var S = {
@@ -1100,6 +1102,33 @@ async function inspect(e, p, dex) {
   return { dex, status: g > 0 ? "live" : "unavailable", pair: p, gdtyReserve: g, usdtReserve: u, price: g ? u / g : null, liquidityUsd: g ? 2 * u : null };
 }
 __name(inspect, "inspect");
+async function readPairReserves(e, p) {
+  const [x0, x1] = await Promise.all([call(e, p, S.t0), call(e, p, S.t1)]);
+  const t0 = addr(x0), t1 = addr(x1);
+  const [rr, d0x, d1x] = await Promise.all([call(e, p, S.r), call(e, t0, S.dec), call(e, t1, S.dec)]);
+  return {
+    t0,
+    t1,
+    r0: Number(uint("0x" + rr.slice(2, 66))) / 10 ** Number(uint(d0x)),
+    r1: Number(uint("0x" + rr.slice(66, 130))) / 10 ** Number(uint(d1x))
+  };
+}
+__name(readPairReserves, "readPairReserves");
+async function inspectBnb(e, p, dex) {
+  if (!p || p === Z) return { dex, status: "unavailable", reason: "pair_not_found" };
+  const a = await readPairReserves(e, p);
+  if (!(a.t0 === A.G && a.t1 === A.WBNB || a.t0 === A.WBNB && a.t1 === A.G))
+    return { dex, status: "unavailable", reason: "token_mismatch", pair: p };
+  const g = a.t0 === A.G ? a.r0 : a.r1, b = a.t0 === A.WBNB ? a.r0 : a.r1;
+  const refPair = addr(await call(e, A.PF, S.pair + pad(A.WBNB) + pad(A.U)));
+  if (!refPair || refPair === Z) return { dex, status: "unavailable", reason: "bnb_price_unavailable", pair: p };
+  const q = await readPairReserves(e, refPair);
+  const wb = q.t0 === A.WBNB ? q.r0 : q.r1, us = q.t0 === A.U ? q.r0 : q.r1;
+  if (!(g > 0 && b > 0 && wb > 0 && us > 0)) return { dex, status: "unavailable", reason: "no_liquidity", pair: p };
+  const bnbUsd = us / wb, quoteValueUsd = b * bnbUsd;
+  return { dex, status: "live", pair: p, quote: "BNB", gdtyReserve: g, bnbReserve: b, bnbUsd, quoteValueUsd, usdtReserve: null, price: quoteValueUsd / g, liquidityUsd: 2 * quoteValueUsd };
+}
+__name(inspectBnb, "inspectBnb");
 var mean = /* @__PURE__ */ __name((a, b) => {
   const v = [a, b].filter(Number.isFinite);
   return v.length ? v.reduce((x, y) => x + y, 0) / v.length : null;
@@ -3371,8 +3400,8 @@ var PRICE_RANGES = { "1D": 86400, "1W": 604800, "1M": 2592000, "ALL": 31536000 }
 var priceMemo = /* @__PURE__ */ new Map();
 async function samplePrice(e) {
   const pp = await pair(e);
- const [uniR, pcsR, sushiR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2"), inspect(e, A.SUSHI, "SushiSwap V2")]);
-  const live = [uniR, pcsR, sushiR].filter((r) => r.status === "fulfilled" && r.value.status === "live" && Number.isFinite(r.value.price) && r.value.price > 0).map((r) => r.value);
+ const [uniR, pcsR, sushiR, bnbR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2"), inspect(e, A.SUSHI, "SushiSwap V2"), inspectBnb(e, A.PBNB, "PancakeSwap V2 (BNB)")]);
+  const live = [uniR, pcsR, sushiR, bnbR].filter((r) => r.status === "fulfilled" && r.value.status === "live" && Number.isFinite(r.value.price) && r.value.price > 0).map((r) => r.value);
   if (!live.length) return null;
   const price = live.reduce((sum, x) => sum + x.price, 0) / live.length;
   if (!Number.isFinite(price) || price <= 0) return null;
@@ -3691,11 +3720,12 @@ var worker_default = {
       }
       if (u.pathname === "/api/market") {
         const pp = await pair(e);
-       const [uniR, pcsR, sushiR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2"), inspect(e, A.SUSHI, "SushiSwap V2")]);
+       const [uniR, pcsR, sushiR, bnbR] = await Promise.allSettled([inspect(e, A.UNI, "Uniswap V2"), inspect(e, pp, "PancakeSwap V2"), inspect(e, A.SUSHI, "SushiSwap V2"), inspectBnb(e, A.PBNB, "PancakeSwap V2 (BNB)")]);
         const uni = uniR.status === "fulfilled" ? uniR.value : { dex: "Uniswap V2", status: "unavailable", reason: "rpc_error" };
         const pcs = pcsR.status === "fulfilled" ? pcsR.value : { dex: "PancakeSwap V2", status: "unavailable", reason: "rpc_error" };
         const sushi = sushiR.status === "fulfilled" ? sushiR.value : { dex: "SushiSwap V2", status: "unavailable", reason: "rpc_error" };
-       const live = [uni, pcs, sushi].filter((x) => x.status === "live"), ref = live.length ? live.reduce((sum, x) => sum + x.price, 0) / live.length : null;
+        const pcsBnb = bnbR.status === "fulfilled" ? bnbR.value : { dex: "PancakeSwap V2 (BNB)", status: "unavailable", reason: "rpc_error" };
+       const live = [uni, pcs, sushi, pcsBnb].filter((x) => x.status === "live"), ref = live.length ? live.reduce((sum, x) => sum + x.price, 0) / live.length : null;
         return out({
           ok: true,
           network: "BNB Smart Chain",
@@ -3703,12 +3733,11 @@ var worker_default = {
           token: { name: "GOLDITY", symbol: "GDTY", address: A.G, decimals: 18 },
           quoteToken: { symbol: "USDT", address: A.U, decimals: 18 },
           referencePrice: ref,
-          priceMethod: "Arithmetic mean of valid GDTY/USDT V2 pool prices",
+          priceMethod: "Arithmetic mean of valid GDTY pool prices: the GDTY/USDT V2 pools and the GDTY/BNB V2 pool (BNB valued in USDT from the WBNB/USDT PancakeSwap V2 pool)",
           liquidityUsd: live.reduce((s, x) => s + (x.liquidityUsd || 0), 0) || null,
-         totalGdtyReserve: live.reduce((sum, x) => sum + (x.gdtyReserve || 0), 0),
           totalGdtyReserve: live.reduce((sum, x) => sum + (x.gdtyReserve || 0), 0),
-          reserveMethod: "Sum of available Uniswap V2 + PancakeSwap V2 + SushiSwap V2 pool reserves",
-          markets: { uniswap: uni, pancakeswap: pcs, sushiswap: sushi },
+          reserveMethod: "Sum of available Uniswap V2 + PancakeSwap V2 + SushiSwap V2 + PancakeSwap V2 (GDTY/BNB) pool reserves",
+          markets: { uniswap: uni, pancakeswap: pcs, sushiswap: sushi, pancakeswapBnb: pcsBnb },
           lastUpdated: nowIso(),
           dataStatus: ref === null ? "unavailable" : "live"
         }, 200, 10, baseHeaders);

@@ -24,7 +24,7 @@
     io.observe(how);
   }
 
-  var DEX_BUTTONS = { buyPancake: "pancakeswap", buyUniswap: "uniswap", buySushi: "sushiswap" };
+  var DEX_BUTTONS = { buyPancake: "pancakeswap", buyUniswap: "uniswap", buySushi: "sushiswap", buyPancakeBnb: "pancakeswap_bnb" };
 
   document.addEventListener("click", function (ev) {
     var el = ev.target && ev.target.closest ? ev.target.closest("button, a") : null;

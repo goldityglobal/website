@@ -133,6 +133,11 @@ const PANCAKESWAP_URL =
   `https://pancakeswap.finance/swap?chain=bsc&inputCurrency=${USDT}&outputCurrency=${GDTY}`;
 
 
+const PANCAKESWAP_BNB_URL =
+
+  `https://pancakeswap.finance/swap?chain=bsc&inputCurrency=BNB&outputCurrency=${GDTY}`;
+
+
 const UNISWAP_URL =
 
   `https://app.uniswap.org/swap?chain=bnb&inputCurrency=${USDT}&outputCurrency=${GDTY}`;
@@ -403,7 +408,7 @@ if ($("totalGdtyReserve")) {
 
         data.referencePrice != null
 
-          ? "UNISWAP V2 + PANCAKESWAP V2 + SUSHISWAP V2"
+          ? "UNISWAP V2 + PANCAKESWAP V2 + SUSHISWAP V2 + PANCAKESWAP (BNB)"
 
           : "PRICE UNAVAILABLE";
 
@@ -1139,6 +1144,10 @@ if ($("buyUniswap")) {
 
   );
 
+}
+
+if ($("buyPancakeBnb")) {
+  $("buyPancakeBnb").addEventListener("click", () => openDex(PANCAKESWAP_BNB_URL));
 }
 
 if ($("buySushi")) {
