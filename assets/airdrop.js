@@ -33,7 +33,7 @@ let wcProvider = null;
 async function getWalletConnectProvider() {
   if (wcProvider) return wcProvider;
   if (!window.EthereumProvider) {
-    throw new Error("WalletConnect failed to load. Please check your connection and try again.");
+    throw new Error("WalletConnect is warming up. Please check your connection and try again.");
   }
   wcProvider = await window.EthereumProvider.init({
     projectId: WALLETCONNECT_PROJECT_ID,
@@ -101,7 +101,7 @@ async function connectViaOption(chosen, resolve) {
       const p = await getWalletConnectProvider();
       resolve(p);
     } catch (err) {
-      setState(err?.message || "Could not start WalletConnect. Please refresh the page and try again.", true);
+      setState(err?.message || "Please refresh the page to start WalletConnect.", true);
       resolve(null);
     }
     return;
@@ -212,14 +212,14 @@ async function loadStatus() {
 $("connectWallet")?.addEventListener("click", async () => {
   const provider = await pickWalletProvider();
   if (!provider) {
-    setState("No wallet detected. Open this page inside your wallet's browser (e.g. MetaMask app) first.", true);
+    setState("Please open this page inside your wallet's browser (e.g. MetaMask app) first.", true);
     return;
   }
   activeProvider = provider;
   try {
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     connectedAddress = accounts?.[0];
-    if (!connectedAddress) { setState("No wallet account available.", true); return; }
+    if (!connectedAddress) { setState("Please unlock your wallet and choose an account.", true); return; }
     $("airdropWalletWrap").style.display = "";
     $("airdropWalletAddress").textContent = connectedAddress;
     $("addGdtyToken").disabled = false;
@@ -229,7 +229,7 @@ $("connectWallet")?.addEventListener("click", async () => {
     setState("Wallet connected. Add GDTY to your wallet, then claim.");
     markStep("stepAdd");
   } catch (err) {
-    setState(err.message || "Could not connect wallet.", true);
+    setState(err.message || "Let’s try connecting your wallet again.", true);
   }
 });
 
@@ -262,7 +262,7 @@ $("addGdtyToken")?.addEventListener("click", async () => {
     await ensureBscNetwork(activeProvider);
   } catch (err) {
     console.error("Switch network:", err);
-    setState(err?.message || "Couldn't switch to BNB Smart Chain in your wallet. Please switch networks manually, then try again.", true);
+    setState(err?.message || "Please switch your wallet to BNB Smart Chain, then try again.", true);
     if (btn) { btn.disabled = false; btn.textContent = "Add GDTY to Wallet"; }
     return;
   }
@@ -303,7 +303,7 @@ $("addGdtyToken")?.addEventListener("click", async () => {
 $("claimAirdrop")?.addEventListener("click", async () => {
   if (!connectedAddress) return;
   if (!turnstileToken) {
-    setState("Please complete the verification check below, then try again.", true);
+    setState("Please complete the verification below to continue.", true);
     return;
   }
   $("claimAirdrop").disabled = true;
@@ -321,24 +321,24 @@ $("claimAirdrop")?.addEventListener("click", async () => {
     window.turnstile?.reset("#turnstileWidget");
     if (!res.ok || !data.ok) {
       const messages = {
-        wallet_already_claimed: "This wallet already claimed.",
+        wallet_already_claimed: "This wallet has already received its airdrop. Thank you for joining!",
         ip_limit_reached: "1 claim per hour per network. Try later.",
         airdrop_full: "All 10,000 claims are taken.",
         airdrop_paused: "Airdrop is paused. Check back later.",
-        rate_limited: "Too many attempts. Wait a moment.",
-        invalid_wallet: "Invalid wallet address.",
-        airdrop_treasury_empty: "Airdrop pool unavailable. Try later.",
-        airdrop_not_configured: "Airdrop not ready yet. Check back soon.",
+        rate_limited: "Please wait a moment, then try again.",
+        invalid_wallet: "Please enter a full BNB Smart Chain wallet address (starts with 0x).",
+        airdrop_treasury_empty: "The airdrop pool is refilling. Please check back soon.",
+        airdrop_not_configured: "The airdrop opens shortly. Please check back soon.",
         forbidden: "Blocked by in-app browser. Open in Chrome, Safari or your wallet browser.",
-        validation_failed: "Invalid wallet address.",
-        captcha_failed: "Verification failed. Try again.",
-        wallet_not_eligible: "Not eligible. Needs 2+ tokens, $1+ value and 1 sent transaction.",
-        eligibility_check_failed: "Couldn't check your wallet. Try again.",
-        airdrop_busy: "Very busy. Try again in a minute.",
+        validation_failed: "Please enter a full BNB Smart Chain wallet address (starts with 0x).",
+        captcha_failed: "Please run the verification once more.",
+        wallet_not_eligible: "To qualify, your wallet needs 2+ tokens, $1+ total value and 1 sent transaction.",
+        eligibility_check_failed: "Your wallet check is almost done. Please try again.",
+        airdrop_busy: "We are busy right now. Please try again in a minute.",
         claim_pending_check: "Claim is processing. Don't claim again.",
-        db_busy: "High traffic. Try again shortly."
+        db_busy: "Lots of visitors right now. Please try again shortly."
       };
-      setState(messages[data.error] || `Could not process your claim${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
+      setState(messages[data.error] || `Your claim is almost there${data.error ? ` (${data.error})` : ""}. Please try again.`, true);
       $("claimAirdrop").disabled = false;
       return;
     }
@@ -355,7 +355,7 @@ $("claimAirdrop")?.addEventListener("click", async () => {
   } catch {
     turnstileToken = null;
     window.turnstile?.reset("#turnstileWidget");
-    setState("Could not process your claim. Please try again.", true);
+    setState("Your claim is almost there. Please try again.", true);
     $("claimAirdrop").disabled = false;
   }
 });

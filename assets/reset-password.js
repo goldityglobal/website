@@ -18,7 +18,7 @@ async function readJson(response) {
 }
 
 if (!token) {
-  setState("This reset link is missing its token. Please request a new one from the forgot password page.", true);
+  setState("Please request a fresh reset link from the forgot password page.", true);
   if (form) form.querySelector("button[type='submit']").disabled = true;
 }
 
@@ -42,10 +42,10 @@ if (form) {
       const data = await readJson(response);
       if (!response.ok || !data.ok) {
         const messages = {
-          expired_or_invalid_token: "This reset link is invalid or has expired. Please request a new one.",
+          expired_or_invalid_token: "This reset link has completed its time. Please request a fresh one.",
           weak_password: "Password must be at least 10 characters."
         };
-        setState(messages[data.error] || data.message || "Something went wrong. Please try again.", true);
+        setState(messages[data.error] || data.message || "Please try again.", true);
         button.disabled = false;
         return;
       }
@@ -53,7 +53,7 @@ if (form) {
       form.reset();
       setTimeout(() => { location.href = "/login.html"; }, 1800);
     } catch {
-      setState("Network error. Please try again.", true);
+      setState("Please check your connection and try again.", true);
       button.disabled = false;
     }
   });

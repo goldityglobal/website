@@ -32,8 +32,8 @@ if (form) {
       if (!response.ok || !data.ok) {
         setState(
           data.error === "rate_limited"
-            ? "Too many attempts. Please wait a moment and try again."
-            : (data.message || "Something went wrong. Please try again."),
+            ? "Please wait a moment, then try again."
+            : (data.message || "Please try again."),
           true
         );
         button.disabled = false;
@@ -42,7 +42,7 @@ if (form) {
       setState("If that email has a GOLDITY account, a reset link has been sent. Please check your inbox (and spam folder).");
       form.reset();
     } catch {
-      setState("Network error. Please try again.", true);
+      setState("Please check your connection and try again.", true);
       button.disabled = false;
     }
   });

@@ -215,11 +215,11 @@
 <li><span class="big">0%</span> sell tax</li>
 <li><span class="big">0%</span> wallet-to-wallet transfer tax</li>
 </ul>
-<p>The contract contains no token-tax logic, blacklist mechanism, pause function or trading restriction.</p>
+<p>The contract keeps trading open and fee-free: every holder can buy, sell and transfer GDTY at any time.</p>
 <p>Network gas fees and fees charged by third-party platforms may still apply independently of the GDTY token contract.</p>
 <h3>Ownership renounced</h3>
 <p>GDTY was built using OpenZeppelin's Ownable2Step ownership model.</p>
-<p>The contract's only owner-restricted function was used to register the four vesting contracts. That action was designed to be performed once and cannot be executed again.</p>
+<p>The contract's only owner-restricted function was used to register the four vesting contracts. That action was designed as a one-time step and is now complete.</p>
 <p>Ownership of the token contract has since been renounced. As a result, the GDTY token contract currently has no owner and no remaining administrative functions.</p>
 <p>This is not something users need to take on trust. It can be independently checked on BscScan by reading <code>owner()</code>, which returns the zero address.</p>
 <p>The registered vesting addresses can also be read on-chain through:</p>
