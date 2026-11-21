@@ -283,3 +283,164 @@ body h1{background-image:none!important}
   .gold-pill,.airdrop-badge{font-size:11px!important;padding:8px 9px!important}
   .why-grid article{padding-left:20px}
 }
+
+/* =========================================================
+   v4 · GLASS · DIAMOND · AQUARIUM
+   Frosted neon glass, faceted highlights, light rays and bubbles.
+   (overrides the v3 bracket frames above)
+   ========================================================= */
+@keyframes rays{0%{transform:translateX(-4%) skewX(-6deg)}100%{transform:translateX(4%) skewX(6deg)}}
+@keyframes bubbles{0%{background-position:120px 40px,450px 320px,790px 120px}100%{background-position:180px -1191px,360px -627px,830px -1373px}}
+@keyframes caustic{0%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,3%) scale(1.12)}100%{transform:translate(-3%,5%) scale(1.04)}}
+
+html{background:#020202}
+body{background:transparent}
+body::before{
+  display:block!important;content:"";position:fixed;inset:-10% -10% 0 -10%;z-index:-1;pointer-events:none;opacity:1!important;
+  background:
+    radial-gradient(ellipse 46% 36% at 18% 8%,rgba(255,236,190,.16),transparent 70%),
+    radial-gradient(ellipse 40% 34% at 86% 30%,rgba(255,185,56,.10),transparent 70%),
+    repeating-linear-gradient(102deg,transparent 0 120px,rgba(255,236,190,.045) 120px 170px,transparent 170px 330px);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.6) 45%,transparent 90%);mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.6) 45%,transparent 90%);
+  animation:rays 22s ease-in-out infinite alternate;
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.7;
+  background-image:
+    radial-gradient(circle at 50% 50%,rgba(255,244,214,.55) 0 1.5px,rgba(255,244,214,.12) 2.5px,transparent 4px),
+    radial-gradient(circle at 50% 50%,rgba(255,244,214,.45) 0 2.5px,rgba(255,244,214,.10) 4px,transparent 7px),
+    radial-gradient(circle at 50% 50%,rgba(255,214,140,.40) 0 1px,transparent 3px);
+  background-size:877px 1231px,613px 947px,1049px 1493px;
+  background-position:120px 40px,450px 320px,790px 120px;
+  animation:bubbles 90s linear infinite;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 30%,#000 80%,transparent);mask-image:linear-gradient(180deg,transparent,#000 30%,#000 80%,transparent);
+}
+.hero,.contract-strip,.community,.site-footer,footer,.market,.why,.buy{background:transparent}
+.hero{background:transparent}
+
+/* ---- floating glass header ---- */
+.site-header,header{
+  width:min(1300px,calc(100% - 24px));margin:12px auto 0;top:10px;border-radius:22px;min-height:68px;
+  background:linear-gradient(160deg,rgba(255,248,232,.10),rgba(255,248,232,.03)),rgba(14,13,11,.55);
+  backdrop-filter:blur(24px) saturate(170%);-webkit-backdrop-filter:blur(24px) saturate(170%);
+  border:1px solid rgba(255,245,220,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -14px 30px rgba(255,185,56,.04),0 14px 44px rgba(0,0,0,.55),0 0 36px rgba(255,185,56,.07);
+}
+.site-header::after,header::after{left:14%;right:14%;bottom:auto;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);box-shadow:0 0 14px rgba(255,255,255,.5);opacity:.9}
+.header-inner{width:calc(100% - 36px)}
+.brand-logo{box-shadow:0 0 0 3px rgba(255,255,255,.05),0 0 22px rgba(255,185,56,.5)}
+.wallet{border-radius:999px;background:rgba(255,248,232,.06);border:1px solid rgba(255,245,220,.22);backdrop-filter:blur(8px)}
+.wallet-menu,.mobile-nav nav{border-radius:18px;background:rgba(12,11,9,.8);backdrop-filter:blur(20px);border:1px solid rgba(255,245,220,.18)}
+.gold-pill,.airdrop-badge{
+  border-radius:999px!important;border:1px solid rgba(255,200,90,.75)!important;
+  background:linear-gradient(180deg,rgba(255,236,190,.20),rgba(255,185,56,.05))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 20px rgba(255,185,56,.4)!important;
+}
+
+/* ---- buttons: glass pills ---- */
+.btn,.cta{border-radius:999px;padding:12px 28px}
+.btn-gold,.cta.primary{
+  background:linear-gradient(180deg,#FFFDF4 0%,#F6EBCF 55%,#EAD6A0 100%);color:#15110a;border:1px solid rgba(255,255,255,.9);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -10px 18px rgba(255,185,56,.28),0 0 30px rgba(255,236,190,.45),0 10px 26px rgba(0,0,0,.45);
+}
+.btn-gold:hover,.cta.primary:hover{box-shadow:inset 0 1px 0 #fff,inset 0 -10px 18px rgba(255,185,56,.4),0 0 44px rgba(255,214,120,.75),0 12px 30px rgba(0,0,0,.5)}
+.btn-outline,.cta.secondary{
+  background:linear-gradient(180deg,rgba(255,248,232,.12),rgba(255,248,232,.03));border:1px solid rgba(255,245,220,.26);
+  backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);color:var(--cream-hi);
+}
+.btn-outline:hover,.cta.secondary:hover{border-color:rgba(255,200,90,.8);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 26px rgba(255,185,56,.45);background:linear-gradient(180deg,rgba(255,248,232,.18),rgba(255,248,232,.05))}
+.contract-card-inner button{border-radius:999px}
+
+/* ---- hero wordmark: glass letters with neon rim ---- */
+.hero .hero-title{
+  background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,244,214,.14) 52%,rgba(255,185,56,.22) 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-text-stroke:1.6px rgba(255,236,190,.95);
+}
+.hero-art::after{background:linear-gradient(90deg,rgba(2,2,2,.95) 0%,rgba(2,2,2,.45) 32%,transparent 62%),linear-gradient(0deg,#020202 0%,transparent 34%)}
+.hero-trust-row{border-top:1px solid rgba(255,245,220,.16)}
+
+/* ---- ticker: glass strip ---- */
+.lx-ticker{background:linear-gradient(180deg,rgba(255,248,232,.07),rgba(255,248,232,.015));backdrop-filter:blur(12px);border-top:1px solid rgba(255,245,220,.22);border-bottom:1px solid rgba(255,200,90,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 30px rgba(255,185,56,.12)}
+
+/* ---- glass cards with faceted shine ---- */
+.contract-card,.market-main-panel,.market-side-card,.market-card,.dex-card,.buy-card,.dashboard-card,.auth-modal-card{
+  background:
+    linear-gradient(135deg,rgba(255,248,232,.11) 0%,rgba(255,248,232,.025) 42%,rgba(255,185,56,.05) 100%)!important;
+  backdrop-filter:blur(18px) saturate(155%);-webkit-backdrop-filter:blur(18px) saturate(155%);
+  border:1px solid rgba(255,245,220,.17)!important;border-radius:24px!important;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -24px 44px rgba(255,185,56,.045),0 22px 54px rgba(0,0,0,.5)!important;
+}
+.contract-card:hover,.market-side-card:hover,.buy-card:hover,.dex-card:hover{
+  border-color:rgba(255,200,90,.55)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -24px 44px rgba(255,185,56,.08),0 22px 54px rgba(0,0,0,.5),0 0 44px rgba(255,185,56,.2)!important;
+}
+/* facet shine (diamond cut) replaces the v3 corner brackets */
+.contract-card::before,.market-main-panel::before,.buy-card::before,.market-side-card::before,.dex-card::before{
+  content:"";position:absolute;inset:0;left:0;top:0;width:auto;height:auto;border:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(118deg,transparent 22%,rgba(255,255,255,.09) 30%,transparent 38%,transparent 56%,rgba(255,236,190,.07) 63%,transparent 71%)!important;
+  filter:none;box-shadow:none!important;right:auto;bottom:auto;
+}
+.contract-card::after,.market-main-panel::after,.buy-card::after,.market-side-card::after,.dex-card::after{
+  content:"";position:absolute;left:12%;right:12%;top:0;bottom:auto;width:auto;height:1px;border:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent)!important;filter:none;box-shadow:0 0 12px rgba(255,255,255,.4)!important;
+}
+.market-main-panel>*,.contract-card>*,.buy-card>*,.market-side-card>*{position:relative;z-index:1}
+.market-panel-head .ranges,.market-panel-head .ranges button{border-radius:999px}
+.market-chart-wrap,#chartWrap{border-radius:18px}
+.dex-badge{border-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.2),rgba(255,185,56,.08));border:1px solid rgba(255,200,90,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 16px rgba(255,185,56,.3)}
+
+/* ---- section titles: diamond marker ---- */
+.eyebrow::before{display:inline-block!important;content:"";width:9px;height:9px;margin-right:12px;transform:rotate(45deg);background:linear-gradient(135deg,#fff,var(--amber));box-shadow:0 0 12px var(--amber);vertical-align:1px}
+.section-heading h2::after,.why h2::after,.community h2::after{height:1px;width:120px;background:linear-gradient(90deg,var(--amber),transparent);box-shadow:0 0 14px var(--amber)}
+
+/* ---- WHY: glass tiles with diamond gems ---- */
+.why-grid{gap:18px;margin-top:56px}
+.why-grid article{
+  border:1px solid rgba(255,245,220,.16)!important;border-radius:24px;padding:30px 26px 28px!important;overflow:hidden;position:relative;
+  background:linear-gradient(135deg,rgba(255,248,232,.10),rgba(255,248,232,.02) 50%,rgba(255,185,56,.04));
+  backdrop-filter:blur(16px) saturate(150%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 18px 44px rgba(0,0,0,.45);
+}
+.why-grid article::before{left:12%;right:12%;top:0;width:auto;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent);box-shadow:0 0 12px rgba(255,255,255,.4)}
+.why-grid article:hover{background:linear-gradient(135deg,rgba(255,248,232,.14),rgba(255,248,232,.03) 50%,rgba(255,185,56,.07));border-color:rgba(255,200,90,.5)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 40px rgba(255,185,56,.16)}
+.why-icon{position:relative;isolation:isolate;display:grid!important;place-items:center;width:56px!important;height:56px!important;margin:0 0 22px;font-size:22px;color:#fff!important;text-shadow:0 0 12px var(--amber)}
+.why-icon::before{content:"";position:absolute;inset:7px;z-index:-1;transform:rotate(45deg);border-radius:8px;border:1px solid rgba(255,214,130,.85);
+  background:linear-gradient(135deg,rgba(255,255,255,.35),rgba(255,185,56,.10) 55%,rgba(255,255,255,.12));box-shadow:0 0 24px rgba(255,185,56,.5),inset 0 1px 0 rgba(255,255,255,.6)}
+.referral-highlight{border:1px solid rgba(255,245,220,.16)!important}
+
+/* ---- CREAM SLABS: prismatic ivory with glass tiles ---- */
+.token,.security{position:relative;isolation:isolate}
+.token::before,.security::before{
+  display:block!important;content:"";position:absolute;z-index:-1;pointer-events:none;top:0;bottom:0;left:50%;width:100vw;height:auto;right:auto;transform:translateX(-50%);border-radius:0;filter:none;
+  background:
+    radial-gradient(ellipse 50% 70% at 12% 0%,#FFFDF6 0%,transparent 70%),
+    radial-gradient(ellipse 45% 60% at 92% 100%,rgba(255,196,80,.38),transparent 70%),
+    repeating-linear-gradient(60deg,transparent 0 118px,rgba(120,88,24,.05) 118px 119px),
+    repeating-linear-gradient(-60deg,transparent 0 118px,rgba(120,88,24,.05) 118px 119px),
+    linear-gradient(180deg,#F7EFDA,#EDE0BF);
+}
+.token-grid,.security-grid{gap:16px;border:0;margin-top:52px}
+.token-card,.security-item{
+  border:1px solid rgba(255,255,255,.9)!important;border-radius:22px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(255,255,255,.38))!important;
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -18px 34px rgba(255,185,56,.10),0 16px 40px rgba(110,80,20,.14)!important;
+  padding:24px 26px!important;position:relative;overflow:hidden;
+}
+.token-card::after,.security-item::after{display:block!important;content:"";position:absolute;left:10%;right:10%;top:0;bottom:auto;width:auto;height:1px;background:linear-gradient(90deg,transparent,#fff,transparent)!important;border:0;box-shadow:none!important;filter:none}
+.token-card:hover,.security-item:hover{background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(255,255,255,.5))!important;border-color:rgba(255,200,90,.9)!important;box-shadow:inset 0 1px 0 #fff,0 18px 44px rgba(190,130,20,.22)!important}
+.security-item::before{display:none!important}
+.security-item .security-note{background:none!important;border:0!important}
+
+/* ---- community / footer ---- */
+.social-pill{border-radius:50%;background:linear-gradient(180deg,rgba(255,248,232,.12),rgba(255,248,232,.03));border:1px solid rgba(255,245,220,.25);backdrop-filter:blur(8px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.social-pill:hover{border-color:rgba(255,200,90,.85);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 26px rgba(255,185,56,.5)}
+input,textarea,select{border-radius:14px;background:rgba(255,248,232,.05);backdrop-filter:blur(8px);border:1px solid rgba(255,245,220,.2)}
+
+@media(max-width:640px){
+  .site-header,header{width:calc(100% - 16px);margin-top:8px;border-radius:18px}
+  .contract-card,.market-main-panel,.market-side-card,.buy-card,.why-grid article{backdrop-filter:blur(10px)}
+  body::after{opacity:.35}
+}
+@media(prefers-reduced-motion:reduce){body::before,body::after{animation:none}}
