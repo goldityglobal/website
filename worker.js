@@ -1452,10 +1452,35 @@ async function safeBroadcast(e, signedTx) {
   }
 }
 __name(safeBroadcast, "safeBroadcast");
+var payoutNonceFloor = { n: -1, at: 0 };
 async function getNonce(e, address) {
-  return parseInt(await rpc(e, "eth_getTransactionCount", [address, "pending"]), 16);
+  const pending = parseInt(await rpc(e, "eth_getTransactionCount", [address, "pending"]), 16);
+  const f = payoutNonceFloor;
+  if (f.n >= pending && Date.now() - f.at < 12e4) return f.n + 1;
+  return pending;
 }
 __name(getNonce, "getNonce");
+function noteNonceUsed(nonce) {
+  if (Number.isInteger(nonce) && nonce >= payoutNonceFloor.n) payoutNonceFloor = { n: nonce, at: Date.now() };
+}
+__name(noteNonceUsed, "noteNonceUsed");
+async function withPayoutRunLock(e, fn) {
+  const nowS = Math.floor(Date.now() / 1e3);
+  await e.DB.prepare("INSERT INTO airdrop_state(key,value_int,updated_at) VALUES('payout_run_lock',0,?) ON CONFLICT(key) DO NOTHING").bind(nowIso()).run();
+  const got = await e.DB.prepare("UPDATE airdrop_state SET value_int=?,updated_at=? WHERE key='payout_run_lock' AND value_int<=?").bind(nowS + 600, nowIso(), nowS).run();
+  if (!got?.meta?.changes) {
+    console.log("GOLDITY payout run skipped - another run holds the payout lock");
+    return false;
+  }
+  try {
+    await fn();
+  } finally {
+    await e.DB.prepare("UPDATE airdrop_state SET value_int=0,updated_at=? WHERE key='payout_run_lock'").bind(nowIso()).run().catch(() => {
+    });
+  }
+  return true;
+}
+__name(withPayoutRunLock, "withPayoutRunLock");
 async function getGasPrice(e) {
   return BigInt(await rpc(e, "eth_gasPrice", []));
 }
@@ -2227,6 +2252,7 @@ async function tryPayReferralReward(e, reward) {
     const data = erc20TransferData(refUser.wallet_address, amountWei);
     const signedTx = await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY, { nonce, gasPrice, gasLimit, to: A.G, value: 0n, data });
     const b = await safeBroadcast(e, signedTx);
+    if (b.sent) noteNonceUsed(nonce);
     if (b.sent === "unknown") {
       console.error("GOLDITY CRITICAL: referral payout outcome unknown - check on BscScan before any retry", b.txHash, reward.id, payoutId);
       await e.DB.prepare("UPDATE referral_payouts SET tx_hash=? WHERE id=?").bind(b.txHash, payoutId).run().catch(() => {
@@ -2625,6 +2651,7 @@ async function payAirdropClaim(e, claim) {
     const nonce = await getNonce(e, payoutAddress);
     const signedTx = await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY, { nonce, gasPrice, gasLimit: 15e4, to: AIRDROP_CONTRACT, value: 0n, data });
     const b = await safeBroadcast(e, signedTx);
+    if (b.sent) noteNonceUsed(nonce);
     if (b.sent === "unknown") {
       await e.DB.prepare("UPDATE airdrop_claims SET status='processing',tx_hash=? WHERE id=?").bind(b.txHash, claim.id).run().catch(() => {
       });
@@ -2941,6 +2968,7 @@ async function payTgClaim(e, claim) {
     const nonce = await getNonce(e, payoutAddress);
     const signedTx = await signLegacyTx(e.REFERRAL_PAYOUT_PRIVATE_KEY, { nonce, gasPrice, gasLimit: 15e4, to: AIRDROP_CONTRACT, value: 0n, data });
     const b = await safeBroadcast(e, signedTx);
+    if (b.sent) noteNonceUsed(nonce);
     if (b.sent === "unknown") {
       await e.DB.prepare("UPDATE tg_airdrop_claims SET status='processing',tx_hash=? WHERE id=?").bind(b.txHash, claim.id).run().catch(() => {
       });
@@ -3795,19 +3823,25 @@ var worker_default = {
       console.error("GOLDITY scanner error", err);
     }
     try {
-      await graduateOverdueRewardsGlobal(e);
+      await withPayoutRunLock(e, async () => {
+        try {
+          await graduateOverdueRewardsGlobal(e);
+        } catch (err) {
+          console.error("GOLDITY global graduate error", err);
+        }
+        try {
+          await processQueuedAirdrops(e);
+        } catch (err) {
+          console.error("GOLDITY airdrop payout error", err);
+        }
+        try {
+          await processQueuedTgAirdrops(e);
+        } catch (err) {
+          console.error("GOLDITY telegram airdrop payout error", err);
+        }
+      });
     } catch (err) {
-      console.error("GOLDITY global graduate error", err);
-    }
-    try {
-      await processQueuedAirdrops(e);
-    } catch (err) {
-      console.error("GOLDITY airdrop payout error", err);
-    }
-    try {
-      await processQueuedTgAirdrops(e);
-    } catch (err) {
-      console.error("GOLDITY telegram airdrop payout error", err);
+      console.error("GOLDITY payout lock error", err);
     }
     try {
       await vault.scheduled(e);

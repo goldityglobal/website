@@ -6,5 +6,8 @@
   "dependencies": {
     "@noble/secp256k1": "3.2.0",
     "@noble/hashes": "2.4.0"
+  },
+  "scripts": {
+    "test": "node --test tests/payout-nonce-lock.test.mjs"
   }
 }
