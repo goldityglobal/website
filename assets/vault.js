@@ -72,7 +72,7 @@
     $("galleryView").classList.add("hidden");
     $("detailView").classList.add("hidden");
     $("vaultHeading").textContent = "Design Vault — opening soon";
-    setState($("vaultState"), "The Design Vault is not open yet. Please check back soon.");
+    setState($("vaultState"), "The Design Vault opens soon. Please check back shortly.");
   }
 
   // ---------------------------------------------------------------- gallery
@@ -150,14 +150,14 @@
     state.loading = false;
     if (r._status === 404 && r.error === "not_launched") { showClosed(); return; }
     if (!r.ok) {
-      setState($("vaultState"), r._status === 401 ? "Sign in to see the designs you unlocked." : "The gallery could not be loaded. Please try again.", "error");
+      setState($("vaultState"), r._status === 401 ? "Sign in to see the designs you unlocked." : "The gallery is almost ready. Please try again.", "error");
       return;
     }
     setState($("vaultState"), "");
     state.total = r.total;
     const grid = $("vaultGrid");
     for (const it of r.items) grid.appendChild(card(it));
-    if (!grid.children.length) grid.appendChild(el("div", "vault-empty", "No designs match these filters."));
+    if (!grid.children.length) grid.appendChild(el("div", "vault-empty", "Try a different filter to discover more designs."));
     const shown = grid.querySelectorAll(".vault-card").length;
     $("vaultCount").textContent = r.total ? `${shown} of ${r.total} designs` : "";
     $("vaultMore").classList.toggle("hidden", shown >= r.total);
@@ -289,13 +289,13 @@
     btn.disabled = false;
     btn.textContent = label;
     const msg = {
-      insufficient_points: `Not enough points: you have ${r.balance ?? 0}, this needs ${r.cost ?? item.cost}.`,
+      insufficient_points: `This design needs ${r.cost ?? item.cost} points, and you have ${r.balance ?? 0}. Keep collecting points to unlock it.`,
       unauthorized: "Please sign in again.",
-      rate_limited: "Too many attempts. Please wait a moment.",
+      rate_limited: "Please wait a moment, then try again.",
       busy: "Please try again.",
       free_image: "This image is free to view.",
-      not_launched: "The Design Vault is not open yet."
-    }[r.error] || "Something went wrong. Please try again.";
+      not_launched: "The Design Vault opens soon."
+    }[r.error] || "Please try again.";
     setState(st, msg, "error");
   }
 
@@ -306,10 +306,10 @@
     if (!r.ok || typeof r.url !== "string" || !r.url.startsWith("/api/vault/file/")) {
       const msg = {
         not_unlocked: "Your access to this image has ended. Unlock it again to download.",
-        downloads_unavailable: "Downloads are temporarily unavailable. Please try again later.",
-        rate_limited: "Too many downloads this hour. Please try again later.",
+        downloads_unavailable: "Downloads are refreshing. Please try again later.",
+        rate_limited: "You have reached this hour’s download limit. Please come back a little later.",
         unauthorized: "Please sign in again."
-      }[r.error] || "The download could not start. Please try again.";
+      }[r.error] || "Please try the download once more.";
       setState($("detailState"), msg, "error");
       return;
     }
@@ -318,11 +318,11 @@
   }
 
   async function showDetail(id, quiet) {
-    if (!ID_RE.test(id)) { setState($("vaultState"), "This design is not available.", "error"); return; }
+    if (!ID_RE.test(id)) { setState($("vaultState"), "This design is resting for now. Explore more designs in the gallery.", "error"); return; }
     const r = await api("/api/vault/image/" + id);
     if (!r.ok) {
       $("detailView").classList.add("hidden");
-      setState($("vaultState"), r._status === 404 ? "This design is not available." : "The design could not be loaded. Please try again.", "error");
+      setState($("vaultState"), r._status === 404 ? "This design is resting for now. Explore more designs in the gallery." : "Please try loading the design once more.", "error");
       return;
     }
     if (!quiet) setState($("vaultState"), "");

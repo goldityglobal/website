@@ -449,7 +449,7 @@ if ($("totalGdtyReserve")) {
 
       $("updated").textContent =
 
-        error.message || "Unavailable";
+        error.message || "Refreshing";
 
     }
 

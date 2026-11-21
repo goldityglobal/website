@@ -237,7 +237,7 @@ if(form){
 
       setState(
 
-        "Account created. Email verification is required before activation."
+        "Account created. Verify your email to activate it."
 
       );
 
