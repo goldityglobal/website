@@ -296,7 +296,7 @@ async function api(path, options = {}) {
 
  
 
-      "Request failed."
+      "Please try again."
 
  
 
@@ -1414,7 +1414,7 @@ function setupTicketForm() {
 
  
 
-          "Unable to create ticket."
+          "Please try creating your ticket again."
 
  
 
@@ -1796,7 +1796,7 @@ function renderTrades(trades) {
   const body = $("tradesBody");
   if (!body) return;
   if (!trades || !trades.length) {
-    body.innerHTML = `<tr><td colspan="7">No verified trades yet.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7">Your verified trades will appear here.</td></tr>`;
     return;
   }
   body.innerHTML = trades.map(t => `
@@ -2060,7 +2060,7 @@ async function load() {
 
  
 
-      "Unable to load dashboard.",
+      "The dashboard is refreshing. Please try again shortly.",
 
  
 

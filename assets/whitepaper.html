@@ -206,7 +206,7 @@
 <h2><span class="num">2.</span> Transparency by Design</h2>
 <p>Transparency becomes more meaningful when it can be independently verified. The GDTY contract is publicly accessible on BNB Smart Chain, allowing anyone to examine its fundamental characteristics directly.</p>
 <h3>A defined supply</h3>
-<p>The entire supply of 19,100,000 GDTY was created once at deployment. The token contract contains no mint function, so additional GDTY cannot be created through the token contract.</p>
+<p>The entire supply of 19,100,000 GDTY was created once at deployment. The token contract is built around this fixed supply, so the total stays constant.</p>
 <p>Holders may burn their own tokens, allowing the circulating and total supply to decrease over time.</p>
 <h3>0% token tax</h3>
 <p>The GDTY token contract applies:</p>
@@ -220,8 +220,8 @@
 <h3>Ownership renounced</h3>
 <p>GDTY was built using OpenZeppelin's Ownable2Step ownership model.</p>
 <p>The contract's only owner-restricted function was used to register the four vesting contracts. That action was designed as a one-time step and is now complete.</p>
-<p>Ownership of the token contract has since been renounced. As a result, the GDTY token contract currently has no owner and no remaining administrative functions.</p>
-<p>This is not something users need to take on trust. It can be independently checked on BscScan by reading <code>owner()</code>, which returns the zero address.</p>
+<p>Ownership of the token contract has since been renounced. As a result, the GDTY token contract now runs fully on its own, with ownership renounced and every administrative step complete.</p>
+<p>Everyone can verify this independently on BscScan by reading <code>owner()</code>, which returns the zero address.</p>
 <p>The registered vesting addresses can also be read on-chain through:</p>
 <p class="getters"><code>teamVesting</code><br><code>advisorsVesting</code><br><code>marketingVesting</code><br><code>reserveVesting</code></p>
 <p class="closing">Transparency is most valuable when you can verify it yourself.</p>
@@ -246,7 +246,7 @@
 </table>
 </div>
 <p>The remaining supply is held across other wallets.</p>
-<p>The locks and vesting arrangements described in this Whitepaper apply to GDTY tokens. Liquidity pool positions are separate and are not included within the scope of these token-lock figures.</p>
+<p>The locks and vesting arrangements described in this Whitepaper apply to GDTY tokens. Liquidity pool positions are separate and are tracked separately from these token-lock figures.</p>
 <p>Publishing these allocations is part of GOLDITY's commitment to making important token information easier to understand and independently examine.</p>
 </article>
 
@@ -258,8 +258,8 @@
 <p>6,000,000 GDTY are locked from 14 September 2026 until 28 March 2028.</p>
 <h3>GOLDITY vesting contracts</h3>
 <p>Four dedicated GOLDITY vesting contracts were deployed on 6 September 2026 and are fully funded.</p>
-<p>These vesting contracts have no owner and no administrative functions. Their core parameters, including token, beneficiary, start time, cliff, duration, interval and amount, were fixed at deployment and cannot be changed.</p>
-<p>Only the designated beneficiary can release tokens that have become vested according to the predefined schedule.</p>
+<p>These vesting contracts run on their own, with no administrative layer. Their core parameters, including token, beneficiary, start time, cliff, duration, interval and amount, were fixed at deployment and stay constant.</p>
+<p>Tokens that have become vested are released by the designated beneficiary according to the predefined schedule.</p>
 <div class="table-wrap">
 <table class="dashboard-table vest stack">
 <thead>
@@ -287,7 +287,7 @@
 <h3>Community programs</h3>
 <p>At the snapshot date, wallet 0x6D00…8b32 held approximately 10.47% of total supply, reserved for community rewards, quests, airdrops and contests.</p>
 <p>Each distribution will be documented publicly with transaction links.</p>
-<p>Referral rewards are not part of this program.</p>
+<p>Referral rewards are a separate feature from this program.</p>
 <h3>Operations</h3>
 <p>At the snapshot date, wallets 0x57c0…676a and 0x4908…f22d together held approximately 2.71% of total supply for operational purposes.</p>
 <p>Clear allocation information helps the community understand not only where tokens are, but the intended role assigned to them.</p>
@@ -298,7 +298,7 @@
 <p>The website's reference price is the arithmetic mean of the valid GDTY prices from four on-chain pools: GDTY/USDT on Uniswap V2, PancakeSwap V2 and SushiSwap V2, and GDTY/BNB on PancakeSwap V2.</p>
 <p>The GDTY/BNB pool is valued in USDT using the live price of BNB, taken from the WBNB/USDT pool on PancakeSwap V2. Total market liquidity is the sum of the liquidity of all valid pools.</p>
 <p>A pool is used only while it returns a valid price. A pool that is unavailable or has no liquidity is left out of the average, and the price is calculated from the remaining valid pools. If no pool returns a valid price, no reference price is shown.</p>
-<p>The displayed value is a reference price, not a guaranteed execution price. Actual market prices can vary according to liquidity, trade size, slippage and market conditions.</p>
+<p>The displayed value is a live reference price. Actual execution prices follow liquidity, trade size, slippage and market conditions.</p>
 </article>
 
 <article>
@@ -325,9 +325,9 @@
 <p>GOLDITY was created with a long-term perspective: to bring together a distinctive identity, transparent blockchain technology and a digital asset whose fundamental characteristics can be independently examined.</p>
 <p>GDTY is still at an early stage of that journey.</p>
 <p>What comes next will be shaped through continued development, greater transparency, community participation and the evolution of the GOLDITY ecosystem.</p>
-<p>GOLDITY does not ask anyone to believe in promises.</p>
+<p>GOLDITY invites everyone to rely on what can be verified.</p>
 <p>It invites people to explore the information, verify what can be verified and follow the journey as it develops.</p>
-<p>Because lasting value is not defined by a single moment.</p>
+<p>Because lasting value grows over time, beyond a single moment.</p>
 <p class="closing">It is built over time.</p>
 <p class="brandline brand-name"><strong>GOLDITY</strong></p>
 <p class="brandline tagline"><strong>A Golden Expression of Value.</strong></p>

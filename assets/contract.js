@@ -70,7 +70,7 @@
 
     } catch (error) {
 
-      copyButton.textContent = "Copy failed";
+      copyButton.textContent = "Tap to copy again";
 
       window.setTimeout(() => {
 
