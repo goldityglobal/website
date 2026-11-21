@@ -1,5 +1,5 @@
 /* =========================================================
-   GOLDITY · LUXE NEON THEME
+   GOLDITY · LUXE NEON THEME v2 (bold)
    Colour share (most → least): BLACK  >  CREAM  >  GOLD
    Neon = soft glow lines and halos in cream/gold on black.
    Loaded after style.css; remove this one file to roll back.
@@ -241,3 +241,141 @@ body h1{
   filter:drop-shadow(0 0 2px rgba(255,248,226,.5)) drop-shadow(0 0 22px rgba(245,209,110,.3));
 }
 body h3{color:var(--lx-cream)}
+
+
+/* =========================================================
+   v2 · BOLD NEON LAYER
+   ========================================================= */
+@property --lx-a{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes lxSpin{to{--lx-a:360deg}}
+@keyframes lxGlow{0%,100%{filter:drop-shadow(0 0 3px rgba(255,248,226,.8)) drop-shadow(0 0 26px rgba(245,209,110,.55)) drop-shadow(0 0 70px rgba(245,209,110,.28))}50%{filter:drop-shadow(0 0 5px rgba(255,255,255,.95)) drop-shadow(0 0 38px rgba(245,209,110,.8)) drop-shadow(0 0 100px rgba(245,209,110,.45))}}
+@keyframes lxScan{0%{transform:translateY(-10%);opacity:0}12%{opacity:.9}88%{opacity:.9}100%{transform:translateY(110%);opacity:0}}
+@keyframes lxTicker{to{transform:translateX(-50%)}}
+@keyframes lxSheen{0%{transform:translateX(-120%) skewX(-18deg)}60%,100%{transform:translateX(220%) skewX(-18deg)}}
+
+:root{--lx-amber:#FFC83D;--lx-neon-strong:rgba(255,200,61,.75)}
+body{
+  background:
+    radial-gradient(ellipse 1000px 560px at 50% -14%,rgba(255,200,61,.16),transparent 62%),
+    radial-gradient(ellipse 620px 620px at 108% 30%,rgba(245,236,215,.07),transparent 62%),
+    radial-gradient(ellipse 620px 620px at -8% 70%,rgba(255,200,61,.08),transparent 60%),
+    #010101;
+}
+body::before{opacity:.35!important}
+
+/* ----- HERO: neon grid + scan line ----- */
+.hero::before{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background-image:linear-gradient(rgba(245,236,215,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(245,236,215,.055) 1px,transparent 1px);
+  background-size:56px 56px;
+  -webkit-mask-image:radial-gradient(ellipse 70% 80% at 22% 50%,#000 0%,transparent 72%);
+  mask-image:radial-gradient(ellipse 70% 80% at 22% 50%,#000 0%,transparent 72%);
+}
+.hero::after{
+  content:"";position:absolute;left:0;right:0;top:0;height:2px;z-index:3;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,200,61,.0) 10%,rgba(255,244,214,.95) 50%,rgba(255,200,61,.0) 90%,transparent);
+  box-shadow:0 0 22px 4px rgba(255,200,61,.45);
+  animation:lxScan 9s ease-in-out infinite;
+}
+.hero h1{animation:lxGlow 5.5s ease-in-out infinite!important;filter:none}
+.hero h1{font-size:clamp(64px,8.2vw,122px)}
+.hero-copy{position:relative}
+.hero-copy::before{
+  content:"";position:absolute;left:-28px;top:42px;bottom:42px;width:2px;
+  background:linear-gradient(180deg,transparent,var(--lx-amber),rgba(245,236,215,.9),var(--lx-amber),transparent);
+  box-shadow:0 0 14px var(--lx-neon-strong),0 0 34px rgba(255,200,61,.4);
+}
+.hero-actions .btn,.hero-actions .cta{min-height:52px;padding:14px 26px;font-size:12px}
+
+/* ----- primary button: neon cream with sheen ----- */
+.btn-gold,.cta.primary{position:relative;overflow:hidden;isolation:isolate}
+.btn-gold::after,.cta.primary::after{
+  content:"";position:absolute;top:0;bottom:0;left:0;width:46%;z-index:-1;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);
+  animation:lxSheen 4.8s ease-in-out infinite;
+}
+.btn-gold,.cta.primary{box-shadow:0 0 0 1px rgba(255,200,61,.5),0 0 28px rgba(255,236,190,.55),0 0 64px rgba(255,200,61,.28)}
+.btn-gold:hover,.cta.primary:hover{box-shadow:0 0 0 1px rgba(255,200,61,.8),0 0 40px rgba(255,244,214,.8),0 0 90px rgba(255,200,61,.45)}
+.btn-outline,.cta.secondary{border:1px solid var(--lx-amber);box-shadow:0 0 18px rgba(255,200,61,.3),inset 0 0 18px rgba(255,200,61,.07)}
+.btn-outline:hover,.cta.secondary:hover{box-shadow:0 0 34px rgba(255,200,61,.6),inset 0 0 26px rgba(255,200,61,.14)}
+
+/* ----- NEON TICKER ----- */
+.lx-ticker{position:relative;z-index:5;overflow:hidden;background:#010101;padding:15px 0;
+  border-top:1px solid rgba(255,200,61,.55);border-bottom:1px solid rgba(255,200,61,.55);
+  box-shadow:0 0 26px rgba(255,200,61,.18),inset 0 0 30px rgba(255,200,61,.05)}
+.lx-ticker-track{display:flex;width:max-content;animation:lxTicker 34s linear infinite}
+.lx-ticker:hover .lx-ticker-track{animation-play-state:paused}
+.lx-ticker-track span{flex:0 0 auto;padding:0 26px;color:var(--lx-cream);font-size:12px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;text-shadow:0 0 14px rgba(245,236,215,.5);white-space:nowrap}
+.lx-ticker-track span i{font-style:normal;color:var(--lx-amber);margin-left:52px;text-shadow:0 0 14px var(--lx-neon-strong)}
+
+/* ----- SECTION HEADINGS ----- */
+.section-heading h2,.market h2,.token h2,.buy h2,.security h2,.why h2,.community h2{
+  font-size:clamp(34px,4.4vw,52px);letter-spacing:-.03em;color:#FFF8E8;
+  text-shadow:0 0 2px rgba(255,248,226,.5),0 0 30px rgba(255,200,61,.28);
+}
+.section-heading h2::after,.why h2::after,.community h2::after{
+  content:"";display:block;width:84px;height:3px;margin-top:16px;border-radius:3px;
+  background:linear-gradient(90deg,var(--lx-amber),#FFF4D6);box-shadow:0 0 16px var(--lx-neon-strong),0 0 36px rgba(255,200,61,.4);
+}
+.why h2::after,.community h2::after{margin-left:auto;margin-right:auto}
+.eyebrow{padding:7px 16px;border:1px solid rgba(255,200,61,.5);border-radius:999px;background:rgba(255,200,61,.06);box-shadow:0 0 18px rgba(255,200,61,.18);font-size:10px}
+.eyebrow::before{display:none}
+
+/* section ambient glow */
+.market,.why,.token,.buy,.security{position:relative;isolation:isolate}
+.market::before,.token::before,.security::before,.buy::before,.why::before{
+  content:"";position:absolute;z-index:-1;pointer-events:none;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,200,61,.10),transparent 66%);filter:blur(10px);
+}
+.market::before{right:-180px;top:-60px}
+.why::before{left:-200px;top:10%}
+.token::before{right:-200px;top:0}
+.buy::before{left:-220px;top:20%}
+.security::before{right:-200px;top:10%}
+
+/* ----- CARDS: spinning neon border on key cards ----- */
+.contract-card,.buy-card,.market-card,.dex-card{
+  border:1px solid transparent!important;
+  background:
+    linear-gradient(155deg,rgba(245,236,215,.06),rgba(245,236,215,0) 40%) padding-box,
+    linear-gradient(#08080a,#040405) padding-box,
+    conic-gradient(from var(--lx-a),rgba(255,200,61,.10) 0deg,rgba(255,200,61,.95) 55deg,#FFF6DC 80deg,rgba(255,200,61,.10) 140deg,rgba(255,200,61,.10) 360deg) border-box!important;
+  animation:lxSpin 8s linear infinite;
+  box-shadow:0 0 30px rgba(255,200,61,.12),0 18px 46px rgba(0,0,0,.6),inset 0 1px 0 rgba(245,236,215,.08)!important;
+}
+.market-card:nth-child(2n),.dex-card:nth-child(2n){animation-duration:11s;animation-direction:reverse}
+.market-card:hover,.dex-card:hover,.buy-card:hover,.contract-card:hover{box-shadow:0 0 50px rgba(255,200,61,.32),0 22px 54px rgba(0,0,0,.65)!important}
+.token-card,.security-item,.dashboard-card{
+  border:1px solid rgba(255,200,61,.28);
+  box-shadow:0 0 22px rgba(255,200,61,.07),0 14px 36px rgba(0,0,0,.55),inset 0 1px 0 rgba(245,236,215,.07);
+}
+.token-card:hover,.security-item:hover,.dashboard-card:hover{border-color:var(--lx-amber);box-shadow:0 0 38px rgba(255,200,61,.28),0 14px 36px rgba(0,0,0,.55),inset 0 0 28px rgba(255,200,61,.05)}
+.market-card strong{font-size:30px;text-shadow:0 0 22px rgba(255,236,190,.4)}
+.token-card strong{font-size:16px}
+
+/* ----- WHY: neon icons ----- */
+.why-icon{border:1px solid var(--lx-amber)!important;color:#FFF4D6!important;width:54px!important;height:54px!important;box-shadow:0 0 0 6px rgba(255,200,61,.06),0 0 26px rgba(255,200,61,.55),inset 0 0 20px rgba(255,200,61,.2)!important}
+.why-grid article{transition:background .3s ease}
+.why-grid article:hover{background:radial-gradient(circle at 50% 0%,rgba(255,200,61,.10),transparent 70%)}
+
+/* ----- header: stronger neon line ----- */
+.site-header,header{box-shadow:0 1px 34px rgba(255,200,61,.22),0 10px 34px rgba(0,0,0,.6)}
+.main-nav a.active::after{background:linear-gradient(90deg,transparent,var(--lx-amber),transparent);box-shadow:0 0 14px var(--lx-amber),0 0 30px rgba(255,200,61,.6)}
+.gold-pill,.airdrop-badge{border-color:var(--lx-amber)!important;box-shadow:0 0 22px rgba(255,200,61,.42),inset 0 0 16px rgba(255,200,61,.12)!important}
+
+/* ----- community / footer ----- */
+.community{background:radial-gradient(ellipse 70% 90% at 50% 120%,rgba(255,200,61,.20),transparent 60%)}
+.social-pill{border-color:var(--lx-amber);box-shadow:0 0 16px rgba(255,200,61,.3),inset 0 0 12px rgba(255,200,61,.08)}
+
+@media(max-width:760px){
+  .hero::before,.hero-copy::before{display:none}
+  .contract-card,.buy-card,.market-card,.dex-card{animation:none}
+  .lx-ticker-track span{font-size:10px;padding:0 16px}
+  .lx-ticker-track span i{margin-left:32px}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero h1,.hero::after,.lx-ticker-track,.contract-card,.buy-card,.market-card,.dex-card,.btn-gold::after,.cta.primary::after{animation:none!important}
+}
+.lx-ticker{width:100%;max-width:100%;min-width:0;contain:paint}
+.market,.why,.token,.buy,.security,.community,.hero{overflow-x:clip}
+html,body{max-width:100%}
