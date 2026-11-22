@@ -163,3 +163,54 @@ html .lx-tabs{border:1.5px solid rgba(247,201,90,.6);box-shadow:0 0 18px rgba(25
 .fx-bracket::after{--l:34px;--t:3px;--c:#FFE9A8;filter:drop-shadow(0 0 8px #FFB938) drop-shadow(0 0 18px rgba(255,185,56,.7))}
 .fx-divider::before,.fx-divider::after{box-shadow:0 0 16px var(--g2),0 0 34px rgba(255,185,56,.5)}
 .fx-divider i{box-shadow:0 0 18px var(--g2),0 0 40px rgba(255,185,56,.7)}
+
+/* ======== v3: crisp light (specular edges, tight bloom, glossy gold) instead of soft haze ======== */
+:root{--edge-grad:linear-gradient(135deg,#FFF6D2 0%,#F4C04C 16%,#8a5a0e 40%,#5a3a07 52%,#C98A12 66%,#F7C95A 82%,#FFF6D2 100%)}
+html .contract-card,html .market-main-panel,html .market-side-card,html .market-card,html .dex-card,html .buy-card,html .dashboard-card,
+html .why-grid article,html .lx-viewer-card,html .fx-card,html .site-header,html .hero-trust-row div,html .btn-outline,html .cta.secondary,html .gold-pill,html .airdrop-badge{
+  border:1.5px solid transparent!important;
+  background:
+    linear-gradient(122deg,rgba(255,228,150,.16) 0,rgba(255,228,150,.04) 20%,transparent 20.4%) padding-box,
+    linear-gradient(#070502,#030201) padding-box,
+    radial-gradient(circle at 0 0,#fff 0,rgba(255,244,200,.95) 2px,rgba(255,200,90,.45) 7px,transparent 30px) border-box,
+    radial-gradient(circle at 100% 100%,#fff 0,rgba(255,244,200,.85) 2px,rgba(255,200,90,.4) 6px,transparent 26px) border-box,
+    var(--edge-grad) border-box!important;
+  box-shadow:0 0 5px rgba(255,214,120,.7),0 0 16px rgba(255,165,30,.28),inset 0 0 0 3px #030201,inset 0 0 0 4px rgba(247,201,90,.34)!important}
+html .contract-card:hover,html .market-side-card:hover,html .market-card:hover,html .dex-card:hover,html .buy-card:hover,html .why-grid article:hover,html .fx-card:hover,html .fx-card:focus-visible{
+  box-shadow:0 0 7px rgba(255,236,170,.95),0 0 22px rgba(255,180,40,.45),inset 0 0 0 3px #030201,inset 0 0 0 4px rgba(255,226,140,.6)!important}
+html .site-header{border-radius:999px!important}
+html .gold-pill,html .airdrop-badge,html .btn-outline,html .cta.secondary{border-radius:999px!important}
+html .hero-trust-row div{border-radius:16px!important}
+
+/* feature cards: tighter inner light, crisp bottom edge instead of haze */
+.fx-card::before{opacity:.28!important;height:34%!important}
+.fx-card::after{background:linear-gradient(180deg,transparent,rgba(255,200,90,.10));height:34px}
+.fx-ico{filter:drop-shadow(0 3px 5px rgba(0,0,0,.7)) drop-shadow(0 0 7px rgba(255,190,60,.55))!important}
+.fx-go{border:1.5px solid #F7C95A!important;box-shadow:0 0 6px rgba(255,214,120,.6)!important}
+
+/* glossy gold: hard highlight band like polished metal */
+.btn-gold,.cta.primary{background:linear-gradient(180deg,#FFF3C4 0%,#FBD36A 44%,#C98A12 50%,#F2B93B 78%,#FFE08A 100%)!important;
+  border:1px solid #FFF0B8!important;box-shadow:0 0 0 1px #8a5a0e,0 0 8px rgba(255,214,120,.8),0 5px 14px rgba(255,165,30,.3),inset 0 1px 0 #fff!important}
+.btn-gold:hover,.cta.primary:hover{box-shadow:0 0 0 1px #8a5a0e,0 0 12px rgba(255,236,170,1),0 8px 20px rgba(255,165,30,.4),inset 0 1px 0 #fff!important}
+html .hero .hero-title{
+  background:linear-gradient(100deg,transparent 42%,rgba(255,255,255,.95) 50%,transparent 58%) 0 0/250% 100% no-repeat,
+             linear-gradient(180deg,#FFF6D0 0%,#F7C95A 40%,#9B6410 50%,#E8AE35 60%,#FFE9A8 100%) 0 0/100% 100% no-repeat!important;
+  -webkit-background-clip:text!important;background-clip:text!important;
+  filter:drop-shadow(0 2px 0 #5a3a07) drop-shadow(0 0 8px rgba(255,185,56,.45))!important;
+  animation:fxReveal 1.4s .15s cubic-bezier(.2,.7,.2,1) both,fxGlint 6s 1.8s ease-in-out infinite!important}
+@keyframes fxGlint{0%{background-position:150% 0,0 0}55%,100%{background-position:-60% 0,0 0}}
+
+/* hero: remove soft haze layers, keep crisp ones */
+.fx-sweep{display:none}
+.fx-coin::before{inset:-8%!important;opacity:.55;background:radial-gradient(circle,rgba(255,200,90,.45),transparent 60%)!important}
+.fx-coin img{filter:drop-shadow(0 10px 12px rgba(0,0,0,.7)) drop-shadow(0 0 8px rgba(255,190,60,.7))!important}
+
+/* dividers and brackets: thin and sharp */
+.fx-divider::before,.fx-divider::after{height:1.5px;box-shadow:0 0 5px rgba(255,214,120,.9)}
+.fx-divider i{box-shadow:0 0 6px #FFE9A8,0 0 12px rgba(255,170,40,.6)}
+.fx-bracket::after{filter:drop-shadow(0 0 3px #FFB938)!important;--t:2px!important;--l:30px!important}
+html .lx-ticker{box-shadow:0 0 6px rgba(255,214,120,.7),inset 0 0 0 1px rgba(255,214,120,.15)!important}
+html .token::before,html .security::before{box-shadow:0 0 6px rgba(255,214,120,.7)!important;background:linear-gradient(180deg,#080602,#030201)!important}
+html input,html textarea,html select{box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)!important}
+html .gold-pill,html .airdrop-badge,html .btn-outline,html .cta.secondary,html .hero-trust-row div{box-shadow:0 0 4px rgba(255,214,120,.7),0 0 12px rgba(255,165,30,.22),inset 0 0 0 1.5px #030201,inset 0 0 0 2.5px rgba(247,201,90,.3)!important}
+html .gold-pill svg,html .airdrop-badge svg{fill:#F7C95A!important;color:#F7C95A}
