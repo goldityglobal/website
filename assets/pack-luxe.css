@@ -52,8 +52,8 @@ html .gold-pill svg,html .airdrop-badge svg{fill:var(--g2)!important;color:var(-
   padding:26px 18px 66px;text-align:center;text-decoration:none;color:var(--g1);
   overflow:hidden;isolation:isolate;transition:transform .25s,border-color .25s,box-shadow .25s;
 }
-.fx-ico{display:grid;place-items:center;width:104px;height:96px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(217,164,65,.35));transition:transform .35s}
-.fx-ico img{border-radius:50%}
+.fx-ico{display:grid;place-items:center;width:116px;height:108px;transition:transform .35s}
+.fx-ico img{display:block;width:108px;height:108px;object-fit:contain}
 .fx-card h3{margin:6px 0 0;color:var(--g1);font-family:var(--sans)!important;font-size:15px;font-weight:600!important;letter-spacing:.16em;text-transform:uppercase;text-shadow:none}
 .fx-card p{margin:0;max-width:22ch;color:var(--txt2);font-size:13px;line-height:1.55}
 .fx-go{
