@@ -118,3 +118,48 @@ html .hero .hero-title span{-webkit-text-fill-color:var(--g1)!important;color:va
   .fx-divider{margin:24px auto}
 }
 @media(prefers-reduced-motion:reduce){html .hero .hero-title{animation:none!important}.fx-sweep::before,.fx-sweep::after,.fx-coin,.fx-coin img,.fx-coin::before{animation:none}.fx-card,.fx-ico,.btn-gold,.cta{transition:none}}
+
+/* ======== v2: pack-style glowing gold frames everywhere, black + gold only ======== */
+/* ivory slabs become black with a gold glow */
+html .token,html .security{--ink-on:#FFF3CC;--ink-soft:rgba(255,243,214,.78);--ink-edge:rgba(247,201,90,.3);background:transparent;color:#FFF3CC;box-shadow:none;clip-path:none}
+html .token::before,html .security::before{background:
+  radial-gradient(ellipse 55% 55% at 50% 0%,rgba(255,185,56,.16),transparent 70%),
+  radial-gradient(ellipse 45% 50% at 50% 100%,rgba(255,185,56,.10),transparent 70%),
+  linear-gradient(180deg,#0b0803,#050301);
+  border-top:1px solid rgba(247,201,90,.55);border-bottom:1px solid rgba(247,201,90,.55);box-shadow:0 0 30px rgba(255,185,56,.25),inset 0 0 40px rgba(255,185,56,.06)}
+html .token .eyebrow,html .security .eyebrow{color:var(--g2)!important}
+html .token-card small{color:rgba(255,243,214,.7)!important}
+html .token-card strong{text-shadow:0 0 14px rgba(255,185,56,.35)}
+html .token-grid a,html .token .card-note a{color:var(--g2)}
+html .security-item strong.status-verified{color:#7be39a!important}
+html .security-item strong.status-pending{color:var(--g2)!important}
+html .security-item strong.status-data{color:#e6dcc2!important}
+
+/* the frame: bright gold edge, outer glow, inner glow, top-left sheen */
+html .contract-card,html .market-main-panel,html .market-side-card,html .market-card,html .dex-card,html .buy-card,html .dashboard-card,
+html .why-grid article,html .lx-viewer-card,html .community-card,html .social-card{
+  background:linear-gradient(135deg,rgba(255,222,150,.20) 0%,rgba(255,200,90,.05) 24%,rgba(8,6,2,.84) 50%,rgba(4,3,1,.96) 100%)!important;
+  border:1.5px solid var(--g2)!important;
+  box-shadow:0 0 0 1px rgba(255,185,56,.18),0 0 22px rgba(255,185,56,.38),0 0 60px rgba(255,185,56,.16),inset 0 0 34px rgba(255,185,56,.12),inset 0 1px 0 rgba(255,236,190,.45)!important;
+  transition:box-shadow .35s,transform .35s,border-color .35s}
+html .contract-card:hover,html .market-side-card:hover,html .market-card:hover,html .dex-card:hover,html .buy-card:hover,html .why-grid article:hover{
+  border-color:#FFE9A8!important;transform:translateY(-4px)!important;
+  box-shadow:0 0 0 1px rgba(255,233,168,.5),0 0 34px rgba(255,185,56,.6),0 0 80px rgba(255,185,56,.28),inset 0 0 40px rgba(255,185,56,.2),inset 0 1px 0 rgba(255,236,190,.6)!important}
+html .token-card,html .security-item{border-color:rgba(247,201,90,.3)!important;background:transparent!important;box-shadow:none!important}
+html .token-card:hover,html .security-item:hover{background:rgba(255,185,56,.07)!important;border-color:var(--g2)!important;box-shadow:inset 0 0 24px rgba(255,185,56,.12)!important}
+
+/* header + ticker + chips + pills glow like the pack nav bar */
+html .site-header{border:1.5px solid var(--g2)!important;box-shadow:0 0 0 1px rgba(255,185,56,.15),0 0 26px rgba(255,185,56,.35),inset 0 0 26px rgba(255,185,56,.09)!important}
+html .gold-pill,html .airdrop-badge{border:1.5px solid var(--g2)!important;box-shadow:0 0 16px rgba(255,185,56,.4),inset 0 0 14px rgba(255,185,56,.14)!important}
+html .hero-trust-row div{border:1.5px solid var(--g2)!important;box-shadow:0 0 20px rgba(255,185,56,.38),inset 0 0 18px rgba(255,185,56,.12),inset 0 1px 0 rgba(255,236,190,.4)!important}
+html .lx-ticker{border-top:1.5px solid var(--g2)!important;border-bottom:1.5px solid var(--g2)!important;box-shadow:0 0 24px rgba(255,185,56,.35),inset 0 0 22px rgba(255,185,56,.08)!important}
+html .btn-outline,html .cta.secondary{border:1.5px solid var(--g2)!important;box-shadow:0 0 18px rgba(255,185,56,.35),inset 0 0 18px rgba(255,185,56,.12)!important}
+html input,html textarea,html select{border:1.5px solid rgba(247,201,90,.55)!important;box-shadow:0 0 12px rgba(255,185,56,.18),inset 0 0 12px rgba(255,185,56,.06)}
+html .lx-tabs{border:1.5px solid rgba(247,201,90,.6);box-shadow:0 0 18px rgba(255,185,56,.28)}
+
+/* feature cards: stronger edge + corner glints */
+.fx-card{border:1.5px solid var(--g2)!important;box-shadow:0 0 0 1px rgba(255,185,56,.2),0 0 24px rgba(255,185,56,.4),0 0 64px rgba(255,185,56,.16),inset 0 0 34px rgba(255,185,56,.14),inset 0 1px 0 rgba(255,236,190,.5)!important}
+.fx-card:hover,.fx-card:focus-visible{box-shadow:0 0 0 1px rgba(255,233,168,.6),0 0 40px rgba(255,185,56,.65),0 0 90px rgba(255,185,56,.3),inset 0 0 40px rgba(255,185,56,.22),inset 0 1px 0 rgba(255,236,190,.7)!important}
+.fx-bracket::after{--l:34px;--t:3px;--c:#FFE9A8;filter:drop-shadow(0 0 8px #FFB938) drop-shadow(0 0 18px rgba(255,185,56,.7))}
+.fx-divider::before,.fx-divider::after{box-shadow:0 0 16px var(--g2),0 0 34px rgba(255,185,56,.5)}
+.fx-divider i{box-shadow:0 0 18px var(--g2),0 0 40px rgba(255,185,56,.7)}
