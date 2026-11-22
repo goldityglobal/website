@@ -24,13 +24,13 @@
     }
   }catch(e){}
 
-  /* 02 living gold borders on a few key elements */
+  /* 02 GoldTraceBorder: any element with [data-gold-trace] gets a travelling-light border layer */
   try{
     if(!reduce){
-      ["#lxViewer",".contract-card",".hero-cards .hc:nth-child(2)"].forEach(function(sel){
-        var el=document.querySelector(sel);if(!el||el.querySelector(":scope>.lx-edge"))return;
-        el.classList.add("lx-has-edge");
-        var s=document.createElement("span");s.className="lx-edge";s.setAttribute("aria-hidden","true");el.appendChild(s);
+      [].slice.call(document.querySelectorAll("[data-gold-trace]")).forEach(function(el){
+        if(el.querySelector(":scope>.gold-trace"))return;
+        el.classList.add("has-gold-trace");
+        var s=document.createElement("span");s.className="gold-trace";s.setAttribute("aria-hidden","true");el.appendChild(s);
       });
     }
   }catch(e){}
@@ -75,28 +75,26 @@
   }catch(e){}
 })();
 
-/* asset-pack effects: light sweep (A), sparkles (C), bracket frames */
+/* hero particles: a few slow gold motes, right side only (static when reduced motion) */
 (function(){
   "use strict";
   try{
     var hero=document.querySelector(".hero");
-    var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
-    ["#market .market-main-panel",".buy-card"].forEach(function(s){[].forEach.call(document.querySelectorAll(s),function(e){e.classList.add("fx-bracket")})});
     if(!hero)return;
-    var sw=document.createElement("div");sw.className="fx-sweep";sw.setAttribute("aria-hidden","true");hero.insertBefore(sw,hero.firstChild);
+    var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
     if(reduce)return;
-    var cv=document.createElement("canvas");cv.className="fx-sparks";cv.setAttribute("aria-hidden","true");hero.insertBefore(cv,hero.firstChild.nextSibling);
-    var cx=cv.getContext("2d"),W=0,H=0,P=[],on=true,dpr=Math.min(window.devicePixelRatio||1,2);
-    function size(){W=hero.clientWidth;H=hero.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
-    function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+8,r:Math.random()*1.9+.5,v:Math.random()*.35+.12,s:Math.random()*Math.PI*2,a:Math.random()*.6+.3}}
-    size();var n=W<700?16:38;for(var i=0;i<n;i++)P.push(mk(true));
+    var cv=document.createElement("canvas");cv.className="fx-sparks";cv.setAttribute("aria-hidden","true");hero.insertBefore(cv,hero.firstChild);
+    var cx=cv.getContext("2d"),W=0,H=0,X0=0,P=[],on=true,dpr=Math.min(window.devicePixelRatio||1,2);
+    function size(){W=hero.clientWidth;H=hero.clientHeight;X0=W<761?0:W*.46;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
+    function mk(init){return{x:X0+Math.random()*(W-X0),y:init?Math.random()*H:H+8,r:Math.random()*1.4+.5,v:Math.random()*.16+.05,s:Math.random()*Math.PI*2,a:Math.random()*.45+.25}}
+    size();var n=W<761?7:16;for(var i=0;i<n;i++)P.push(mk(true));
     window.addEventListener("resize",size);
     if("IntersectionObserver" in window)new IntersectionObserver(function(es){on=es[0].isIntersecting;if(on)requestAnimationFrame(tick)}).observe(hero);
     function tick(t){
       if(!on)return;cx.clearRect(0,0,W,H);
-      for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.v;p.x+=Math.sin(t/1800+p.s)*.25;if(p.y<-8){P[i]=mk(false);continue}
-        var tw=.55+.45*Math.sin(t/420+p.s),g=cx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);
-        g.addColorStop(0,"rgba(255,238,180,"+(p.a*tw)+")");g.addColorStop(1,"rgba(255,185,56,0)");cx.fillStyle=g;cx.beginPath();cx.arc(p.x,p.y,p.r*4,0,6.283);cx.fill()}
+      for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.v;p.x+=Math.sin(t/3200+p.s)*.12;if(p.y<-8){P[i]=mk(false);continue}
+        var tw=.6+.4*Math.sin(t/1400+p.s),g=cx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);
+        g.addColorStop(0,"rgba(255,232,170,"+(p.a*tw)+")");g.addColorStop(1,"rgba(232,193,107,0)");cx.fillStyle=g;cx.beginPath();cx.arc(p.x,p.y,p.r*4,0,6.283);cx.fill()}
       requestAnimationFrame(tick)}
     requestAnimationFrame(tick);
   }catch(e){}

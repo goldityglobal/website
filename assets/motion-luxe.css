@@ -25,12 +25,15 @@ html.lx-intro-on .lx-intro.play .lx-intro-word{animation:lxWord .8s 1.2s ease-ou
 @keyframes lxCoin{to{opacity:1;transform:scale(1);filter:brightness(1)}}
 @keyframes lxWord{to{opacity:1}}
 
-/* ---------- 02 living gold borders (JS adds .lx-edge to a few key elements) ---------- */
-.lx-has-edge{position:relative}
-.lx-edge{position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;z-index:2;
-  background:conic-gradient(from var(--lx-a),transparent 0 62%,rgba(255,185,56,.0) 64%,#FFB938 82%,#FFF4D6 90%,transparent 96%);
+/* ---------- 02 GoldTraceBorder: reusable travelling-light border ----------
+   Usage: add data-gold-trace to any element (JS injects the .gold-trace layer).
+   Options (CSS vars on the element): --trace-dur (default 10s), --trace-len (segment length, default 9%).
+   Only for a few premium elements. Respects prefers-reduced-motion. */
+.has-gold-trace{position:relative}
+.gold-trace{--trace-len:9%;position:absolute;inset:-1px;border-radius:inherit;padding:1px;pointer-events:none;z-index:2;
+  background:conic-gradient(from var(--lx-a),transparent 0 calc(100% - var(--trace-len) - 4%),rgba(255,185,56,0) calc(100% - var(--trace-len) - 3%),#E8C16B calc(100% - 3%),#FFF4D6 calc(100% - 1%),transparent 100%);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
-  animation:lxSpin 6s linear infinite;filter:drop-shadow(0 0 6px rgba(255,185,56,.7))}
+  animation:lxSpin var(--trace-dur,10s) linear infinite;filter:drop-shadow(0 0 4px rgba(255,185,56,.75))}
 
 /* ---------- 03 editorial scroll ---------- */
 .lx-manifesto{padding:clamp(80px,12vw,170px) 0}
@@ -92,10 +95,10 @@ html.lx-intro-on .lx-intro.play .lx-intro-word{animation:lxWord .8s 1.2s ease-ou
   .lx-map-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .lx-map-list a{display:block;padding:16px;border-radius:18px;border:1px solid rgba(255,245,220,.2);background:linear-gradient(135deg,rgba(255,248,232,.1),rgba(255,248,232,.02));color:#F3E9D2;text-decoration:none;font-weight:600}
   .lx-map-list a small{display:block;color:#BFB49B;font-weight:400;margin-top:4px}
-  .lx-edge{animation:none;opacity:.7}
+  .gold-trace{animation:none;opacity:.7}
 }
 @media(prefers-reduced-motion:reduce){
-  .lx-edge,.lx-map-pulse,.lx-core-ring{animation:none}
+  .gold-trace,.lx-map-pulse,.lx-core-ring{animation:none}
   .lx-line{color:#FFF8E8;transform:none;filter:none;transition:none}
   .lx-line em{color:#FFC94D}
   .lx-viewer-card{transform:none!important}
