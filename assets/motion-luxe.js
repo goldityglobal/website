@@ -27,7 +27,7 @@
   /* 02 living gold borders on a few key elements */
   try{
     if(!reduce){
-      ["#lxViewer",".contract-card",".market-main-panel",".hero-actions .btn-gold"].forEach(function(sel){
+      ["#lxViewer",".contract-card"].forEach(function(sel){
         var el=document.querySelector(sel);if(!el||el.querySelector(":scope>.lx-edge"))return;
         el.classList.add("lx-has-edge");
         var s=document.createElement("span");s.className="lx-edge";s.setAttribute("aria-hidden","true");el.appendChild(s);
@@ -89,7 +89,7 @@
     var cx=cv.getContext("2d"),W=0,H=0,P=[],on=true,dpr=Math.min(window.devicePixelRatio||1,2);
     function size(){W=hero.clientWidth;H=hero.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
     function mk(init){return{x:Math.random()*W,y:init?Math.random()*H:H+8,r:Math.random()*1.9+.5,v:Math.random()*.35+.12,s:Math.random()*Math.PI*2,a:Math.random()*.6+.3}}
-    size();var n=W<700?26:60;for(var i=0;i<n;i++)P.push(mk(true));
+    size();var n=W<700?16:38;for(var i=0;i<n;i++)P.push(mk(true));
     window.addEventListener("resize",size);
     if("IntersectionObserver" in window)new IntersectionObserver(function(es){on=es[0].isIntersecting;if(on)requestAnimationFrame(tick)}).observe(hero);
     function tick(t){
@@ -101,3 +101,6 @@
     requestAnimationFrame(tick);
   }catch(e){}
 })();
+
+/* header turns to glass after scrolling */
+(function(){try{var hd=document.querySelector(".site-header");if(!hd)return;var f=function(){hd.classList.toggle("is-scrolled",window.scrollY>40)};f();window.addEventListener("scroll",f,{passive:true})}catch(e){}})();
