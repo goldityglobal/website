@@ -89,7 +89,8 @@ html.lx-intro-on .lx-intro.play .lx-intro-word{animation:lxWord .8s 1.2s ease-ou
 .lx-layer small{color:#BFB49B;font-weight:400}
 .lx-layer:nth-child(2){margin-left:18px}.lx-layer:nth-child(3){margin-left:36px}
 
-@media(max-width:900px){.lx-vault-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.lx-vault-grid{grid-template-columns:minmax(0,1fr)}}
+.lx-vault-grid>*{min-width:0}
 @media(max-width:640px){
   .lx-map svg{display:none}
   .lx-map-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
