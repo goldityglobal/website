@@ -27,7 +27,7 @@
   /* 02 living gold borders on a few key elements */
   try{
     if(!reduce){
-      ["#lxViewer",".contract-card"].forEach(function(sel){
+      ["#lxViewer",".contract-card",".hero-cards .hc:nth-child(2)"].forEach(function(sel){
         var el=document.querySelector(sel);if(!el||el.querySelector(":scope>.lx-edge"))return;
         el.classList.add("lx-has-edge");
         var s=document.createElement("span");s.className="lx-edge";s.setAttribute("aria-hidden","true");el.appendChild(s);

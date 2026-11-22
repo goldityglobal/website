@@ -294,7 +294,7 @@ html input,html textarea,html select{border:1px solid rgba(232,193,107,.35)!impo
 .fx-divider::before,.fx-divider::after{box-shadow:none!important;height:1px}.fx-divider i{box-shadow:0 0 8px rgba(232,193,107,.6)!important}
 html .lx-ticker{background:transparent!important;border-top:1px solid rgba(232,193,107,.22)!important;border-bottom:1px solid rgba(232,193,107,.22)!important;box-shadow:none!important}
 html .token::before,html .security::before{box-shadow:none!important;border-top:1px solid rgba(232,193,107,.2);border-bottom:1px solid rgba(232,193,107,.2)}
-.lx-edge{animation-duration:14s!important}
+.lx-edge{animation-duration:10s!important}
 
 /* intro: official wordmark */
 .lx-intro-word{width:210px!important;height:auto!important;left:0!important;right:0!important;margin:0 auto;letter-spacing:0;text-indent:0}
@@ -316,3 +316,63 @@ html .site-header .header-inner{width:min(1320px,calc(100% - 48px))!important;ma
 html .hero .hero-copy>.hero-title{margin-top:6px!important}
 @media(max-width:760px){html .site-header .gold-pill,html .site-header .airdrop-badge{display:none!important}}
 @media(max-width:760px){html .tg-airdrop-row{display:none!important}}
+
+/* ======== v5: reference composition: three hero cards, quiet metric row, header hairline ======== */
+.hero{display:flex!important;flex-direction:column;--hh:clamp(700px,100svh,900px);min-height:calc(var(--hh) + 150px)!important}
+.hero-inner{flex:1;min-height:var(--hh)!important}
+.hero-copy{padding:128px 0 24px!important}
+.fx-stage{top:0!important;bottom:auto!important;height:calc(var(--hh)*.98)!important;left:calc(75vw - 2.211*var(--hh)*.98)!important}
+.fx-banner{-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 86%,transparent 100%)!important;mask-image:linear-gradient(180deg,transparent 0,#000 16%,#000 86%,transparent 100%)!important}
+.fx-coin{animation-duration:6s!important}
+@keyframes fxFloat{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-1.9%)}}
+.fx-orbit .o1{display:none}.fx-orbit .o2{stroke-dasharray:12 88;animation-duration:20s}
+
+/* header: thin gold lower border, no capsule */
+html .site-header{background:rgba(4,3,2,.55)!important;backdrop-filter:blur(10px)!important;-webkit-backdrop-filter:blur(10px)!important;border-bottom:1px solid rgba(232,193,107,.3)!important}
+html .site-header.is-scrolled{background:rgba(4,3,2,.88)!important}
+.main-nav>a{position:relative}
+.main-nav>a::after{content:"";position:absolute;left:0;bottom:-9px;height:1px;width:0;background:var(--g2);box-shadow:0 0 6px rgba(232,193,107,.6);transition:width .25s}
+.main-nav>a:hover::after,.main-nav>a.active::after{width:100%}
+
+/* token facts: one minimal horizontal row */
+.hero-trust-row{display:flex!important;flex-wrap:wrap;gap:0!important;margin-top:34px!important}
+html .hero-trust-row div{background:none!important;border:0!important;border-left:1px solid rgba(232,193,107,.3)!important;border-radius:0!important;box-shadow:none!important;padding:2px 28px!important}
+html .hero-trust-row div:first-child{border-left:0!important;padding-left:0!important}
+html .hero-trust-row strong{font-size:24px!important;display:block}
+html .hero-trust-row span{font-size:12px;letter-spacing:.04em}
+
+/* three feature cards */
+.hero-cards{position:relative;z-index:3;width:min(1320px,calc(100% - 48px));margin:0 auto 44px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.hc{position:relative;display:flex;align-items:center;gap:18px;padding:18px 22px;border-radius:16px;text-decoration:none;color:var(--txt);min-width:0;
+  background:linear-gradient(135deg,rgba(255,226,150,.08) 0,rgba(6,5,3,.8) 40%),rgba(4,3,2,.72);
+  border:1px solid rgba(232,193,107,.38);box-shadow:0 0 10px rgba(217,164,65,.14),inset 0 1px 0 rgba(255,236,190,.16);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:transform .25s,border-color .25s,box-shadow .25s}
+.hc::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at 0 0,rgba(255,226,150,.20),transparent 36%),radial-gradient(circle at 100% 100%,rgba(255,200,90,.14),transparent 36%)}
+.hc:hover,.hc:focus-visible{transform:translateY(-3px);border-color:rgba(255,227,160,.75);box-shadow:0 0 12px rgba(217,164,65,.32),0 16px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,236,190,.3)}
+.hc-ico{flex:0 0 64px;width:64px;height:64px;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(217,164,65,.45))}
+.hc-ico svg{width:100%;height:100%;display:block}
+.hc-txt{min-width:0;position:relative}
+.hc h3{margin:0;font:600 14px/1.2 var(--sans)!important;letter-spacing:.16em;text-transform:uppercase;color:var(--g1);text-shadow:none}
+.hc p{margin:5px 0 0;font-size:13px;line-height:1.5;color:var(--txt2)}
+.hc-go{position:relative;margin-left:auto;flex:0 0 34px;width:34px;height:34px;border:1px solid rgba(232,193,107,.5);border-radius:50%;display:grid;place-items:center;color:var(--g2);transition:background .25s,color .25s}
+.hc:hover .hc-go{background:linear-gradient(180deg,#F6DE9E,#D9A441);color:#1a1204}
+.hc.lx-has-edge{overflow:visible}
+
+@media(max-width:1100px){.hero-cards{grid-template-columns:1fr}.hc p{max-width:44ch}}
+@media(max-width:760px){
+  .hero{min-height:0!important;--hh:340px}
+  .hero-inner{min-height:0!important}
+  .fx-stage{top:0!important;height:340px!important;left:50%!important;transform:translateX(-73.7%)}
+  .fx-banner{-webkit-mask-image:none!important;mask-image:none!important}
+  .hero-trust-row{display:grid!important;grid-template-columns:1fr 1fr;row-gap:18px}
+  html .hero-trust-row div:nth-child(odd){border-left:0!important;padding-left:0!important}
+  .hero-cards{margin-bottom:28px;gap:12px}.hc{padding:14px 16px}.hc-ico{flex-basis:52px;width:52px;height:52px}
+}
+@media(prefers-reduced-motion:reduce){.hc{transition:none}}
+/* v5b: podium proportion */
+@media(min-width:761px){
+  .hero{--hh:clamp(660px,92svh,820px);--sh:calc(var(--hh)*.78)}
+  .fx-stage{top:64px!important;height:var(--sh)!important;left:calc(71vw - 2.211*var(--sh))!important}
+  .fx-coin{height:52%!important;bottom:42.4%!important}
+  .fx-orbit{width:calc(var(--sh)*1.2)!important;bottom:68.4%!important}
+}
