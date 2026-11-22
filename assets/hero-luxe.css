@@ -161,29 +161,47 @@
   position:relative;z-index:3;width:min(1320px,calc(100% - 48px));margin:0 auto 44px;
   display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
 }
-.page-home .hc{
-  position:relative;display:flex;align-items:center;gap:18px;min-width:0;padding:18px 22px;
-  border:1px solid rgba(232,193,107,.38);border-radius:16px;text-decoration:none;color:var(--txt);
-  background:linear-gradient(135deg,rgba(255,226,150,.08) 0,rgba(6,5,3,.8) 40%),rgba(4,3,2,.72);
-  box-shadow:0 0 10px rgba(217,164,65,.14),inset 0 1px 0 rgba(255,236,190,.16);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  transition:transform .25s var(--ease),border-color .25s,box-shadow .25s;
+/* real detail behind the glass (warm light pools + fine diagonal light lines) so the blur has something to refract */
+.page-home .hero-cards::before{
+  content:"";position:absolute;inset:-56px -3% -44px;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(300px 120px at 17% 52%,rgba(236,180,76,.30),transparent 72%),
+    radial-gradient(320px 120px at 50% 62%,rgba(236,180,76,.20),transparent 72%),
+    radial-gradient(300px 120px at 84% 50%,rgba(236,180,76,.30),transparent 72%),
+    repeating-linear-gradient(112deg,transparent 0 58px,rgba(247,220,160,.13) 58px 59px,transparent 59px 150px),
+    linear-gradient(180deg,transparent,rgba(232,193,107,.06) 50%,transparent);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent),linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);
+  -webkit-mask-composite:source-in;
+  mask:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent),linear-gradient(180deg,transparent,#000 22%,#000 78%,transparent);
+  mask-composite:intersect;
 }
-.page-home .hc::before{
-  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  background:radial-gradient(circle at 0 0,rgba(255,226,150,.2),transparent 36%),radial-gradient(circle at 100% 100%,rgba(255,200,90,.14),transparent 36%);
+.page-home .hc{
+  position:relative;display:flex;align-items:center;gap:18px;min-width:0;padding:20px 24px;
+  border:1px solid var(--glass-border);border-radius:18px;text-decoration:none;color:var(--txt);
+  background:var(--glass-sheen),var(--glass-bg);
+  box-shadow:var(--glass-edge);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  transition:transform .3s var(--ease),border-color .3s,box-shadow .3s;
+}
+.page-home .hc::before{                 /* beveled glass highlight: bright top edge fading down */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:.8;transition:opacity .3s;
+  background:linear-gradient(180deg,rgba(255,244,220,.10),transparent 34%),radial-gradient(circle at 0 0,rgba(255,226,160,.12),transparent 40%);
 }
 .page-home .hc:hover,.page-home .hc:focus-visible{
-  transform:translateY(-3px);border-color:rgba(255,227,160,.75);
-  box-shadow:0 0 12px rgba(217,164,65,.32),0 16px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,236,190,.3);
+  transform:translateY(-3px);border-color:rgba(247,220,160,.5);
+  box-shadow:inset 0 1px 0 rgba(255,244,220,.22),inset 0 -1px 0 rgba(0,0,0,.35),0 0 26px rgba(224,180,82,.16),0 14px 28px rgba(0,0,0,.4);
 }
-.page-home .hc-ico{position:relative;flex:0 0 72px;width:72px;height:72px}
-.page-home .hc-ico::before{content:"";position:absolute;inset:-12%;pointer-events:none;background:radial-gradient(closest-side,rgba(255,206,92,.18),transparent 100%)}
+.page-home .hc:hover::before,.page-home .hc:focus-visible::before{opacity:1}
+.page-home .hc:nth-child(2) .gold-trace{--trace-delay:-3.7s}
+.page-home .hc:nth-child(3) .gold-trace{--trace-delay:-7.4s}
+.page-home .hc .gold-trace{--trace-dur:11s}
+.page-home .hc-ico{position:relative;flex:0 0 80px;width:80px;height:80px}
+.page-home .hc-ico::before{content:"";position:absolute;inset:-18%;pointer-events:none;background:radial-gradient(closest-side,rgba(255,206,92,.26),rgba(255,206,92,.08) 60%,transparent 100%);transition:opacity .3s}
 .page-home .hc-ico img{position:relative;display:block;width:100%;height:100%;object-fit:contain}
 .page-home .hc-txt{position:relative;min-width:0}
 .page-home .hc h3{margin:0;color:var(--g1);font:600 14px/1.2 var(--sans);letter-spacing:.16em;text-transform:uppercase;text-shadow:none}
 .page-home .hc p{margin:5px 0 0;color:var(--txt2);font-size:13px;line-height:1.5}
-.page-home .hc-go{position:relative;flex:0 0 34px;width:34px;height:34px;margin-left:auto;display:grid;place-items:center;border:1px solid rgba(232,193,107,.5);border-radius:50%;color:var(--g2);transition:background .25s,color .25s}
+.page-home .hc-go{position:relative;flex:0 0 34px;width:34px;height:34px;margin-left:auto;display:grid;place-items:center;border:1px solid rgba(247,220,160,.4);background:rgba(20,15,10,.35);border-radius:50%;color:var(--g2);transition:background .25s,color .25s}
 .page-home .hc:hover .hc-go{background:linear-gradient(180deg,#F6DE9E,#D9A441);color:#1a1204}
 .page-home .hc.has-gold-trace{overflow:visible}
 
@@ -233,7 +251,7 @@
   .page-home .hero-trust-row div:nth-child(odd){border-left:0;padding-left:0}
   .page-home .hero-cards{width:calc(100% - 32px);margin-bottom:28px;gap:12px}
   .page-home .hc{padding:14px 16px}
-  .page-home .hc-ico{flex-basis:58px;width:58px;height:58px}
+  .page-home .hc-ico{flex-basis:64px;width:64px;height:64px}
 }
 @media (max-width:520px){
   .page-home .hero-actions{flex-direction:column;width:100%}

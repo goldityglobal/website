@@ -33,7 +33,7 @@ html.lx-intro-on .lx-intro.play .lx-intro-word{animation:lxWord .8s 1.2s ease-ou
 .gold-trace{--trace-len:9%;position:absolute;inset:-1px;border-radius:inherit;padding:1px;pointer-events:none;z-index:2;
   background:conic-gradient(from var(--lx-a),transparent 0 calc(100% - var(--trace-len) - 4%),rgba(255,185,56,0) calc(100% - var(--trace-len) - 3%),#E8C16B calc(100% - 3%),#FFF4D6 calc(100% - 1%),transparent 100%);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
-  animation:lxSpin var(--trace-dur,10s) linear infinite;filter:drop-shadow(0 0 4px rgba(255,185,56,.75))}
+  animation:lxSpin var(--trace-dur,10s) linear var(--trace-delay,0s) infinite;filter:drop-shadow(0 0 3px rgba(255,200,90,.5))}
 
 /* ---------- 03 editorial scroll ---------- */
 .lx-manifesto{padding:clamp(80px,12vw,170px) 0}

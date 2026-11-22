@@ -13,6 +13,15 @@
   --gline:rgba(232,193,107,.5);
   --hair:rgba(232,193,107,.22);
   --txt:#F2EFE8;--txt2:#B9B4AB;
+  /* warm smoked-cream glass: ~80% black, ~15% cream tone, ~5% gold light */
+  --glass-bg:linear-gradient(135deg,rgba(56,45,31,.50),rgba(24,18,14,.30));
+  --glass-bg-soft:linear-gradient(135deg,rgba(46,37,26,.42),rgba(18,14,10,.30));
+  --glass-sheen:linear-gradient(160deg,rgba(255,240,205,.06),transparent 40%);
+  --glass-blur:blur(16px) saturate(130%);
+  --glass-blur-soft:blur(10px) saturate(125%);
+  --glass-border:rgba(247,220,160,.22);
+  --glass-border-soft:rgba(247,220,160,.14);
+  --glass-edge:inset 0 1px 0 rgba(255,244,220,.12),inset 0 -1px 0 rgba(0,0,0,.35),0 0 20px rgba(224,180,82,.07);
 }
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
@@ -43,7 +52,18 @@ html .gold-pill:hover,html .airdrop-badge:hover{border-color:var(--g2)!important
 html .gold-pill svg,html .airdrop-badge svg{fill:var(--g2)!important;color:var(--g2)}
 
 /* ---------- feature grid (ten cards under the ticker) ---------- */
-.fx-features{position:relative;z-index:2;width:min(1320px,calc(100% - 48px));margin:0 auto;padding:88px 0 28px}
+.fx-features{position:relative;z-index:2;isolation:isolate;width:min(1320px,calc(100% - 48px));margin:0 auto;padding:88px 0 28px}
+.fx-features::before{            /* warm light pools + fine diagonal lines behind the glass cards */
+  content:"";position:absolute;inset:40px -4% 0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(420px 180px at 12% 28%,rgba(236,180,76,.16),transparent 72%),
+    radial-gradient(460px 200px at 52% 52%,rgba(236,180,76,.13),transparent 72%),
+    radial-gradient(420px 180px at 90% 30%,rgba(236,180,76,.16),transparent 72%),
+    radial-gradient(420px 180px at 25% 86%,rgba(236,180,76,.12),transparent 72%),
+    radial-gradient(420px 180px at 78% 86%,rgba(236,180,76,.12),transparent 72%),
+    repeating-linear-gradient(112deg,transparent 0 70px,rgba(247,220,160,.07) 70px 71px,transparent 71px 170px);
+  -webkit-mask:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);mask:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);
+}
 .fx-head{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:46px;text-align:center}
 .fx-head h2{margin:0;font-size:clamp(32px,4.4vw,56px);line-height:1.06}
 .fx-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
@@ -51,7 +71,7 @@ html .gold-pill svg,html .airdrop-badge svg{fill:var(--g2)!important;color:var(-
   --s:108px;                       /* icon box: same on all ten cards */
   position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;
   padding:22px 18px 66px;text-align:center;text-decoration:none;color:var(--g1);
-  overflow:hidden;isolation:isolate;transition:border-color .3s ease;
+  overflow:hidden;isolation:isolate;transition:border-color .3s ease,box-shadow .3s ease;
 }
 /* icon = sharp opaque image + separate glow (::before) + separate reflection (.fx-refl) */
 .fx-ico{
@@ -109,15 +129,24 @@ html .lx-ticker{background:transparent!important;border-top:1px solid var(--hair
 /* ---------- quiet gold frames (one shared look) ---------- */
 html .contract-card,html .market-main-panel,html .market-side-card,html .market-card,html .dex-card,html .buy-card,html .dashboard-card,
 html .why-grid article,html .lx-viewer-card{
-  border:1px solid var(--hair)!important;border-radius:20px!important;box-shadow:none!important;
-  background:linear-gradient(150deg,rgba(255,232,170,.05),rgba(6,5,3,.6) 55%)!important;
-  transition:transform .25s,border-color .25s,box-shadow .25s;
+  border:1px solid var(--glass-border-soft)!important;border-radius:20px!important;
+  box-shadow:inset 0 1px 0 rgba(255,244,220,.09),inset 0 -1px 0 rgba(0,0,0,.3)!important;
+  background:var(--glass-sheen),var(--glass-bg-soft)!important;
+  -webkit-backdrop-filter:var(--glass-blur-soft);backdrop-filter:var(--glass-blur-soft);
+  transition:transform .3s,border-color .3s,box-shadow .3s;
 }
 html .contract-card:hover,html .market-side-card:hover,html .market-card:hover,html .dex-card:hover,html .buy-card:hover,html .why-grid article:hover{
-  border-color:rgba(232,193,107,.55)!important;transform:translateY(-3px)!important;box-shadow:0 16px 40px rgba(0,0,0,.5)!important;
+  border-color:rgba(247,220,160,.4)!important;transform:translateY(-3px)!important;box-shadow:inset 0 1px 0 rgba(255,244,220,.16),0 0 22px rgba(224,180,82,.1),0 14px 30px rgba(0,0,0,.4)!important;
 }
-html .fx-card{border:1px solid rgba(232,193,107,.12)!important;border-radius:20px!important;background:#050403!important;box-shadow:none!important}
-html .fx-card:hover,html .fx-card:focus-visible{border-color:rgba(232,193,107,.38)!important;transform:none!important;box-shadow:none!important}
+html .fx-card{
+  border:1px solid var(--glass-border-soft)!important;border-radius:20px!important;
+  background:var(--glass-sheen),var(--glass-bg-soft)!important;
+  box-shadow:inset 0 1px 0 rgba(255,244,220,.09),inset 0 -1px 0 rgba(0,0,0,.3)!important;
+  -webkit-backdrop-filter:var(--glass-blur-soft);backdrop-filter:var(--glass-blur-soft);
+}
+html .fx-card:hover,html .fx-card:focus-visible{border-color:rgba(247,220,160,.4)!important;transform:none!important;box-shadow:inset 0 1px 0 rgba(255,244,220,.18),inset 0 -1px 0 rgba(0,0,0,.3),0 0 22px rgba(224,180,82,.1)!important}
+/* chart well: warm near-black instead of the old blue-grey */
+html .market-chart-wrap,html .chart-box{background:linear-gradient(180deg,rgba(20,15,10,.55),rgba(8,6,4,.7))!important;border:1px solid var(--glass-border-soft)!important}
 html .lx-tabs{border:1px solid rgba(232,193,107,.28);box-shadow:none}
 html input,html textarea,html select{border:1px solid rgba(232,193,107,.35)!important;box-shadow:none!important}
 
@@ -131,8 +160,8 @@ html .token .eyebrow,html .security .eyebrow{color:var(--g2)!important}
 html .token-card small{color:rgba(255,243,214,.7)!important}
 html .token-card strong{text-shadow:none}
 html .token-grid a,html .token .card-note a{color:var(--g2)}
-html .token-card,html .security-item{border-color:rgba(247,201,90,.3)!important;background:transparent!important;box-shadow:none!important}
-html .token-card:hover,html .security-item:hover{background:rgba(255,185,56,.07)!important;border-color:var(--g2)!important}
+html .token-card,html .security-item{border-color:var(--glass-border-soft)!important;background:var(--glass-sheen),var(--glass-bg-soft)!important;box-shadow:inset 0 1px 0 rgba(255,244,220,.08)!important;-webkit-backdrop-filter:var(--glass-blur-soft);backdrop-filter:var(--glass-blur-soft)}
+html .token-card:hover,html .security-item:hover{background:var(--glass-sheen),var(--glass-bg)!important;border-color:rgba(247,220,160,.42)!important}
 html .security-item strong.status-verified{color:#7be39a!important}
 html .security-item strong.status-pending{color:var(--g2)!important}
 html .security-item strong.status-data{color:#e6dcc2!important}
@@ -148,6 +177,8 @@ html .security-item strong.status-data{color:#e6dcc2!important}
   .fx-card{--s:76px;padding:18px 12px 60px;border-radius:18px}
   .fx-card h3{font-size:12.5px;letter-spacing:.1em}.fx-card p{font-size:12px}
   .fx-divider{margin:24px auto}
+  :root{--glass-blur:blur(10px) saturate(125%);--glass-blur-soft:blur(8px) saturate(120%)}
+  .fx-features::before{background-size:auto}
 }
 @media (prefers-reduced-motion:reduce){
   .btn-gold::before,.cta.primary::before{animation:none}
