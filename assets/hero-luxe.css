@@ -163,7 +163,7 @@
 }
 /* real detail behind the glass (warm light pools + fine diagonal light lines) so the blur has something to refract */
 .page-home .hero-cards::before{
-  content:"";position:absolute;inset:-56px -3% -44px;z-index:-1;pointer-events:none;
+  content:"";position:absolute;inset:-56px 0 -44px;z-index:-1;pointer-events:none;
   background:
     radial-gradient(300px 120px at 17% 52%,rgba(236,180,76,.30),transparent 72%),
     radial-gradient(320px 120px at 50% 62%,rgba(236,180,76,.20),transparent 72%),
