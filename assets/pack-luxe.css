@@ -48,20 +48,44 @@ html .gold-pill svg,html .airdrop-badge svg{fill:var(--g2)!important;color:var(-
 .fx-head h2{margin:0;font-size:clamp(32px,4.4vw,56px);line-height:1.06}
 .fx-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
 .fx-card{
+  --s:108px;                       /* icon box: same on all ten cards */
   position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;
-  padding:26px 18px 66px;text-align:center;text-decoration:none;color:var(--g1);
-  overflow:hidden;isolation:isolate;transition:transform .25s,border-color .25s,box-shadow .25s;
+  padding:22px 18px 66px;text-align:center;text-decoration:none;color:var(--g1);
+  overflow:hidden;isolation:isolate;transition:border-color .3s ease;
 }
-.fx-ico{display:grid;place-items:center;width:116px;height:108px;transition:transform .35s}
-.fx-ico img{display:block;width:108px;height:108px;object-fit:contain}
-.fx-card h3{margin:6px 0 0;color:var(--g1);font-family:var(--sans)!important;font-size:15px;font-weight:600!important;letter-spacing:.16em;text-transform:uppercase;text-shadow:none}
+/* icon = sharp opaque image + separate glow (::before) + separate reflection (.fx-refl) */
+.fx-ico{
+  position:relative;display:block;flex:0 0 auto;width:var(--s);height:var(--s);margin-bottom:calc(var(--s)*.3);
+  --glow:.20;
+}
+.fx-ico::before{                    /* small warm ambient glow, behind the icon, never blurs it */
+  content:"";position:absolute;left:50%;top:52%;width:132%;height:104%;transform:translate(-50%,-50%);z-index:0;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(255,206,92,var(--glow)),rgba(255,206,92,calc(var(--glow)*.35)) 55%,transparent 100%);
+  transition:opacity .3s ease;opacity:1;
+}
+.fx-ico>img{
+  position:relative;z-index:1;display:block;width:100%;height:100%;object-fit:contain;
+  transition:transform .3s ease,filter .3s ease;
+}
+.fx-refl{                           /* reflection lives only in the space reserved under the icon */
+  position:absolute;left:0;right:0;top:calc(100% - 4px);height:calc(var(--s)*.3);overflow:hidden;pointer-events:none;z-index:0;
+}
+.fx-refl img{
+  position:absolute;left:0;top:0;width:100%;height:var(--s);display:block;object-fit:contain;
+  transform:scaleY(-1);transform-origin:50% 50%;
+  opacity:.15;filter:blur(4px);
+  -webkit-mask-image:linear-gradient(to top,#000 0,rgba(0,0,0,.55) 35%,transparent 80%);
+          mask-image:linear-gradient(to top,#000 0,rgba(0,0,0,.55) 35%,transparent 80%);
+}
+.fx-card h3{margin:0;color:var(--g1);font-family:var(--sans)!important;font-size:15px;font-weight:600!important;letter-spacing:.16em;text-transform:uppercase;text-shadow:none}
 .fx-card p{margin:0;max-width:22ch;color:var(--txt2);font-size:13px;line-height:1.55}
 .fx-go{
   position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:grid;place-items:center;width:56px;height:26px;
   border:1px solid rgba(232,193,107,.5);border-radius:999px;color:var(--g2);background:rgba(8,6,2,.7);
   transition:width .3s,background .3s,color .3s;
 }
-.fx-card:hover .fx-ico{transform:scale(1.07) translateY(-2px)}
+.fx-card:hover .fx-ico,.fx-card:focus-visible .fx-ico{--glow:.30}
+.fx-card:hover .fx-ico>img,.fx-card:focus-visible .fx-ico>img{transform:translateY(-3px);filter:brightness(1.06)}
 .fx-card:hover .fx-go{width:72px;background:linear-gradient(180deg,#F6DE9E,#D9A441);color:#1a1204}
 
 /* ---------- dividers ---------- */
@@ -92,8 +116,8 @@ html .why-grid article,html .lx-viewer-card{
 html .contract-card:hover,html .market-side-card:hover,html .market-card:hover,html .dex-card:hover,html .buy-card:hover,html .why-grid article:hover{
   border-color:rgba(232,193,107,.55)!important;transform:translateY(-3px)!important;box-shadow:0 16px 40px rgba(0,0,0,.5)!important;
 }
-html .fx-card{border:1px solid rgba(232,193,107,.1)!important;border-radius:20px!important;background:transparent!important;box-shadow:none!important}
-html .fx-card:hover,html .fx-card:focus-visible{border-color:rgba(232,193,107,.55)!important;transform:translateY(-3px)}
+html .fx-card{border:1px solid rgba(232,193,107,.12)!important;border-radius:20px!important;background:#050403!important;box-shadow:none!important}
+html .fx-card:hover,html .fx-card:focus-visible{border-color:rgba(232,193,107,.38)!important;transform:none!important;box-shadow:none!important}
 html .lx-tabs{border:1px solid rgba(232,193,107,.28);box-shadow:none}
 html input,html textarea,html select{border:1px solid rgba(232,193,107,.35)!important;box-shadow:none!important}
 
@@ -121,12 +145,11 @@ html .security-item strong.status-data{color:#e6dcc2!important}
 @media (max-width:760px){
   .fx-features{width:calc(100% - 32px);padding-top:64px}
   .fx-grid{grid-template-columns:repeat(2,1fr);gap:12px}
-  .fx-card{padding:20px 12px 60px;border-radius:18px}
-  .fx-ico{width:84px;height:78px}.fx-ico svg,.fx-ico img{width:68px;height:68px}
+  .fx-card{--s:76px;padding:18px 12px 60px;border-radius:18px}
   .fx-card h3{font-size:12.5px;letter-spacing:.1em}.fx-card p{font-size:12px}
   .fx-divider{margin:24px auto}
 }
 @media (prefers-reduced-motion:reduce){
   .btn-gold::before,.cta.primary::before{animation:none}
-  .fx-card,.fx-ico,.btn-gold,.cta{transition:none}
+  .fx-card,.fx-ico::before,.fx-ico>img,.fx-go,.btn-gold,.cta{transition:none}
 }
