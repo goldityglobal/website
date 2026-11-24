@@ -75,30 +75,5 @@
   }catch(e){}
 })();
 
-/* hero particles: a few slow gold motes, right side only (static when reduced motion) */
-(function(){
-  "use strict";
-  try{
-    var hero=document.querySelector(".hero");
-    if(!hero)return;
-    var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if(reduce)return;
-    var cv=document.createElement("canvas");cv.className="fx-sparks";cv.setAttribute("aria-hidden","true");hero.insertBefore(cv,hero.firstChild);
-    var cx=cv.getContext("2d"),W=0,H=0,X0=0,P=[],on=true,dpr=Math.min(window.devicePixelRatio||1,2);
-    function size(){W=hero.clientWidth;H=hero.clientHeight;X0=W<761?0:W*.46;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
-    function mk(init){return{x:X0+Math.random()*(W-X0),y:init?Math.random()*H:H+8,r:Math.random()*1.4+.5,v:Math.random()*.16+.05,s:Math.random()*Math.PI*2,a:Math.random()*.45+.25}}
-    size();var n=W<761?7:16;for(var i=0;i<n;i++)P.push(mk(true));
-    window.addEventListener("resize",size);
-    if("IntersectionObserver" in window)new IntersectionObserver(function(es){on=es[0].isIntersecting;if(on)requestAnimationFrame(tick)}).observe(hero);
-    function tick(t){
-      if(!on)return;cx.clearRect(0,0,W,H);
-      for(var i=0;i<P.length;i++){var p=P[i];p.y-=p.v;p.x+=Math.sin(t/3200+p.s)*.12;if(p.y<-8){P[i]=mk(false);continue}
-        var tw=.6+.4*Math.sin(t/1400+p.s),g=cx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);
-        g.addColorStop(0,"rgba(255,232,170,"+(p.a*tw)+")");g.addColorStop(1,"rgba(232,193,107,0)");cx.fillStyle=g;cx.beginPath();cx.arc(p.x,p.y,p.r*4,0,6.283);cx.fill()}
-      requestAnimationFrame(tick)}
-    requestAnimationFrame(tick);
-  }catch(e){}
-})();
-
 /* header turns to glass after scrolling */
 (function(){try{var hd=document.querySelector(".site-header");if(!hd)return;var f=function(){hd.classList.toggle("is-scrolled",window.scrollY>40)};f();window.addEventListener("scroll",f,{passive:true})}catch(e){}})();

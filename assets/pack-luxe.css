@@ -70,8 +70,8 @@ html .gold-pill svg,html .airdrop-badge svg{fill:var(--g2)!important;color:var(-
 .fx-card{
   --s:108px;                       /* icon box: same on all ten cards */
   position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;
-  padding:22px 18px 66px;text-align:center;text-decoration:none;color:var(--g1);
-  overflow:hidden;isolation:isolate;transition:border-color .3s ease,box-shadow .3s ease;
+  padding:26px 18px 66px;min-height:290px;text-align:center;text-decoration:none;color:var(--g1);
+  isolation:isolate;transition:transform .3s ease;
 }
 /* icon = sharp opaque image + separate glow (::before) + separate reflection (.fx-refl) */
 .fx-ico{
@@ -138,13 +138,12 @@ html .why-grid article,html .lx-viewer-card{
 html .contract-card:hover,html .market-side-card:hover,html .market-card:hover,html .dex-card:hover,html .buy-card:hover,html .why-grid article:hover{
   border-color:rgba(247,220,160,.4)!important;transform:translateY(-3px)!important;box-shadow:inset 0 1px 0 rgba(255,244,220,.16),0 0 22px rgba(224,180,82,.1),0 14px 30px rgba(0,0,0,.4)!important;
 }
-html .fx-card{
-  border:1px solid var(--glass-border-soft)!important;border-radius:20px!important;
-  background:var(--glass-sheen),var(--glass-bg-soft)!important;
-  box-shadow:inset 0 1px 0 rgba(255,244,220,.09),inset 0 -1px 0 rgba(0,0,0,.3)!important;
-  -webkit-backdrop-filter:var(--glass-blur-soft);backdrop-filter:var(--glass-blur-soft);
-}
-html .fx-card:hover,html .fx-card:focus-visible{border-color:rgba(247,220,160,.4)!important;transform:none!important;box-shadow:inset 0 1px 0 rgba(255,244,220,.18),inset 0 -1px 0 rgba(0,0,0,.3),0 0 22px rgba(224,180,82,.1)!important}
+/* ten ecosystem cards: gold frame art, 9-sliced so corners never stretch */
+html .fx-card{border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none;backdrop-filter:none;overflow:visible}
+html .fx-card::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border:24px solid transparent;border-image:url(/pack/card-frame.webp) 110 fill/24px stretch;transition:filter .3s ease}
+html .fx-card:hover,html .fx-card:focus-visible{transform:translateY(-3px)!important}
+html .fx-card:hover::before,html .fx-card:focus-visible::before{filter:brightness(1.18)}
+
 /* chart well: warm near-black instead of the old blue-grey */
 html .market-chart-wrap,html .chart-box{background:linear-gradient(180deg,rgba(20,15,10,.55),rgba(8,6,4,.7))!important;border:1px solid var(--glass-border-soft)!important}
 html .lx-tabs{border:1px solid rgba(232,193,107,.28);box-shadow:none}
