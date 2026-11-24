@@ -50,7 +50,7 @@
 
 /* ---------- Telegram airdrop row (below 1240px the header pill is hidden, so this row carries it) ---------- */
 @media (max-width:1239px){
-  .page-home .tg-airdrop-row{display:flex;padding:84px 14px 12px;background:#030303}
+  .page-home .tg-airdrop-row{display:flex;flex-wrap:wrap;gap:10px;padding:84px 14px 12px;background:#030303}
 }
 @media (max-width:760px){
   .page-home .tg-airdrop-row{padding-top:76px}
