@@ -1769,7 +1769,7 @@ async function signIn(event) {
 
         invalid_credentials:
 
-          "Email or password is incorrect.",
+          "Please check your email and password and try again.",
 
 
         email_not_verified:

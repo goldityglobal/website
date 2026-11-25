@@ -1313,13 +1313,13 @@ async function loginUser(e, req) {
   const email = normalizeEmail(d.email), password = String(d.password || "");
   if (!await rateLimit(e, `login-acct:${await sha256Text(email)}`, 10, 9e5)) return out({ ok: false, error: "rate_limited", message: "Too many attempts. Please try again shortly." }, 429, cors(e));
   const row = await e.DB.prepare("SELECT * FROM users WHERE email=?").bind(email).first();
-  if (!row) return out({ ok: false, error: "invalid_credentials", message: "Email or password is incorrect." }, 401, cors(e));
+  if (!row) return out({ ok: false, error: "invalid_credentials", message: "Please check your email and password and try again." }, 401, cors(e));
   const p = String(row.password_hash || "").split("$");
-  if (p.length !== 4) return out({ ok: false, error: "invalid_credentials", message: "Email or password is incorrect." }, 401, cors(e));
+  if (p.length !== 4) return out({ ok: false, error: "invalid_credentials", message: "Please check your email and password and try again." }, 401, cors(e));
   const iterations = Number(p[1]) || 1e5;
   const salt = Uint8Array.from(atob(p[2]), (c) => c.charCodeAt(0));
   const expected = await hashPassword(password, salt, iterations);
-  if (!timingSafeEqualStr(expected, String(row.password_hash))) return out({ ok: false, error: "invalid_credentials", message: "Email or password is incorrect." }, 401, cors(e));
+  if (!timingSafeEqualStr(expected, String(row.password_hash))) return out({ ok: false, error: "invalid_credentials", message: "Please check your email and password and try again." }, 401, cors(e));
   if (!row.email_verified) return out({ ok: false, error: "email_not_verified", message: "Please verify your email before signing in." }, 403, cors(e));
   const raw = token(), hash = await sha256Text(raw), now = nowIso();
   const exp = new Date(Date.now() + 7 * 864e5).toISOString();
@@ -1599,16 +1599,16 @@ async function registerUser(e, req) {
   if (clean2(d.referralCode, 32) && DISPOSABLE_EMAIL_DOMAINS.has(email.slice(email.indexOf("@") + 1)))
     return out({ ok: false, error: "email_not_allowed", message: "Please use a permanent email address when registering with a referral code." }, 400, cors(e));
   if (await e.DB.prepare("SELECT id FROM users WHERE email=?").bind(email).first())
-    return out({ ok: false, error: "email_exists", message: "An account with this email already exists." }, 409, cors(e));
+    return out({ ok: false, error: "email_exists", message: "This email already has a GOLDITY account. You can sign in." }, 409, cors(e));
   const canonical = canonicalEmailKey(email);
   if (await e.DB.prepare("SELECT id FROM users WHERE canonical_email=? OR email=?").bind(canonical, canonical).first())
-    return out({ ok: false, error: "email_exists", message: "An account with this email already exists." }, 409, cors(e));
+    return out({ ok: false, error: "email_exists", message: "This email already has a GOLDITY account. You can sign in." }, 409, cors(e));
   if (canonical !== email) {
     const localPrefix = canonical.slice(0, canonical.indexOf("@"));
     const domain = canonical.slice(canonical.indexOf("@") + 1);
     const likeEsc = /* @__PURE__ */ __name((s) => s.replace(/[\\%_]/g, (m) => "\\" + m), "likeEsc");
     const aliasMatch = await e.DB.prepare("SELECT id FROM users WHERE email LIKE ? ESCAPE '\\' AND email LIKE ? ESCAPE '\\'").bind(`${likeEsc(localPrefix)}+%`, `%@${likeEsc(domain)}`).first();
-    if (aliasMatch) return out({ ok: false, error: "email_exists", message: "An account with this email already exists." }, 409, cors(e));
+    if (aliasMatch) return out({ ok: false, error: "email_exists", message: "This email already has a GOLDITY account. You can sign in." }, 409, cors(e));
   }
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashPassword(password, salt);
@@ -1617,7 +1617,7 @@ async function registerUser(e, req) {
   const refInput = clean2(d.referralCode, 32).toUpperCase();
   if (refInput) {
     const refRow = await e.DB.prepare("SELECT referral_code FROM users WHERE referral_code=?").bind(refInput).first();
-    if (!refRow) return out({ ok: false, error: "invalid_referral", message: "The referral code is not valid." }, 400, cors(e));
+    if (!refRow) return out({ ok: false, error: "invalid_referral", message: "Please check your referral code and try again." }, 400, cors(e));
     referredBy = refRow.referral_code;
   }
   const myCode = await makeReferralCode(e);
@@ -1628,7 +1628,7 @@ async function registerUser(e, req) {
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(uid, email, canonical, hash, first, last, country, phone, myCode, referredBy, 0, TERMS_VERSION, PRIVACY_VERSION, 1, d.marketingConsent ? 1 : 0, now, now).run();
   } catch {
-    return out({ ok: false, error: "registration_failed", message: "Account creation failed. Please try again." }, 500, cors(e));
+    return out({ ok: false, error: "registration_failed", message: "We couldn't create your account just yet. Please try again." }, 500, cors(e));
   }
   try {
     const ipHash = await hashIp(e, ipBucket(ip(req)));
@@ -1669,7 +1669,7 @@ async function verifyEmail(e, req) {
   if (!raw) return out({ ok: false, error: "invalid_token" }, 400, cors(e));
   const h = await sha256Text(raw);
   const row = await e.DB.prepare("SELECT * FROM email_verification_tokens WHERE token_hash=? AND used_at IS NULL").bind(h).first();
-  if (!row || new Date(row.expires_at) <= /* @__PURE__ */ new Date()) return out({ ok: false, error: "expired_or_invalid_token", message: "This verification link is invalid or expired." }, 400, cors(e));
+  if (!row || new Date(row.expires_at) <= /* @__PURE__ */ new Date()) return out({ ok: false, error: "expired_or_invalid_token", message: "This verification link has expired. Please request a new one." }, 400, cors(e));
   const now = nowIso();
   await e.DB.batch([
     e.DB.prepare("UPDATE users SET email_verified=1,updated_at=? WHERE id=?").bind(now, row.user_id),
@@ -1722,7 +1722,7 @@ async function resetPassword(e, req) {
   if (password.length < 10) return out({ ok: false, error: "weak_password", message: "Password must be at least 10 characters." }, 400, cors(e));
   const tokenHash = await sha256Text(raw);
   const row = await e.DB.prepare("SELECT * FROM password_reset_tokens WHERE token_hash=? AND used_at IS NULL").bind(tokenHash).first();
-  if (!row || new Date(row.expires_at) <= /* @__PURE__ */ new Date()) return out({ ok: false, error: "expired_or_invalid_token", message: "This reset link is invalid or expired." }, 400, cors(e));
+  if (!row || new Date(row.expires_at) <= /* @__PURE__ */ new Date()) return out({ ok: false, error: "expired_or_invalid_token", message: "This reset link has expired. Please request a new one." }, 400, cors(e));
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashPassword(password, salt);
   const now = nowIso();
