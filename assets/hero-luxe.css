@@ -72,7 +72,7 @@
   content:"";position:absolute;inset:0;pointer-events:none;
   background:
     linear-gradient(90deg,rgba(3,3,3,.92) 0,rgba(3,3,3,.66) 30%,rgba(3,3,3,0) 56%),
-    linear-gradient(180deg,rgba(3,3,3,.6),transparent 20%),
+    linear-gradient(180deg,rgba(3,3,3,.35),transparent 11%),
     linear-gradient(0deg,#030303 0,transparent 16%);
 }
 .page-home .hero-inner{width:min(1320px,calc(100% - 48px));margin:0 auto;display:flex;align-items:flex-start;align-self:flex-start}
