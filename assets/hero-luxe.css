@@ -134,7 +134,7 @@
   .page-home .hero-inner{width:calc(100% - 32px)}
 }
 @media (max-width:700px){
-  .page-home .hero-art{height:75.3vw}
+  .page-home .hero-art{height:83.1vw}
   .page-home .hero-art img{object-position:center}
   .page-home .hero-trust-row{grid-template-columns:1fr 1fr;row-gap:18px}
   .page-home .hero-trust-row div:nth-child(odd){border-left:0;padding-left:0}
