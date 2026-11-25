@@ -1,0 +1,364 @@
+/* =========================================================
+   GOLDITY · NEON SIGN ON OBSIDIAN  (theme v3)
+   Share of surface: black > cream > gold.
+   Neon is light, not paint: amber tube glow on black.
+   Loaded after style.css. Delete this file + its <link> to roll back.
+   ========================================================= */
+@font-face{font-family:"GDisplay";src:url("/fonts/gfs-baskerville.woff") format("woff");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0020-002F,U+003A-007E,U+00A0-00FF,U+2013-2026}
+@font-face{font-family:"GDisplay";src:url("/fonts/inter-Regular.woff") format("woff");font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0030-0039}
+@font-face{font-family:"Inter";src:url("/fonts/inter-Regular.woff") format("woff");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Inter";src:url("/fonts/inter-Medium.woff") format("woff");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Inter";src:url("/fonts/inter-SemiBold.woff") format("woff");font-weight:600 800;font-style:normal;font-display:swap}
+:root{
+  --ink:#040404;
+  --ink-2:#0a0a0a;
+  --ink-3:#121110;
+  --cream:#F3E9D2;
+  --cream-hi:#FFF8E8;
+  --cream-dim:#BFB49B;
+  --cream-mute:#8f8670;
+  --gold:#D4A93C;
+  --amber:#FFB938;
+  --tube:rgba(255,185,56,.85);
+  --tube-soft:rgba(255,185,56,.28);
+  --edge:rgba(243,233,210,.14);
+  --display:"GDisplay","Baskerville","Palatino Linotype",Georgia,serif;
+  --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+
+  --bg:#040404;--bg-2:#080808;--panel:#0a0a0a;--panel-2:#0f0f0e;--panel-3:#141312;
+  --line:rgba(243,233,210,.12);--line-soft:rgba(243,233,210,.06);
+  --text:#F3E9D2;--text-soft:#CFC5AD;--muted:#9a917b;--muted-2:#7c7461;
+  --gold-light:#F3E9D2;--gold-bright:#FFF8E8;
+  --shadow:0 30px 80px rgba(0,0,0,.7);--shadow-soft:0 14px 40px rgba(0,0,0,.55);
+  --radius:2px;--radius-sm:2px;
+}
+html{background:var(--ink);scrollbar-color:#3a2f16 var(--ink);scrollbar-width:thin}
+body{background:var(--ink);color:var(--cream);font-family:var(--sans);font-feature-settings:"kern","calt"}
+body::before{display:none!important}
+::selection{background:var(--amber);color:#000}
+.market,.token,.buy,.security,.why,.community,.contract-strip{overflow:visible}
+/* ---------------- type ---------------- */
+h1,h2,h3,.section-heading h2,.market h2,.token h2,.buy h2,.security h2,.why h2,.community h2,.buy-card h3,.why-grid h3,.auth-modal-card h2{
+  font-family:var(--display)!important;font-weight:400!important;color:var(--cream-hi);text-shadow:none;letter-spacing:-.01em;
+}
+.eyebrow,.section-eyebrow,.card-label,.market-card small,.token-card small,.card-caption,.side-card-head small{
+  text-transform:none!important;letter-spacing:.02em!important;font-size:13px!important;font-weight:500!important;color:var(--gold)!important;text-shadow:none!important;
+}
+.eyebrow{display:block;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;margin:0 0 18px!important}
+.eyebrow::before{display:none!important}
+.section-lead{color:var(--cream-dim)!important;font-size:16px;line-height:1.7;max-width:56ch;opacity:1}
+p{color:inherit}
+.market-card strong,.token-card strong,.dex-card strong,.dashboard-card strong,.market-side-card strong,.market-panel-head>div:first-child>strong{font-variant-numeric:tabular-nums}
+/* ---------------- header ---------------- */
+.site-header,header{
+  background:rgba(4,4,4,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:0;border-image:none;border-bottom:1px solid var(--edge);box-shadow:none;position:sticky;top:0;
+}
+.site-header::after,header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--amber) 50%,transparent);opacity:.55;box-shadow:0 0 16px var(--amber)}
+.header-inner{gap:16px}
+.brand{color:var(--cream-hi)}
+.brand-logo{border:1px solid var(--amber);box-shadow:0 0 18px var(--tube-soft)}
+.brand-copy strong{background:none;-webkit-text-fill-color:var(--cream-hi);color:var(--cream-hi);font-family:var(--display);font-weight:400;font-size:18px;letter-spacing:.1em;filter:none}
+.brand-copy b{background:none;-webkit-text-fill-color:var(--gold);color:var(--gold);letter-spacing:.2em;font-weight:500}
+.main-nav{gap:15px}
+.main-nav a{color:var(--cream-dim);font-size:12.5px;letter-spacing:0;text-transform:none;font-weight:500}
+.main-nav a:hover,.main-nav a.active{color:var(--cream-hi);text-shadow:0 0 12px rgba(255,185,56,.7)}
+.main-nav a.active::after{width:100%;left:0;transform:none;bottom:-8px;height:1px;background:var(--amber);box-shadow:0 0 10px var(--amber),0 0 22px var(--tube-soft);animation:none}
+.wallet{border:1px solid var(--edge);background:transparent;color:var(--cream);border-radius:2px}
+.wallet:hover{border-color:var(--amber);box-shadow:0 0 18px var(--tube-soft);background:transparent}
+.wallet-menu,.mobile-nav nav{background:#070707;border:1px solid var(--edge);border-radius:2px}
+.gold-pill,.airdrop-badge{
+  background:transparent!important;color:var(--cream-hi)!important;border:1px solid var(--amber)!important;border-radius:2px!important;
+  box-shadow:0 0 14px var(--tube-soft),inset 0 0 12px rgba(255,185,56,.08)!important;text-shadow:0 0 10px rgba(255,185,56,.55);font-size:12px!important;letter-spacing:0!important;font-weight:600!important;white-space:nowrap;flex:0 0 auto;padding:9px 12px!important;min-height:0!important;
+}
+.gold-pill:hover,.airdrop-badge:hover{box-shadow:0 0 28px rgba(255,185,56,.55),inset 0 0 18px rgba(255,185,56,.16)!important;transform:none}
+/* ---------------- buttons ---------------- */
+.btn,.cta{border-radius:2px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;min-height:48px;padding:12px 24px}
+.btn-gold,.cta.primary{background:var(--cream);color:#0b0a08;border:1px solid var(--cream-hi);box-shadow:0 0 0 1px rgba(255,185,56,.25),0 0 26px rgba(243,233,210,.28);overflow:visible}
+.btn-gold::after,.cta.primary::after{display:none}
+.btn-gold:hover,.cta.primary:hover{background:var(--cream-hi);box-shadow:0 0 0 1px var(--amber),0 0 34px rgba(255,185,56,.6);transform:none}
+.btn-outline,.cta.secondary{background:transparent;color:var(--cream);border:1px solid var(--edge);box-shadow:none}
+.btn-outline:hover,.cta.secondary:hover{border-color:var(--amber);color:var(--cream-hi);box-shadow:0 0 20px var(--tube-soft),inset 0 0 16px rgba(255,185,56,.07);background:transparent}
+.btn:focus-visible,.cta:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.contract-card-inner button{background:var(--cream);color:#0b0a08;border-radius:2px}
+/* ---------------- HERO: a neon sign over the coin ---------------- */
+@keyframes ignite{0%{opacity:0}8%{opacity:.9}11%{opacity:.15}16%{opacity:1}22%{opacity:.35}30%,100%{opacity:1}}
+/* ---------------- TICKER: marquee sign ---------------- */
+.lx-ticker{position:relative;z-index:5;overflow:hidden;background:var(--ink);padding:14px 0;border:0;border-top:1px solid var(--amber);border-bottom:1px solid var(--amber);box-shadow:0 0 22px var(--tube-soft),inset 0 0 24px rgba(255,185,56,.05);width:100%;max-width:100%;contain:paint}
+.lx-ticker-track{display:flex;width:max-content;animation:lxTicker 60s linear infinite}
+@keyframes lxTicker{to{transform:translateX(-50%)}}
+.lx-ticker-track span{flex:0 0 auto;padding:0 28px;font-family:var(--display);font-size:20px;letter-spacing:.01em;text-transform:none;font-weight:400;color:var(--cream-hi);text-shadow:0 0 12px rgba(255,185,56,.5);white-space:nowrap}
+.lx-ticker-track span i{font-style:normal;color:var(--amber);margin-left:56px;text-shadow:0 0 12px var(--amber)}
+/* ---------------- shared: bracket frames instead of rounded cards ---------------- */
+.contract-card,.market-main-panel,.market-side-card,.market-card,.dex-card,.token-card,.buy-card,.security-item,.dashboard-card,.auth-modal-card{
+  position:relative;background:var(--ink-2)!important;border:1px solid var(--edge)!important;border-radius:2px!important;box-shadow:none!important;animation:none!important;transform:none!important;
+}
+.contract-card::before,.market-main-panel::before,.buy-card::before,.security-item::before,.market-side-card::before{
+  content:"";position:absolute;left:-1px;top:-1px;width:18px;height:18px;border-top:2px solid var(--amber);border-left:2px solid var(--amber);box-shadow:-3px -3px 14px var(--tube-soft);pointer-events:none;background:none;right:auto;bottom:auto;
+}
+.contract-card::after,.market-main-panel::after,.buy-card::after,.security-item::after,.market-side-card::after{
+  content:"";position:absolute;right:-1px;bottom:-1px;width:18px;height:18px;border-bottom:2px solid var(--amber);border-right:2px solid var(--amber);box-shadow:3px 3px 14px var(--tube-soft);pointer-events:none;left:auto;top:auto;background:none;transform:none;
+}
+.contract-card:hover,.market-side-card:hover,.buy-card:hover,.security-item:hover,.token-card:hover,.dex-card:hover{border-color:rgba(255,185,56,.55)!important;box-shadow:0 0 30px rgba(255,185,56,.12)!important;transform:none!important}
+.contract-main code,.contract-card-inner code{color:var(--cream-hi);text-shadow:0 0 14px rgba(255,185,56,.35);font-size:clamp(15px,1.7vw,22px)}
+.contract-strip{background:var(--ink);padding:44px 0 6px}
+/* ---------------- section frame: title left, lead right ---------------- */
+.section-shell{padding-top:104px;padding-bottom:40px}
+.section-heading h2,.market h2,.token h2,.buy h2,.security h2,.why h2,.community h2{font-size:clamp(40px,5.2vw,76px);line-height:1;color:var(--cream-hi);margin:0}
+.section-heading h2::after,.why h2::after,.community h2::after{content:"";display:block;width:64px;height:2px;margin-top:22px;background:var(--amber);box-shadow:0 0 14px var(--amber),0 0 30px var(--tube-soft);border-radius:0}
+.section-heading{align-items:flex-end;gap:48px;padding-bottom:6px}
+.market::before,.why::before,.token::before,.buy::before,.security::before{display:none}
+/* market numbers */
+.market-panel-head>div:first-child>strong{color:var(--cream-hi);text-shadow:0 0 22px rgba(255,185,56,.35);font-family:var(--display);font-weight:400}
+.market-side-price strong,.market-side-card strong{color:var(--cream-hi)!important;font-family:var(--display);font-weight:400;font-size:28px}
+.market-side-price{background:var(--ink-2)!important}
+.market-panel-head .ranges{border-radius:2px;border:1px solid var(--edge);background:transparent}
+.market-panel-head .ranges button{border-radius:2px;color:var(--cream-dim)}
+.market-panel-head .ranges button.active{background:var(--cream);color:#0b0a08;box-shadow:0 0 14px rgba(255,185,56,.45)}
+/* ---------------- WHY: four statements, vertical neon rules ---------------- */
+.why-grid{border:0;border-image:none;margin-top:56px;grid-template-columns:repeat(4,1fr);gap:0}
+.why-grid article{text-align:left;padding:8px 32px 8px 28px;border-right:0;border-left:1px solid var(--edge);position:relative;transition:none}
+.why-grid article::before{content:"";position:absolute;left:-1px;top:0;width:1px;height:46px;background:var(--amber);box-shadow:0 0 12px var(--amber),0 0 24px var(--tube-soft)}
+.why-grid article:hover{background:none}
+.why-icon{width:auto!important;height:auto!important;display:block!important;border:0!important;box-shadow:none!important;background:none!important;color:var(--amber)!important;font-size:30px;line-height:1;margin:0 0 18px;text-shadow:0 0 14px var(--amber);animation:none!important}
+.why-grid h3{font-size:26px;margin:0 0 10px}
+.why-grid p{margin:0;max-width:30ch;color:var(--cream-dim);font-size:14.5px;line-height:1.65;opacity:1}
+.referral-highlight{background:none!important;border:0}
+.referral-highlight a{color:var(--amber)}
+.why h2::after,.community h2::after{margin-left:0;margin-right:0}
+.why .section-heading,.why .why-head{text-align:left}
+/* ---------------- CREAM SLABS (token + security) ---------------- */
+.token,.security{
+  --ink-on:#0b0a08;--ink-soft:#4f4733;--ink-edge:rgba(11,10,8,.22);
+  background:var(--cream);color:var(--ink-on);
+  box-shadow:0 0 0 100vmax var(--cream);clip-path:inset(0 -100vmax);
+  margin-top:104px;padding-top:96px;padding-bottom:96px;
+}
+.token h2,.security h2{color:var(--ink-on)!important;text-shadow:none}
+.token h2::after,.security h2::after{background:var(--ink-on);box-shadow:none}
+.token .eyebrow,.security .eyebrow{color:#7a5a10!important}
+.token .section-lead,.security .section-lead{color:var(--ink-soft)!important}
+.token-grid{gap:0;margin-top:48px;border-top:1px solid var(--ink-edge)}
+.token-card{background:transparent!important;border:0!important;border-bottom:1px solid var(--ink-edge)!important;padding:22px 8px!important;display:flex;justify-content:space-between;align-items:baseline;gap:18px}
+.token-card:hover{box-shadow:none!important;border-color:var(--ink-edge)!important;background:rgba(11,10,8,.04)!important}
+.token-card small{color:#6a5a2e!important;margin:0!important;font-size:14px!important}
+.token-card strong{color:var(--ink-on)!important;text-shadow:none;font-family:var(--display);font-weight:400;font-size:24px!important;text-align:right}
+.token-grid{grid-template-columns:repeat(2,1fr);column-gap:56px}
+.token-grid a,.token .card-note a{color:#6a4b00}
+.security-grid{margin-top:48px;gap:0;border-top:1px solid var(--ink-edge);border-left:1px solid var(--ink-edge)}
+.security-item{background:transparent!important;border:0!important;border-right:1px solid var(--ink-edge)!important;border-bottom:1px solid var(--ink-edge)!important;padding:26px 24px!important;box-shadow:none!important}
+.security-item::before,.security-item::after{display:none}
+.security-item:hover{background:rgba(11,10,8,.04)!important;box-shadow:none!important;border-color:var(--ink-edge)!important}
+.security-item span{color:var(--ink-on)!important;font-family:var(--display);font-size:22px!important;letter-spacing:0!important;font-weight:400}
+.security-item strong{font-size:12px!important;letter-spacing:.02em!important;font-weight:600}
+.security-item strong.status-verified{color:#1c6b2b!important;text-shadow:none}
+.security-item strong.status-pending{color:#8a5a00!important;text-shadow:none}
+.security-item strong.status-data{color:#3b372d!important}
+.security-note{color:var(--ink-soft)!important;font-size:14px!important;border:0!important;background:none!important;padding:0!important;margin-top:10px!important}
+.security-item .security-note,.security-item p{background:none!important;border:0!important;padding:0!important}
+.security-note a{color:#6a4b00!important;text-decoration:underline;text-underline-offset:3px}
+/* ---------------- BUY ---------------- */
+.buy-grid{gap:20px;margin-top:48px}
+.buy-card,.dex-card{padding:30px!important}
+.buy-card h3{font-size:26px}
+.buy-card p{color:var(--cream-dim);font-size:15px;opacity:1}
+.dex-badge{border-radius:2px;border:1px solid var(--amber);color:var(--cream-hi);box-shadow:0 0 12px var(--tube-soft)}
+.dex-card strong{color:var(--cream-hi)}
+.trade-note{color:var(--cream-dim);max-width:60ch;margin:36px 0 0;text-align:left;font-size:14.5px;line-height:1.7}
+/* ---------------- COMMUNITY + FOOTER ---------------- */
+.community{background:var(--ink);border:0;border-image:none;padding:120px 0 110px;text-align:left}
+.community h2{font-size:clamp(44px,6.4vw,96px);max-width:12ch}
+.community-links{justify-content:flex-start;margin-top:36px}
+.community-content>p:not(.eyebrow){color:var(--cream-dim);font-size:17px;max-width:46ch}
+.social-pill{border-radius:2px;border:1px solid var(--edge);color:var(--cream);box-shadow:none}
+.social-pill:hover{border-color:var(--amber);box-shadow:0 0 20px var(--tube-soft);background:transparent}
+.site-footer,footer{background:var(--ink);color:var(--cream-mute);border:0;border-image:none;border-top:1px solid var(--edge);box-shadow:none;font-size:13px}
+footer a{color:var(--cream-dim)}
+footer a:hover{color:var(--cream-hi);text-shadow:0 0 12px rgba(255,185,56,.6)}
+.gold-disclaimer{color:var(--cream-mute)}
+/* forms + misc */
+input,textarea,select{background:#070707;color:var(--cream);border:1px solid var(--edge);border-radius:2px}
+input:focus,textarea:focus,select:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,185,56,.14);outline:none}
+.status-text.error{color:#ffb49c}
+/* whitepaper / long-form pages */
+body h1{background-image:none!important}
+/* ---------------- responsive ---------------- */
+@media(max-width:980px){
+.why-grid{grid-template-columns:repeat(2,1fr);row-gap:36px}
+.token-grid{grid-template-columns:1fr}
+.security-grid{grid-template-columns:repeat(2,1fr)}
+.section-heading{flex-direction:column;align-items:flex-start;gap:14px}
+}
+@media(max-width:640px){
+.why-grid,.security-grid{grid-template-columns:1fr}
+.section-shell{padding-top:72px}
+.token,.security{margin-top:72px;padding-top:64px;padding-bottom:64px}
+.lx-ticker-track span{font-size:16px;padding:0 18px}
+.community{padding:80px 0}
+}
+@media(prefers-reduced-motion:reduce){
+.lx-ticker-track{animation:none}
+}
+/* figures stay lining + tabular: use Inter for numbers */
+.market-side-card strong,.market-side-price strong,.market-panel-head>div:first-child>strong,.token-card strong,.market-card strong,.dex-card strong,.dashboard-card strong,.lx-ticker-track span{
+  font-family:var(--sans)!important;font-weight:500!important;font-variant-numeric:lining-nums tabular-nums;letter-spacing:-.01em;
+}
+.market-side-card strong,.market-side-price strong{font-size:24px}
+.token-card strong{font-size:20px!important}
+.market-panel-head>div:first-child>strong{font-size:clamp(40px,4.6vw,60px)}
+.lx-ticker-track span{font-size:15px!important}
+.contract-card::before,.market-main-panel::before,.buy-card::before,.security-item::before,.market-side-card::before,.contract-card::after,.market-main-panel::after,.buy-card::after,.security-item::after,.market-side-card::after{
+  background:transparent!important;box-shadow:none!important;filter:drop-shadow(0 0 5px rgba(255,185,56,.85));
+}
+.buy-card h3,.dex-card h3{font-family:var(--sans)!important;font-weight:600!important;font-size:21px!important;letter-spacing:-.01em}
+.buy-card p{margin-top:12px}
+@media(max-width:640px){
+.header-inner{gap:8px}
+.brand-copy strong{font-size:15px;letter-spacing:.06em}
+.brand-copy b{display:none}
+.gold-pill,.airdrop-badge{font-size:11px!important;padding:8px 9px!important}
+.why-grid article{padding-left:20px}
+}
+/* =========================================================
+   v4 · GLASS · DIAMOND · AQUARIUM
+   Frosted neon glass, faceted highlights, light rays and bubbles.
+   (overrides the v3 bracket frames above)
+   ========================================================= */
+@keyframes rays{0%{transform:translateX(-4%) skewX(-6deg)}100%{transform:translateX(4%) skewX(6deg)}}
+@keyframes bubbles{0%{background-position:120px 40px,450px 320px,790px 120px}100%{background-position:180px -1191px,360px -627px,830px -1373px}}
+@keyframes caustic{0%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,3%) scale(1.12)}100%{transform:translate(-3%,5%) scale(1.04)}}
+html{background:#020202}
+body{background:transparent}
+body::before{
+  display:block!important;content:"";position:fixed;inset:-10% -10% 0 -10%;z-index:-1;pointer-events:none;opacity:1!important;
+  background:
+    radial-gradient(ellipse 46% 36% at 18% 8%,rgba(255,236,190,.16),transparent 70%),
+    radial-gradient(ellipse 40% 34% at 86% 30%,rgba(255,185,56,.10),transparent 70%),
+    repeating-linear-gradient(102deg,transparent 0 120px,rgba(255,236,190,.045) 120px 170px,transparent 170px 330px);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.6) 45%,transparent 90%);mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.6) 45%,transparent 90%);
+  animation:rays 22s ease-in-out infinite alternate;
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.7;
+  background-image:
+    radial-gradient(circle at 50% 50%,rgba(255,244,214,.55) 0 1.5px,rgba(255,244,214,.12) 2.5px,transparent 4px),
+    radial-gradient(circle at 50% 50%,rgba(255,244,214,.45) 0 2.5px,rgba(255,244,214,.10) 4px,transparent 7px),
+    radial-gradient(circle at 50% 50%,rgba(255,214,140,.40) 0 1px,transparent 3px);
+  background-size:877px 1231px,613px 947px,1049px 1493px;
+  background-position:120px 40px,450px 320px,790px 120px;
+  animation:bubbles 90s linear infinite;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 30%,#000 80%,transparent);mask-image:linear-gradient(180deg,transparent,#000 30%,#000 80%,transparent);
+}
+.contract-strip,.community,.site-footer,footer,.market,.why,.buy{background:transparent}
+/* ---- floating glass header ---- */
+.site-header,header{
+  width:min(1300px,calc(100% - 24px));margin:12px auto 0;top:10px;border-radius:22px;min-height:68px;
+  background:linear-gradient(160deg,rgba(255,248,232,.10),rgba(255,248,232,.03)),rgba(14,13,11,.55);
+  backdrop-filter:blur(24px) saturate(170%);-webkit-backdrop-filter:blur(24px) saturate(170%);
+  border:1px solid rgba(255,245,220,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -14px 30px rgba(255,185,56,.04),0 14px 44px rgba(0,0,0,.55),0 0 36px rgba(255,185,56,.07);
+}
+.site-header::after,header::after{left:14%;right:14%;bottom:auto;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);box-shadow:0 0 14px rgba(255,255,255,.5);opacity:.9}
+.header-inner{width:calc(100% - 36px)}
+.brand-logo{box-shadow:0 0 0 3px rgba(255,255,255,.05),0 0 22px rgba(255,185,56,.5)}
+.wallet{border-radius:999px;background:rgba(255,248,232,.06);border:1px solid rgba(255,245,220,.22);backdrop-filter:blur(8px)}
+.wallet-menu,.mobile-nav nav{border-radius:18px;background:rgba(12,11,9,.8);backdrop-filter:blur(20px);border:1px solid rgba(255,245,220,.18)}
+.gold-pill,.airdrop-badge{
+  border-radius:999px!important;border:1px solid rgba(255,200,90,.75)!important;
+  background:linear-gradient(180deg,rgba(255,236,190,.20),rgba(255,185,56,.05))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 20px rgba(255,185,56,.4)!important;
+}
+/* ---- buttons: glass pills ---- */
+.btn,.cta{border-radius:999px;padding:12px 28px}
+.btn-gold,.cta.primary{
+  background:linear-gradient(180deg,#FFFDF4 0%,#F6EBCF 55%,#EAD6A0 100%);color:#15110a;border:1px solid rgba(255,255,255,.9);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -10px 18px rgba(255,185,56,.28),0 0 30px rgba(255,236,190,.45),0 10px 26px rgba(0,0,0,.45);
+}
+.btn-gold:hover,.cta.primary:hover{box-shadow:inset 0 1px 0 #fff,inset 0 -10px 18px rgba(255,185,56,.4),0 0 44px rgba(255,214,120,.75),0 12px 30px rgba(0,0,0,.5)}
+.btn-outline,.cta.secondary{
+  background:linear-gradient(180deg,rgba(255,248,232,.12),rgba(255,248,232,.03));border:1px solid rgba(255,245,220,.26);
+  backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);color:var(--cream-hi);
+}
+.btn-outline:hover,.cta.secondary:hover{border-color:rgba(255,200,90,.8);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 26px rgba(255,185,56,.45);background:linear-gradient(180deg,rgba(255,248,232,.18),rgba(255,248,232,.05))}
+.contract-card-inner button{border-radius:999px}
+/* ---- hero wordmark: glass letters with neon rim ---- */
+/* ---- ticker: glass strip ---- */
+.lx-ticker{background:linear-gradient(180deg,rgba(255,248,232,.07),rgba(255,248,232,.015));backdrop-filter:blur(12px);border-top:1px solid rgba(255,245,220,.22);border-bottom:1px solid rgba(255,200,90,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 30px rgba(255,185,56,.12)}
+/* ---- glass cards with faceted shine ---- */
+.contract-card,.market-main-panel,.market-side-card,.market-card,.dex-card,.buy-card,.dashboard-card,.auth-modal-card{
+  background:
+    linear-gradient(135deg,rgba(255,248,232,.11) 0%,rgba(255,248,232,.025) 42%,rgba(255,185,56,.05) 100%)!important;
+  backdrop-filter:blur(18px) saturate(155%);-webkit-backdrop-filter:blur(18px) saturate(155%);
+  border:1px solid rgba(255,245,220,.17)!important;border-radius:24px!important;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -24px 44px rgba(255,185,56,.045),0 22px 54px rgba(0,0,0,.5)!important;
+}
+.contract-card:hover,.market-side-card:hover,.buy-card:hover,.dex-card:hover{
+  border-color:rgba(255,200,90,.55)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -24px 44px rgba(255,185,56,.08),0 22px 54px rgba(0,0,0,.5),0 0 44px rgba(255,185,56,.2)!important;
+}
+/* facet shine (diamond cut) replaces the v3 corner brackets */
+.contract-card::before,.market-main-panel::before,.buy-card::before,.market-side-card::before,.dex-card::before{
+  content:"";position:absolute;inset:0;left:0;top:0;width:auto;height:auto;border:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(118deg,transparent 22%,rgba(255,255,255,.09) 30%,transparent 38%,transparent 56%,rgba(255,236,190,.07) 63%,transparent 71%)!important;
+  filter:none;box-shadow:none!important;right:auto;bottom:auto;
+}
+.contract-card::after,.market-main-panel::after,.buy-card::after,.market-side-card::after,.dex-card::after{
+  content:"";position:absolute;left:12%;right:12%;top:0;bottom:auto;width:auto;height:1px;border:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent)!important;filter:none;box-shadow:0 0 12px rgba(255,255,255,.4)!important;
+}
+.market-main-panel>*,.contract-card>*,.buy-card>*,.market-side-card>*{position:relative;z-index:1}
+.market-panel-head .ranges,.market-panel-head .ranges button{border-radius:999px}
+.market-chart-wrap,#chartWrap{border-radius:18px}
+.dex-badge{border-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.2),rgba(255,185,56,.08));border:1px solid rgba(255,200,90,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 16px rgba(255,185,56,.3)}
+/* ---- section titles: diamond marker ---- */
+.eyebrow::before{display:inline-block!important;content:"";width:9px;height:9px;margin-right:12px;transform:rotate(45deg);background:linear-gradient(135deg,#fff,var(--amber));box-shadow:0 0 12px var(--amber);vertical-align:1px}
+.section-heading h2::after,.why h2::after,.community h2::after{height:1px;width:120px;background:linear-gradient(90deg,var(--amber),transparent);box-shadow:0 0 14px var(--amber)}
+/* ---- WHY: glass tiles with diamond gems ---- */
+.why-grid{gap:18px;margin-top:56px}
+.why-grid article{
+  border:1px solid rgba(255,245,220,.16)!important;border-radius:24px;padding:30px 26px 28px!important;overflow:hidden;position:relative;
+  background:linear-gradient(135deg,rgba(255,248,232,.10),rgba(255,248,232,.02) 50%,rgba(255,185,56,.04));
+  backdrop-filter:blur(16px) saturate(150%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 18px 44px rgba(0,0,0,.45);
+}
+.why-grid article::before{left:12%;right:12%;top:0;width:auto;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent);box-shadow:0 0 12px rgba(255,255,255,.4)}
+.why-grid article:hover{background:linear-gradient(135deg,rgba(255,248,232,.14),rgba(255,248,232,.03) 50%,rgba(255,185,56,.07));border-color:rgba(255,200,90,.5)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 40px rgba(255,185,56,.16)}
+.why-icon{position:relative;isolation:isolate;display:grid!important;place-items:center;width:56px!important;height:56px!important;margin:0 0 22px;font-size:22px;color:#fff!important;text-shadow:0 0 12px var(--amber)}
+.why-icon::before{content:"";position:absolute;inset:7px;z-index:-1;transform:rotate(45deg);border-radius:8px;border:1px solid rgba(255,214,130,.85);
+  background:linear-gradient(135deg,rgba(255,255,255,.35),rgba(255,185,56,.10) 55%,rgba(255,255,255,.12));box-shadow:0 0 24px rgba(255,185,56,.5),inset 0 1px 0 rgba(255,255,255,.6)}
+.referral-highlight{border:1px solid rgba(255,245,220,.16)!important}
+/* ---- CREAM SLABS: prismatic ivory with glass tiles ---- */
+.token,.security{position:relative;isolation:isolate}
+.token::before,.security::before{
+  display:block!important;content:"";position:absolute;z-index:-1;pointer-events:none;top:0;bottom:0;left:50%;width:100vw;height:auto;right:auto;transform:translateX(-50%);border-radius:0;filter:none;
+  background:
+    radial-gradient(ellipse 50% 70% at 12% 0%,#FFFDF6 0%,transparent 70%),
+    radial-gradient(ellipse 45% 60% at 92% 100%,rgba(255,196,80,.38),transparent 70%),
+    repeating-linear-gradient(60deg,transparent 0 118px,rgba(120,88,24,.05) 118px 119px),
+    repeating-linear-gradient(-60deg,transparent 0 118px,rgba(120,88,24,.05) 118px 119px),
+    linear-gradient(180deg,#F7EFDA,#EDE0BF);
+}
+.token-grid,.security-grid{gap:16px;border:0;margin-top:52px}
+.token-card,.security-item{
+  border:1px solid rgba(255,255,255,.9)!important;border-radius:22px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(255,255,255,.38))!important;
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  box-shadow:inset 0 1px 0 #fff,inset 0 -18px 34px rgba(255,185,56,.10),0 16px 40px rgba(110,80,20,.14)!important;
+  padding:24px 26px!important;position:relative;overflow:hidden;
+}
+.token-card::after,.security-item::after{display:block!important;content:"";position:absolute;left:10%;right:10%;top:0;bottom:auto;width:auto;height:1px;background:linear-gradient(90deg,transparent,#fff,transparent)!important;border:0;box-shadow:none!important;filter:none}
+.token-card:hover,.security-item:hover{background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(255,255,255,.5))!important;border-color:rgba(255,200,90,.9)!important;box-shadow:inset 0 1px 0 #fff,0 18px 44px rgba(190,130,20,.22)!important}
+.security-item::before{display:none!important}
+.security-item .security-note{background:none!important;border:0!important}
+/* ---- community / footer ---- */
+.social-pill{border-radius:50%;background:linear-gradient(180deg,rgba(255,248,232,.12),rgba(255,248,232,.03));border:1px solid rgba(255,245,220,.25);backdrop-filter:blur(8px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.social-pill:hover{border-color:rgba(255,200,90,.85);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 26px rgba(255,185,56,.5)}
+input,textarea,select{border-radius:14px;background:rgba(255,248,232,.05);backdrop-filter:blur(8px);border:1px solid rgba(255,245,220,.2)}
+@media(max-width:640px){
+.site-header,header{width:calc(100% - 16px);margin-top:8px;border-radius:18px}
+.contract-card,.market-main-panel,.market-side-card,.buy-card,.why-grid article{backdrop-filter:blur(10px)}
+body::after{opacity:.35}
+}
+@media(prefers-reduced-motion:reduce){
+body::before,body::after{animation:none}
+}

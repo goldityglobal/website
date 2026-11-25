@@ -1,0 +1,146 @@
+/* =====================================================================
+   GOLDITY · homepage hero system  (index.html only)
+   Scoped to body.page-home. Loads after theme-luxe / motion-luxe / pack-luxe.
+   Single source of truth for: header overlay, hero stage, copy, CTAs,
+   token facts row, hero cards, hero motion.  Delete this file + its <link>
+   (and class="page-home") to roll back.
+
+   Hero = one composite scene image (coin + podium baked in) with the copy
+   on the left. Desktop: copy over the dark left of the scene. <=1100px:
+   scene on top, copy below.
+   ===================================================================== */
+
+.page-home{
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --hair:rgba(232,193,107,.22);
+}
+
+/* ---------- header: overlays the hero, thin gold separator ---------- */
+.page-home .site-header{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  width:auto;max-width:none;margin:0;border:0;border-radius:0;
+  border-bottom:1px solid rgba(232,193,107,.3);
+  background:rgba(4,3,2,.55);box-shadow:none;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  transition:background .35s;
+}
+.page-home .site-header.is-scrolled{background:rgba(4,3,2,.88)}
+.page-home .site-header::before,.page-home .site-header::after{display:none}
+.page-home .site-header .header-inner{width:min(1320px,calc(100% - 48px));max-width:none;margin:0 auto;padding:0}
+
+.page-home .brand{gap:12px}
+.page-home .brand-logo{width:44px;height:44px;border:0;border-radius:0;box-shadow:none;background:none;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.page-home .brand-word{display:block;height:30px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+
+.page-home .main-nav{gap:26px;align-items:center}
+.page-home .main-nav a,.page-home .nav-more summary{color:var(--txt2);font-size:13px;font-weight:500;letter-spacing:.01em;cursor:pointer;list-style:none;text-shadow:none}
+.page-home .main-nav a:hover,.page-home .main-nav a.active,.page-home .nav-more summary:hover,.page-home .nav-more[open] summary{color:var(--g1);text-shadow:none}
+.page-home .main-nav>a{position:relative}
+.page-home .main-nav>a::after{content:"";position:absolute;left:0;bottom:-9px;width:0;height:1px;background:var(--g2);box-shadow:0 0 6px rgba(232,193,107,.6);transition:width .25s}
+.page-home .main-nav>a:hover::after,.page-home .main-nav>a.active::after{width:100%}
+.page-home .nav-more{position:relative}
+.page-home .nav-more summary::-webkit-details-marker{display:none}
+.page-home .nav-more summary::after{content:"";display:inline-block;width:6px;height:6px;margin:0 0 3px 8px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
+.page-home .nav-more-list{position:absolute;top:calc(100% + 16px);right:-12px;min-width:190px;padding:10px;display:flex;flex-direction:column;gap:2px;border-radius:14px;background:rgba(8,6,3,.94);border:1px solid var(--hair);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 18px 40px rgba(0,0,0,.6)}
+.page-home .nav-more-list a{display:block;padding:9px 12px;border-radius:8px}
+.page-home .nav-more-list a:hover{background:rgba(232,193,107,.09)}
+
+/* menus open over bright art: make them opaque */
+.page-home .mobile-nav nav,.page-home .wallet-menu{background:rgba(8,6,3,.98);border-color:var(--hair);box-shadow:0 18px 40px rgba(0,0,0,.7);z-index:70}
+
+/* ---------- Telegram airdrop row (below 1240px the header pill is hidden, so this row carries it) ---------- */
+@media (max-width:1239px){
+  .page-home .tg-airdrop-row{display:flex;flex-wrap:wrap;gap:10px;padding:84px 14px 12px;background:#030303}
+}
+@media (max-width:760px){
+  .page-home .tg-airdrop-row{padding-top:76px}
+}
+/* header already shows the site Airdrop pill from 1101px up, so the row keeps only Telegram there */
+@media (min-width:1101px){
+  .page-home .tg-airdrop-site{display:none}
+}
+
+/* ---------- hero ---------- */
+.page-home .hero{
+  position:relative;isolation:isolate;display:flex;align-items:center;overflow:hidden;
+  height:56.3vw;min-height:600px;background:#030303;border:0;box-shadow:none;
+}
+.page-home .hero-art{position:absolute;inset:0;z-index:-1;overflow:hidden}
+.page-home .hero-art img{display:block;width:100%;height:100%;object-fit:cover;object-position:72% 0}
+/* dark wash behind the copy + soft fade into the page below */
+.page-home .hero-art::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(90deg,rgba(3,3,3,.92) 0,rgba(3,3,3,.66) 30%,rgba(3,3,3,0) 56%),
+    linear-gradient(180deg,rgba(3,3,3,.35),transparent 11%),
+    linear-gradient(0deg,#030303 0,transparent 16%);
+}
+.page-home .hero-inner{width:min(1320px,calc(100% - 48px));margin:0 auto;display:flex;align-items:flex-start;align-self:flex-start}
+.page-home .hero-copy{width:min(640px,50%);padding:clamp(104px,9vw,170px) 0 8px;display:flex;flex-direction:column;align-items:flex-start}
+.page-home .hero-overline{margin:0;display:flex;align-items:center;gap:14px;color:var(--g2);font:400 11px/1.4 var(--sans);letter-spacing:.36em;text-transform:uppercase}
+.page-home .hero-overline::after{content:"";width:44px;height:1px;background:linear-gradient(90deg,rgba(255,198,93,.6),transparent)}
+.page-home .hero-title{margin:clamp(18px,1.8vw,30px) 0 0;font-family:var(--display);font-size:clamp(44px,5.5vw,80px);font-weight:700;line-height:1.04;letter-spacing:-.03em;color:#fff5d8;text-wrap:balance;text-transform:none;background:none;filter:none;animation:none;-webkit-text-stroke:0;-webkit-text-fill-color:currentColor;-webkit-background-clip:border-box;background-clip:border-box}
+.page-home .hero-title em{font-style:normal;color:var(--g2);-webkit-text-fill-color:var(--g2);text-shadow:0 0 24px rgba(255,193,73,.25)}
+.page-home .hero-tagline{margin:clamp(14px,1.4vw,24px) 0 0;max-width:none;color:#f1d9a0;font-family:var(--display);font-style:italic;font-size:clamp(20px,2.2vw,30px);font-weight:400;line-height:1.2;letter-spacing:0;text-transform:none}
+.page-home .hero-lead{margin:clamp(14px,1.3vw,22px) 0 0;max-width:48ch;color:#e8dfc9;font-size:clamp(15px,1.3vw,22px);line-height:1.65}
+.page-home .hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:clamp(26px,2.6vw,44px)}
+.page-home .hero-actions .cta{display:inline-flex;align-items:center;justify-content:space-between;gap:18px;min-width:190px}
+.page-home .hero-actions .cta::after{
+  content:"";display:block;position:static;width:16px;height:16px;background:currentColor;opacity:1;transition:transform .25s;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M10 32h40M36 18l14 14-14 14' fill='none' stroke='%23000' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M10 32h40M36 18l14 14-14 14' fill='none' stroke='%23000' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.page-home .hero-actions .cta:hover::after{transform:translateX(4px)}
+.page-home .hero-trust-row{display:flex;flex-wrap:wrap;gap:0;max-width:none;margin-top:clamp(30px,3vw,52px);border:0}
+.page-home .hero-trust-row div{min-width:0;margin:0;padding:2px 24px;border:0;border-left:1px solid rgba(232,193,107,.3)}
+.page-home .hero-trust-row div:first-child{border-left:0;padding-left:0}
+.page-home .hero-trust-row strong{display:block;color:var(--g1);font-size:clamp(24px,1.9vw,30px);line-height:1.1;text-shadow:none}
+.page-home .hero-trust-row span{display:block;margin-top:3px;color:var(--txt2);font-size:12px;letter-spacing:.04em;text-transform:none}
+
+.page-home .hero-copy>*{animation:heroUp .9s var(--ease) both}
+.page-home .hero-copy>.hero-overline{animation-delay:.1s}
+.page-home .hero-copy>.hero-title{animation-delay:.25s}
+.page-home .hero-copy>.hero-tagline{animation-delay:.45s}
+.page-home .hero-copy>.hero-lead{animation-delay:.6s}
+.page-home .hero-copy>.hero-actions{animation-delay:.75s}
+.page-home .hero-copy>.hero-trust-row{animation-delay:.9s}
+@keyframes heroUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* ---------- tablet header: tighter nav, no pills ---------- */
+@media (max-width:1100px) and (min-width:761px){
+  .page-home .main-nav{gap:16px}
+  .page-home .main-nav a,.page-home .nav-more summary{font-size:12px;white-space:nowrap}
+  .page-home .site-header .gold-pill,.page-home .site-header .airdrop-badge{display:none}
+}
+
+/* ---------- stacked layout (tablet + mobile): scene on top, copy below ---------- */
+@media (max-width:1100px){
+  .page-home .hero{display:block;height:auto;overflow:visible}
+  .page-home .hero-inner{display:block;min-height:0;height:auto}
+  .page-home .hero-art{position:relative;inset:auto;height:56.3vw}
+  .page-home .hero-art::after{background:linear-gradient(0deg,#030303 0,transparent 34%),linear-gradient(180deg,rgba(3,3,3,.55),transparent 22%)}
+  .page-home .hero-art img{object-position:center}
+  .page-home .hero-copy{width:100%;max-width:640px;padding:6px 0 36px}
+  .page-home .hero-actions .cta{min-width:0;flex:1}
+  .page-home .hero-trust-row{display:grid;grid-template-columns:repeat(4,auto);justify-content:start}
+}
+@media (max-width:760px){
+  .page-home .site-header .header-inner{width:calc(100% - 28px)}
+  .page-home .brand-word{height:22px}
+  .page-home .brand-logo{width:36px;height:36px}
+  .page-home .site-header .gold-pill,.page-home .site-header .airdrop-badge{display:none}
+  .page-home .hero-inner{width:calc(100% - 32px)}
+}
+@media (max-width:700px){
+  .page-home .hero-art{height:91.7vw}
+  .page-home .hero-art img{object-position:60% 50%}
+  .page-home .hero-trust-row{grid-template-columns:1fr 1fr;row-gap:18px}
+  .page-home .hero-trust-row div:nth-child(odd){border-left:0;padding-left:0}
+}
+@media (max-width:520px){
+  .page-home .hero-actions{flex-direction:column;width:100%}
+  .page-home .hero-actions .cta{flex:none;width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .page-home .hero-copy>*{animation:none}
+}
