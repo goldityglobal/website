@@ -36,9 +36,9 @@ html.lx-intro-on .lx-intro.play .lx-intro-word{animation:lxWord .8s 1.2s ease-ou
   animation:lxSpin var(--trace-dur,10s) linear var(--trace-delay,0s) infinite;filter:drop-shadow(0 0 3px rgba(255,200,90,.5))}
 
 /* ---------- 03 editorial scroll ---------- */
-.lx-manifesto{padding:clamp(80px,12vw,170px) 0}
-.lx-manifesto-inner{width:min(1180px,calc(100% - 48px));margin:0 auto;display:grid;gap:clamp(10px,1.6vw,22px)}
-.lx-line{margin:0;font-family:var(--display,Georgia,serif);font-weight:400;font-size:clamp(36px,7.4vw,116px);line-height:1.02;letter-spacing:-.02em;color:rgba(243,233,210,.16);
+.lx-manifesto{padding:clamp(56px,7vw,110px) 0}
+.lx-manifesto-inner{width:min(1180px,calc(100% - 48px));margin:0 auto;display:grid;gap:clamp(10px,1.4vw,20px)}
+.lx-line{margin:0;font-family:var(--display,Georgia,serif);font-weight:400;font-size:clamp(28px,4.2vw,64px);line-height:1.08;letter-spacing:-.015em;color:rgba(243,233,210,.16);
   transition:color .7s ease,transform .8s cubic-bezier(.2,.7,.2,1),filter .7s ease;transform:translateY(22px);filter:blur(2px)}
 .lx-line em{font-style:normal;color:inherit;transition:color .7s ease,text-shadow .7s ease}
 .lx-line.lit{color:#FFF8E8;transform:none;filter:none}
