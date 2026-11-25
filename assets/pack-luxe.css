@@ -183,3 +183,29 @@ html .security-item strong.status-data{color:#e6dcc2!important}
   .btn-gold::before,.cta.primary::before{animation:none}
   .fx-card,.fx-ico::before,.fx-ico>img,.fx-go,.btn-gold,.cta{transition:none}
 }
+
+/* ---------- security: three collapsible groups instead of eleven identical cards ---------- */
+.sec-groups{display:grid;gap:14px;margin-top:30px}
+.sec-group{border:1px solid var(--glass-border-soft);border-radius:18px;background:var(--glass-sheen),var(--glass-bg-soft);overflow:hidden}
+.sec-group[open]{border-color:rgba(247,220,160,.32)}
+.sec-group>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px 20px;padding:20px 24px;position:relative}
+.sec-group>summary::-webkit-details-marker{display:none}
+.sec-group>summary::after{content:"";grid-column:3;grid-row:1;width:10px;height:10px;border-right:2px solid var(--g2);border-bottom:2px solid var(--g2);transform:rotate(45deg);transition:transform .25s ease;margin-top:-4px}
+.sec-group[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+.sec-group>summary:focus-visible{outline:2px solid var(--g2);outline-offset:-3px;border-radius:18px}
+.sec-group-title{font-family:var(--display,Georgia,serif);font-size:22px;color:#fff5d8;display:flex;align-items:baseline;gap:12px}
+.sec-group-title small{font-family:var(--sans,inherit);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--g2)}
+.sec-group-sub{color:var(--txt2,#cfc5ad);font-size:14px}
+.sec-chips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 0;padding:0;list-style:none}
+.sec-group[open] .sec-chips{display:none}
+.sec-chips li{padding:5px 12px;border:1px solid rgba(232,193,107,.3);border-radius:999px;font-size:12px;color:#e9dfc6;background:rgba(232,193,107,.05)}
+.sec-group>.security-grid{margin:0;padding:4px 24px 24px;grid-template-columns:repeat(3,1fr)}
+.sec-group .security-item:last-child{grid-column:auto}
+.sec-group:last-child>.security-grid{grid-template-columns:repeat(2,1fr)}
+@media (max-width:1100px){.sec-group>.security-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:700px){
+  .sec-group>summary{grid-template-columns:1fr auto;padding:16px 18px}
+  .sec-group-sub{grid-column:1;grid-row:2}
+  .sec-group-title{font-size:19px}
+  .sec-group>.security-grid,.sec-group:last-child>.security-grid{grid-template-columns:1fr;padding:2px 14px 16px}
+}
