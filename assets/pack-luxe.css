@@ -183,3 +183,25 @@ html .security-item strong.status-data{color:#e6dcc2!important}
   .btn-gold::before,.cta.primary::before{animation:none}
   .fx-card,.fx-ico::before,.fx-ico>img,.fx-go,.btn-gold,.cta{transition:none}
 }
+
+/* ---------- neon cards: metal edge + soft glow + slow travelling light ----------
+   Layer 1 (edge): the 9-sliced gold frame art. Layer 2 (glow): drop-shadow that follows the frame shape.
+   Layer 3 (light): a hot copy of the same frame art, revealed through a rotating conic mask, so the light
+   follows the real frame (chamfered corners included). Always on for the three main cards (one lap / 11s),
+   hover/focus only for the other seven. */
+html .fx-card::before{filter:drop-shadow(0 0 10px rgba(255,176,48,.22)) drop-shadow(0 0 26px rgba(255,150,30,.10))}
+html .fx-main::before{filter:drop-shadow(0 0 14px rgba(255,184,64,.38)) drop-shadow(0 0 40px rgba(255,150,30,.18)) brightness(1.08)}
+html .fx-card:hover::before,html .fx-card:focus-visible::before{filter:drop-shadow(0 0 16px rgba(255,190,70,.5)) drop-shadow(0 0 44px rgba(255,150,30,.26)) brightness(1.18)}
+html .fx-card::after{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  border:24px solid transparent;border-image:url(/pack/card-frame.webp) 110/24px stretch;
+  filter:brightness(2.6) saturate(.65) drop-shadow(0 0 6px rgba(255,214,120,.8));
+  -webkit-mask:conic-gradient(from var(--lx-a),transparent 0 86%,#000 94%,transparent 100%);
+          mask:conic-gradient(from var(--lx-a),transparent 0 86%,#000 94%,transparent 100%);
+  animation:lxSpin 11s linear infinite;opacity:0;transition:opacity .35s ease;animation-play-state:paused;
+}
+html .fx-main::after{opacity:1;animation-play-state:running}
+html .fx-main:nth-child(2)::after{animation-delay:-4s}
+html .fx-main:nth-child(3)::after{animation-delay:-8s}
+html .fx-card:hover::after,html .fx-card:focus-visible::after{opacity:1;animation-play-state:running}
+@media (prefers-reduced-motion:reduce){html .fx-card::after{animation:none;opacity:0}}
