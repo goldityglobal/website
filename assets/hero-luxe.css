@@ -80,6 +80,8 @@
 .page-home .hero-overline{margin:0;display:flex;align-items:center;gap:14px;color:var(--g2);font:400 11px/1.4 var(--sans);letter-spacing:.36em;text-transform:uppercase}
 .page-home .hero-overline::after{content:"";width:44px;height:1px;background:linear-gradient(90deg,rgba(255,198,93,.6),transparent)}
 .page-home .hero-title{margin:clamp(18px,1.8vw,30px) 0 0;font-family:var(--display);font-size:clamp(40px,4.4vw,64px);font-weight:700;line-height:1.04;letter-spacing:-.03em;color:#fff5d8;text-wrap:balance;text-transform:none;background:none;filter:none;animation:none;-webkit-text-stroke:0;-webkit-text-fill-color:currentColor;-webkit-background-clip:border-box;background-clip:border-box}
+.page-home .hero-logotype{margin:clamp(14px,1.4vw,24px) 0 0;line-height:0;font-size:0}
+.page-home .hero-logotype img{display:block;width:clamp(280px,32vw,500px);height:auto;max-width:100%;filter:drop-shadow(0 6px 28px rgba(255,170,40,.22))}
 .page-home .hero-title em{font-style:normal;color:var(--g2);-webkit-text-fill-color:var(--g2);text-shadow:0 0 24px rgba(255,193,73,.25)}
 .page-home .hero-tagline{margin:clamp(14px,1.4vw,24px) 0 0;max-width:none;color:#f1d9a0;font-family:var(--display);font-style:italic;font-size:clamp(20px,2.2vw,30px);font-weight:400;line-height:1.2;letter-spacing:0;text-transform:none}
 .page-home .hero-lead{margin:clamp(14px,1.3vw,22px) 0 0;max-width:48ch;color:#e8dfc9;font-size:clamp(15px,1.2vw,19px);line-height:1.65}
@@ -132,7 +134,7 @@
   .page-home .hero-inner{width:calc(100% - 32px)}
 }
 @media (max-width:700px){
-  .page-home .hero-art{height:75.3vw}
+  .page-home .hero-art{height:83.1vw}
   .page-home .hero-art img{object-position:center}
   .page-home .hero-trust-row{grid-template-columns:1fr 1fr;row-gap:18px}
   .page-home .hero-trust-row div:nth-child(odd){border-left:0;padding-left:0}
