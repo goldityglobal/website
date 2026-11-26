@@ -184,6 +184,56 @@ html .security-item strong.status-data{color:#e6dcc2!important}
   .fx-card,.fx-ico::before,.fx-ico>img,.fx-go,.btn-gold,.cta{transition:none}
 }
 
+/* ---------- neon cards: metal edge + soft glow + slow travelling light ----------
+   Layer 1 (edge): the 9-sliced gold frame art. Layer 2 (glow): drop-shadow that follows the frame shape.
+   Layer 3 (light): a hot copy of the same frame art, revealed through a rotating conic mask, so the light
+   follows the real frame (chamfered corners included). Always on for the three main cards (one lap / 11s),
+   hover/focus only for the other seven. */
+html .fx-card::before{filter:drop-shadow(0 0 10px rgba(255,176,48,.22)) drop-shadow(0 0 26px rgba(255,150,30,.10))}
+html .fx-main::before{filter:drop-shadow(0 0 14px rgba(255,184,64,.38)) drop-shadow(0 0 40px rgba(255,150,30,.18)) brightness(1.08)}
+html .fx-card:hover::before,html .fx-card:focus-visible::before{filter:drop-shadow(0 0 16px rgba(255,190,70,.5)) drop-shadow(0 0 44px rgba(255,150,30,.26)) brightness(1.18)}
+html .fx-card::after{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  border:24px solid transparent;border-image:url(/pack/card-frame.webp) 110/24px stretch;
+  filter:brightness(2.6) saturate(.65) drop-shadow(0 0 6px rgba(255,214,120,.8));
+  -webkit-mask:conic-gradient(from var(--lx-a),transparent 0 86%,#000 94%,transparent 100%);
+          mask:conic-gradient(from var(--lx-a),transparent 0 86%,#000 94%,transparent 100%);
+  animation:lxSpin 11s linear infinite;opacity:0;transition:opacity .35s ease;animation-play-state:paused;
+}
+html .fx-main::after{opacity:1;animation-play-state:running}
+html .fx-main:nth-child(2)::after{animation-delay:-4s}
+html .fx-main:nth-child(3)::after{animation-delay:-8s}
+html .fx-card:hover::after,html .fx-card:focus-visible::after{opacity:1;animation-play-state:running}
+@media (prefers-reduced-motion:reduce){html .fx-card::after{animation:none;opacity:0}}
+
+/* ---------- ecosystem grid: three main cards, seven compact ones ----------
+   Flex (not grid) so an incomplete last row stays centred. */
+html .fx-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:18px}
+html .fx-card{flex:0 0 calc((100% - 36px)/3)}
+html .fx-card:nth-child(n+4){--s:62px;flex:0 0 calc((100% - 108px)/7);min-height:0;padding:20px 10px 22px;gap:8px}
+html .fx-card:nth-child(n+4) p,html .fx-card:nth-child(n+4) .fx-go,html .fx-card:nth-child(n+4) .fx-refl{display:none}
+html .fx-card:nth-child(n+4) .fx-ico{margin-bottom:4px}
+html .fx-card:nth-child(n+4) h3{font-size:12px;letter-spacing:.12em}
+html .fx-main{--s:128px;min-height:340px;padding:32px 22px 72px}
+html .fx-main h3{font-size:17px}
+html .fx-main p{font-size:14px;max-width:26ch}
+@media (max-width:1100px){
+  html .fx-grid{gap:14px}
+  html .fx-card{flex-basis:calc((100% - 28px)/3)}
+  html .fx-card:nth-child(n+4){flex-basis:calc((100% - 42px)/4)}
+  html .fx-main{--s:104px;min-height:310px}
+}
+@media (max-width:760px){
+  html .fx-grid{gap:12px}
+  html .fx-card{flex-basis:100%}
+  html .fx-main{--s:92px;min-height:0;padding:26px 18px 64px}
+  html .fx-card:nth-child(n+4){flex-basis:calc((100% - 12px)/2);--s:52px;padding:16px 8px 18px}
+  html .fx-card:nth-child(n+4) h3{font-size:11.5px;letter-spacing:.08em}
+}
+
+/* hero buttons: the outline button carries the same warm light as the gold one */
+html .page-home .hero .cta.secondary{border-color:rgba(255,200,90,.62);box-shadow:0 0 22px rgba(255,176,48,.14),inset 0 0 18px rgba(255,176,48,.08);transition:box-shadow .3s ease,border-color .3s ease,transform .3s ease}
+html .page-home .hero .cta.secondary:hover,html .page-home .hero .cta.secondary:focus-visible{border-color:rgba(255,214,120,.95);box-shadow:0 0 30px rgba(255,176,48,.28),inset 0 0 22px rgba(255,176,48,.14)}
 /* ---------- security: three collapsible groups instead of eleven identical cards ---------- */
 .sec-groups{display:grid;gap:14px;margin-top:30px}
 .sec-group{border:1px solid var(--glass-border-soft);border-radius:18px;background:var(--glass-sheen),var(--glass-bg-soft);overflow:hidden}
